@@ -1071,6 +1071,7 @@ async function persistChatMessage(message: any, session: TelegramSession): Promi
   );
   if (error) throw new Error(`Chat storage write failed: ${error.message}`);
   return true;
+}
 
 async function persistChatReaction(messageId: string, emoji: string, telegramUserId: number): Promise<boolean> {
   if (!serverSupabase) throw new Error('Server storage is not configured');
@@ -1087,6 +1088,7 @@ async function persistChatReaction(messageId: string, emoji: string, telegramUse
   );
   if (error) throw new Error(`Chat reaction persistence failed: ${error.message}`);
   return true;
+}
 
 app.get('/api/chat/messages', requireTelegramAuth, async (req: Request, res: Response) => {
   const channelId = typeof req.query.channelId === 'string' ? req.query.channelId.slice(0, 100) : undefined;
