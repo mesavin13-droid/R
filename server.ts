@@ -331,7 +331,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
   if (!event || !event.title) {
     return res.status(400).json({ error: 'Данные события не переданы' });
   }
-  if (event.userId && event.userId !== (req as any).telegramSession.userId) {
+  if (event.userId !== (req as any).telegramSession.userId) {
     return res.status(403).json({ error: 'Нельзя отправлять push от имени другого пользователя' });
   }
 
@@ -561,8 +561,15 @@ async function startServer() {
   wss.on('connection', (ws) => {
     let authenticated = false;
     let authenticatedUserId: string | null = null;
+    let messageCount = 0;
+    let windowStartedAt = Date.now();
+    const authTimeout = setTimeout(() => {
+      if (!authenticated && ws.readyState === WsClient.OPEN) {
+        ws.close(1008, 'Authentication required');
+      }
+    }, 5_000);
+
     ws.on('error', (err) => console.warn('[WS Chat] Socket error:', err));
-    console.log(`[WS Chat] Driver connected (online: ${connectedWsClients.size})`);
 
     ws.on('message', (raw) => {
       try {
@@ -575,6 +582,10 @@ async function startServer() {
           }
           authenticated = true;
           authenticatedUserId = session.userId;
+          clearTimeout(authTimeout);
+          setTimeout(() => {
+            if (ws.readyState === WsClient.OPEN) ws.close(1000, 'Session expired');
+          }, Math.max(1, session.exp - Math.floor(Date.now() / 1000)) * 1000);
           connectedWsClients.add(ws);
           ws.send(JSON.stringify({ type: 'AUTH_OK', userId: session.userId, expiresAt: session.exp }));
           console.log(`[WS Chat] Driver connected (online: ${connectedWsClients.size})`);
@@ -582,6 +593,17 @@ async function startServer() {
         }
 
         if (!authenticated) return;
+
+        const now = Date.now();
+        if (now - windowStartedAt >= 60_000) {
+          windowStartedAt = now;
+          messageCount = 0;
+        }
+        messageCount += 1;
+        if (messageCount > 60) {
+          ws.send(JSON.stringify({ type: 'RATE_LIMITED', retryAfterMs: 60_000 - (now - windowStartedAt) }));
+          return;
+        }
 
         if (data.type === 'SEND_MESSAGE' && data.message) {
           const msg = data.message;
@@ -614,6 +636,7 @@ async function startServer() {
     });
 
     ws.on('close', () => {
+      clearTimeout(authTimeout);
       if (authenticated) connectedWsClients.delete(ws);
       console.log(`[WS Chat] Driver disconnected (online: ${connectedWsClients.size})`);
     });
