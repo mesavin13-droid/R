@@ -284,9 +284,12 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), (req: Request, res: Respon
 
     const user = validateTelegramInitData(req.body.initData);
     const now = Math.floor(Date.now() / 1000);
+    const isAdmin = ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id));
     const session: TelegramSession = {
       tgId: user.id,
       userId: `tg-${user.id}`,
+      user,
+      role: isAdmin ? 'admin' : 'driver',
       iat: now,
       exp: now + TELEGRAM_SESSION_TTL_SECONDS,
     };
