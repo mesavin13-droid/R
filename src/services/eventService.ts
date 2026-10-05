@@ -160,7 +160,7 @@ export class EventService {
       if (!response.ok || !Array.isArray(payload?.events)) {
         throw new Error(payload?.error || 'Не удалось загрузить события');
       }
-      const serverEvents = payload.events.map((row: any) => this.fromServerEvent(row));
+      const serverEvents: RoadEvent[] = payload.events.map((row: any) => this.fromServerEvent(row));
       this.events = serverEvents;
       return serverEvents.filter((ev) => {
         if (!bbox) return true;
