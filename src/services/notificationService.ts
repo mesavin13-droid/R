@@ -1,4 +1,5 @@
 import { NotificationItem, RoadEvent, DriverQuestion, UserProfile } from '../types';
+import { TelegramService } from './telegramService';
 
 const NOTIFS_KEY = 'roadlive_notifs_v1';
 const PUSH_SUB_KEY = 'roadlive_push_subscribed';
@@ -146,7 +147,7 @@ export class NotificationService {
       // 4. Send subscription to Backend
       const response = await fetch('/api/push/subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
         body: JSON.stringify({
           subscription,
           userId: user?.id,
@@ -193,7 +194,7 @@ export class NotificationService {
         await sub.unsubscribe();
         await fetch('/api/push/unsubscribe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
           body: JSON.stringify({ endpoint }),
         });
       }
@@ -232,7 +233,7 @@ export class NotificationService {
     try {
       await fetch('/api/push/broadcast-critical', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
         body: JSON.stringify({ event, isCritical }),
       });
     } catch (err) {
@@ -258,7 +259,7 @@ export class NotificationService {
     try {
       await fetch('/api/push/broadcast-critical', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
         body: JSON.stringify({
           event: {
             id: question.id,
@@ -286,7 +287,7 @@ export class NotificationService {
 
       const response = await fetch('/api/push/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
         body: JSON.stringify({
           targetEndpoint: sub?.endpoint,
         }),
