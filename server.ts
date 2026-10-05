@@ -448,6 +448,10 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, asyn
   }
 
   const endpoint = subscription.endpoint;
+  const existing = subscriptions.get(endpoint);
+  if (existing?.userId && existing.userId !== userId) {
+    return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
+  }
   const item: StoredSubscription = {
     subscription,
     userId,
