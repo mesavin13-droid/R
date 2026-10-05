@@ -18,6 +18,7 @@ interface UserProfileModalProps {
   onSelectUser: (user: UserProfile) => void;
   onClose: () => void;
   onOpenAdmin: () => void;
+  isAdminAuthorized?: boolean;
   onSettingsChange?: () => void;
 }
 
@@ -110,6 +111,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onOpenAdmin,
   onSettingsChange,
+  isAdminAuthorized = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'stats' | 'events' | 'questions' | 'answers' | 'accounts' | 'about'>('stats');
   const [pushStatus, setPushStatus] = useState<string | null>(null);
@@ -199,6 +201,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   const handleSwitchAccount = (u: UserProfile) => {
+    if (!(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true')) return;
     UserService.setCurrentUser(u.id);
     onSelectUser(u);
   };
@@ -227,7 +230,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <span className="text-xs font-medium text-[#4B8DFF] bg-[#4B8DFF]/10 px-2.5 py-0.5 rounded-lg border border-[#4B8DFF]/20">
                 {currentUser.level}
               </span>
-              {currentUser.role === 'admin' && (
+              {isAdminAuthorized && (
                 <span className="text-xs font-medium text-[#E5A93C] bg-[#E5A93C]/10 px-2.5 py-0.5 rounded-lg border border-[#E5A93C]/20">
                   Шеф-Модератор
                 </span>
