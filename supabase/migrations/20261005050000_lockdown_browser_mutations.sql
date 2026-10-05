@@ -2,6 +2,7 @@
 -- Sensitive reads/writes are server-authoritative and use service_role.
 -- Public reference data remains readable by the browser.
 
+REVOKE ALL ON TABLE profiles FROM anon, authenticated;
 REVOKE ALL ON TABLE events FROM anon, authenticated;
 REVOKE ALL ON TABLE event_confirmations FROM anon, authenticated;
 REVOKE ALL ON TABLE event_comments FROM anon, authenticated;
@@ -12,6 +13,7 @@ REVOKE ALL ON TABLE chat_messages FROM anon, authenticated;
 REVOKE ALL ON TABLE chat_reactions FROM anon, authenticated;
 REVOKE ALL ON TABLE telegram_accounts FROM anon, authenticated;
 
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_confirmations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_comments ENABLE ROW LEVEL SECURITY;
