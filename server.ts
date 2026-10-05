@@ -6,14 +6,28 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import webpush from 'web-push';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
-const app = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serverSupabase: SupabaseClient | null =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+    : null;
+
+if (isProd && !serverSupabase) {
+  console.warn('⚠️ Server-side Supabase persistence is not configured; chat will use temporary memory only.');
+}
+
+const app = express();
+const PORT = parseInt(process.env.PORT || '3000', 10);
 // Basic production hardening
 app.disable('x-powered-by');
 app.use((_req: Request, res: Response, next) => {
@@ -428,7 +442,6 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
   // Criticality is derived on the server. Client input cannot force a mass alert.
   const isCritical =
     (event.type === 'accident' && (event.subType === 'road_blocked' || event.subType === 'major')) ||
-    (event.type === 'accident' && (event.subType === 'road_blocked' || event.subType === 'major')) ||
     (event.type === 'crossing' && event.subType === 'closed') ||
     (event.type === 'road' && (event.subType === 'closure' || event.subType === 'ice')) ||
     event.type === 'hazard';
@@ -577,59 +590,126 @@ app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, userRateLi
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---
 let chatMessages: any[] = [];
 
-app.get('/api/chat/messages', requireTelegramAuth, (req: Request, res: Response) => {
-  const channelId = req.query.channelId as string;
-  if (channelId) {
-    return res.json(chatMessages.filter((m) => m.channelId === channelId));
+function normalizeChatMessage(row: any) {
+  return {
+    id: row.external_id,
+    channelId: row.channel_id,
+    userId: row.user_id || `tg-${row.telegram_user_id}`,
+    authorName: row.author_name || 'Водитель',
+    content: row.content,
+    createdAt: row.created_at,
+  };
+}
+
+async function loadChatMessages(channelId?: string): Promise<any[]> {
+  if (serverSupabase) {
+    let query = serverSupabase
+      .from('chat_messages')
+      .select('external_id,channel_id,user_id,telegram_user_id,author_name,content,created_at')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (channelId) query = query.eq('channel_id', channelId);
+    const { data, error } = await query;
+    if (!error && data) return data.reverse().map(normalizeChatMessage);
+    if (error) console.warn('[Chat] Supabase read failed:', error.message);
   }
-  res.json(chatMessages);
+
+  const result = channelId ? chatMessages.filter((m) => m.channelId === channelId) : chatMessages;
+  return result.slice(-500);
+}
+
+async function persistChatMessage(message: any, session: TelegramSession): Promise<boolean> {
+  if (!serverSupabase) return false;
+  const { error } = await serverSupabase.from('chat_messages').upsert(
+    {
+      external_id: message.id,
+      channel_id: message.channelId,
+      telegram_user_id: session.tgId,
+      author_name: typeof message.authorName === 'string' ? message.authorName.slice(0, 100) : null,
+      content: message.content.trim(),
+      created_at: typeof message.createdAt === 'string' ? message.createdAt : new Date().toISOString(),
+    },
+    { onConflict: 'external_id', ignoreDuplicates: true },
+  );
+  if (error) {
+    console.warn('[Chat] Supabase write failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
+async function persistChatReaction(messageId: string, emoji: string, telegramUserId: number): Promise<boolean> {
+  if (!serverSupabase) return false;
+  const { data: message, error: messageError } = await serverSupabase
+    .from('chat_messages')
+    .select('id')
+    .eq('external_id', messageId)
+    .maybeSingle();
+  if (messageError || !message) return false;
+
+  const { error } = await serverSupabase.from('chat_reactions').upsert(
+    { message_id: message.id, telegram_user_id: telegramUserId, emoji },
+    { onConflict: 'message_id,telegram_user_id,emoji', ignoreDuplicates: true },
+  );
+  if (error) {
+    console.warn('[Chat] Supabase reaction write failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/chat/messages', requireTelegramAuth, async (req: Request, res: Response) => {
+  const channelId = typeof req.query.channelId === 'string' ? req.query.channelId.slice(0, 100) : undefined;
+  res.json(await loadChatMessages(channelId));
 });
 
-app.post('/api/chat/messages', rateLimit(60, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
+app.post('/api/chat/messages', rateLimit(60, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const { message } = req.body;
+  const session = (req as any).telegramSession as TelegramSession;
   if (!message || typeof message !== 'object' || typeof message.content !== 'string' || !message.content.trim()) {
     return res.status(400).json({ error: 'Сообщение пустое' });
   }
   if (message.content.length > 2000 || typeof message.id !== 'string' || message.id.length > 100 || typeof message.channelId !== 'string' || message.channelId.length > 100) {
     return res.status(400).json({ error: 'Сообщение слишком длинное или имеет неверный формат' });
   }
-  if (message.userId !== (req as any).telegramSession.userId) {
+  if (message.userId !== session.userId) {
     return res.status(403).json({ error: 'Нельзя отправлять сообщение от имени другого пользователя' });
   }
 
-  // Idempotency: skip if already present
-  if (!chatMessages.some((m) => m.id === message.id)) {
-    chatMessages.push(message);
-    if (chatMessages.length > 500) {
-      chatMessages = chatMessages.slice(-500);
-    }
+  const normalized = {
+    ...message,
+    content: message.content.trim(),
+    createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date().toISOString(),
+  };
+  const persisted = await persistChatMessage(normalized, session);
+
+  if (!persisted) {
+    if (!chatMessages.some((m) => m.id === normalized.id)) chatMessages.push(normalized);
+    if (chatMessages.length > 500) chatMessages = chatMessages.slice(-500);
   }
 
-  // Broadcast to WS clients
-  broadcastToChatClients({
-    type: 'CHAT_MESSAGE',
-    message,
-  });
-
-  res.json({ success: true, message });
+  broadcastToChatClients({ type: 'CHAT_MESSAGE', message: normalized });
+  res.json({ success: true, message: normalized, persistent: persisted });
 });
 
-app.post('/api/chat/reaction', rateLimit(120, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
+app.post('/api/chat/reaction', rateLimit(120, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const { messageId, emoji } = req.body;
+  const session = (req as any).telegramSession as TelegramSession;
   if (typeof messageId !== 'string' || messageId.length > 100 || typeof emoji !== 'string' || [...emoji].length > 16) {
     return res.status(400).json({ error: 'Недопустимая реакция' });
   }
-  const target = chatMessages.find((m) => m.id === messageId);
-  if (target) {
-    target.reactions = target.reactions || {};
-    target.reactions[emoji] = (target.reactions[emoji] || 0) + 1;
-    broadcastToChatClients({
-      type: 'CHAT_REACTION',
-      messageId,
-      emoji,
-    });
+
+  const persisted = await persistChatReaction(messageId, emoji, session.tgId);
+  if (!persisted) {
+    const target = chatMessages.find((m) => m.id === messageId);
+    if (target) {
+      target.reactions = target.reactions || {};
+      target.reactions[emoji] = (target.reactions[emoji] || 0) + 1;
+    }
   }
-  res.json({ success: true });
+
+  broadcastToChatClients({ type: 'CHAT_REACTION', messageId, emoji });
+  res.json({ success: true, persistent: persisted });
 });
 
 let connectedWsClients = new Set<WsClient>();
