@@ -157,7 +157,7 @@ function validateTelegramInitData(initData: string): TelegramAuthUser {
     .filter(([key]) => key !== 'hash')
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${value}`)
-    .join('\\n');
+    .join('\n');
 
   const secretKey = crypto
     .createHmac('sha256', 'WebAppData')
