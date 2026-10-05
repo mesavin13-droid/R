@@ -64,7 +64,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
 
   const handleDelete = (qId: string) => {
     if (window.confirm('Удалить ваш вопрос?')) {
-      QuestionService.deleteQuestion(qId, currentUser.id);
+      await QuestionService.deleteQuestion(qId, currentUser.id);
       onQuestionUpdated();
       setSwipedCardId(null);
     }
@@ -76,7 +76,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
 
     setIsReplying(true);
     try {
-      QuestionService.answerQuestion(questionId, replyText, currentUser);
+      await QuestionService.answerQuestion(questionId, replyText, currentUser);
       setReplyText('');
       onQuestionUpdated();
     } catch (e: any) {
@@ -87,7 +87,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
   };
 
   const handleHelpful = (questionId: string, answerId: string) => {
-    QuestionService.markAnswerHelpful(questionId, answerId);
+    await QuestionService.markAnswerHelpful(questionId, answerId);
     onQuestionUpdated();
   };
 
