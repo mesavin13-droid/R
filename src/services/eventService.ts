@@ -2,6 +2,7 @@ import { EventComment, EventConfirmation, EventType, RoadEvent, UserProfile } fr
 import { INITIAL_EVENTS } from '../data/seedData';
 import { localRealtime, supabase, isSupabaseConfigured } from '../lib/supabase';
 import { NotificationService } from './notificationService';
+import { TelegramService } from './telegramService';
 
 const STORAGE_KEY = 'roadlive_events_v1';
 const ARCHIVE_KEY = 'roadlive_archived_events_v1';
@@ -164,6 +165,41 @@ export class EventService {
     authorCoords?: { lat: number; lng: number } | null
   ): Promise<RoadEvent> {
     this.initialize();
+
+    // In the real Telegram app, identity must come from the server-verified
+    // Telegram session. Never trust a localStorage profile/userId for authorship.
+    const authoritative = await TelegramService.getAuthoritativeIdentity();
+    if (TelegramService.isTelegramWebApp()) {
+      if (!authoritative) {
+        throw new Error('Сессия Telegram недействительна или истекла');
+      }
+      if (authoritative.userId !== user.id) {
+        throw new Error('Пользователь события не совпадает с авторизованным Telegram-пользователем');
+      }
+    }
+
+    if (!Number.isFinite(data.latitude) || data.latitude < -90 || data.latitude > 90) {
+      throw new Error('Некорректная широта');
+    }
+    if (!Number.isFinite(data.longitude) || data.longitude < -180 || data.longitude > 180) {
+      throw new Error('Некорректная долгота');
+    }
+    const title = data.title.trim().slice(0, 200);
+    const description = data.description.trim().slice(0, 2000);
+    const address = data.address.trim().slice(0, 255);
+    if (!title || !address) throw new Error('Название и адрес обязательны');
+
+    data = {
+      ...data,
+      title,
+      description,
+      address,
+      subType: data.subType?.trim().slice(0, 100),
+      direction: data.direction?.trim().slice(0, 100),
+      cityId: data.cityId?.trim().slice(0, 100),
+      districtId: data.districtId?.trim().slice(0, 100),
+      imageUrl: data.imageUrl?.trim().slice(0, 2048),
+    };
 
     const now = new Date();
     const ttlMins = this.getTTLMinutes(data.type, data.subType);
