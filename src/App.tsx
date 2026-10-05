@@ -32,6 +32,8 @@ import { SponsoredBanner } from './types';
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
+  const [isTelegramAuthenticated, setIsTelegramAuthenticated] = useState(false);
+  const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
   const [isSimulated, setIsSimulated] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('map');
   const [selectedCategory, setSelectedCategory] = useState<EventType | 'all' | 'question' | 'station'>('all');
@@ -72,27 +74,43 @@ export default function App() {
     setQuestions(QuestionService.getQuestions());
   }, []);
 
-  // Telegram Auto-authorization
+  // Telegram Auto-authorization. Never trust initDataUnsafe for identity.
   useEffect(() => {
+    let cancelled = false;
     const isTg = TelegramService.isTelegramWebApp();
-    if (isTg) {
-      setIsTelegramWebApp(true);
-      const tgUser = TelegramService.getTelegramUser();
-      if (tgUser) {
-        const synced = UserService.syncTelegramUser({
-          id: tgUser.id,
-          first_name: tgUser.first_name,
-          last_name: tgUser.last_name,
-          username: tgUser.username,
-        });
+    TelegramService.ready();
+
+    if (!isTg) return () => {
+      cancelled = true;
+    };
+
+    setIsTelegramWebApp(true);
+    setTelegramAuthError(null);
+
+    TelegramService.authenticate()
+      .then((auth) => {
+        if (cancelled) return;
+        const synced = UserService.syncTelegramUser(auth.user);
         setCurrentUser(synced);
-      }
-    }
+        setIsTelegramAuthenticated(true);
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        TelegramService.clearSession();
+        setIsTelegramAuthenticated(false);
+        setTelegramAuthError(error?.message || 'Не удалось подтвердить Telegram-сеанс');
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSimulateTelegram = () => {
     setIsTelegramWebApp(true);
     setIsSimulated(true);
+    setTelegramAuthError(null);
+    setIsTelegramAuthenticated(true);
     // Simulate real Telegram User profile
     const mockTgUser = {
       id: 7771399,
@@ -194,12 +212,14 @@ export default function App() {
           </div>
 
           <div className="w-full space-y-2.5 pt-4">
-            <button
-              onClick={handleSimulateTelegram}
-              className="w-full py-3.5 bg-[#24A1DE] hover:bg-[#208fcf] active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-[0_4px_20px_rgba(36,161,222,0.3)] tracking-wider uppercase cursor-pointer"
-            >
-              Войти через Telegram 🚀
-            </button>
+            {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true') && (
+              <button
+                onClick={handleSimulateTelegram}
+                className="w-full py-3.5 bg-[#24A1DE] hover:bg-[#208fcf] active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-[0_4px_20px_rgba(36,161,222,0.3)] tracking-wider uppercase cursor-pointer"
+              >
+                Демо-вход через Telegram 🚀
+              </button>
+            )}
             <a
               href="https://t.me"
               target="_blank"
@@ -215,6 +235,38 @@ export default function App() {
               Only Telegram WebApp Mode
             </span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isTelegramWebApp && !isTelegramAuthenticated) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#111315] text-center">
+        <div className="w-full max-w-sm p-7 bg-[#181B1F] border border-white/[0.08] rounded-3xl space-y-4">
+          <div className="text-3xl">🔐</div>
+          <h1 className="text-lg font-bold text-white">Проверяем Telegram</h1>
+          <p className="text-xs text-[#9AA0A8] leading-relaxed">
+            {telegramAuthError || 'Подтверждаем ваш Telegram-сеанс…'}
+          </p>
+          {telegramAuthError && (
+            <button
+              onClick={async () => {
+                setTelegramAuthError(null);
+                try {
+                  const auth = await TelegramService.authenticate();
+                  const synced = UserService.syncTelegramUser(auth.user);
+                  setCurrentUser(synced);
+                  setIsTelegramAuthenticated(true);
+                } catch (error: any) {
+                  setTelegramAuthError(error?.message || 'Не удалось подтвердить Telegram-сеанс');
+                }
+              }}
+              className="w-full py-3 rounded-2xl bg-[#24A1DE] text-white text-xs font-bold"
+            >
+              Повторить
+            </button>
+          )}
         </div>
       </div>
     );

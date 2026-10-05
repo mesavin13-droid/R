@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket as WsClient } from 'ws';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import webpush from 'web-push';
 import { createServer as createViteServer } from 'vite';
 
@@ -102,6 +103,161 @@ function saveSubscriptions() {
 
 loadSubscriptions();
 
+// --- TELEGRAM SERVER AUTHENTICATION ---
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const TELEGRAM_SESSION_TTL_SECONDS = Math.max(
+  300,
+  parseInt(process.env.TELEGRAM_SESSION_TTL_SECONDS || '86400', 10),
+);
+
+type TelegramAuthUser = {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  language_code?: string;
+};
+
+type TelegramSession = {
+  tgId: number;
+  userId: string;
+  iat: number;
+  exp: number;
+};
+
+function safeEqualHex(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+function validateTelegramInitData(initData: string): TelegramAuthUser {
+  if (!TELEGRAM_BOT_TOKEN) {
+    throw new Error('Telegram bot token is not configured on the server');
+  }
+
+  const params = new URLSearchParams(initData);
+  const receivedHash = params.get('hash');
+  const authDate = Number(params.get('auth_date') || '0');
+  const userRaw = params.get('user');
+
+  if (!receivedHash || !authDate || !userRaw) {
+    throw new Error('Invalid Telegram initData payload');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - authDate) > 86400) {
+    throw new Error('Telegram initData has expired');
+  }
+
+  const dataCheckString = [...params.entries()]
+    .filter(([key]) => key !== 'hash')
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n');
+
+  const secretKey = crypto
+    .createHmac('sha256', 'WebAppData')
+    .update(TELEGRAM_BOT_TOKEN)
+    .digest();
+  const calculatedHash = crypto
+    .createHmac('sha256', secretKey)
+    .update(dataCheckString)
+    .digest('hex');
+
+  if (!safeEqualHex(calculatedHash, receivedHash)) {
+    throw new Error('Telegram initData signature mismatch');
+  }
+
+  let user: TelegramAuthUser;
+  try {
+    user = JSON.parse(userRaw);
+  } catch {
+    throw new Error('Invalid Telegram user payload');
+  }
+
+  if (!user?.id || !user.first_name) {
+    throw new Error('Telegram user data is incomplete');
+  }
+
+  return user;
+}
+
+function sessionSecret(): Buffer {
+  return crypto
+    .createHmac('sha256', TELEGRAM_BOT_TOKEN)
+    .update('ROADLIVE_SESSION_SECRET')
+    .digest();
+}
+
+function encodeSession(session: TelegramSession): string {
+  const payload = Buffer.from(JSON.stringify(session)).toString('base64url');
+  const signature = crypto.createHmac('sha256', sessionSecret()).update(payload).digest('base64url');
+  return `${payload}.${signature}`;
+}
+
+function verifySessionToken(token: string): TelegramSession | null {
+  if (!TELEGRAM_BOT_TOKEN) return null;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return null;
+  const expected = crypto.createHmac('sha256', sessionSecret()).update(payload).digest('base64url');
+  if (expected.length !== signature.length) return null;
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) return null;
+    const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as TelegramSession;
+    if (!session?.tgId || !session?.userId || !session.exp || session.exp <= Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+function getBearerToken(req: Request): string | null {
+  const value = req.header('authorization') || '';
+  return value.startsWith('Bearer ') ? value.slice(7).trim() : null;
+}
+
+function requireTelegramAuth(req: Request, res: Response, next: Function) {
+  const token = getBearerToken(req);
+  const session = token ? verifySessionToken(token) : null;
+  if (!session) {
+    return res.status(401).json({ error: 'Требуется авторизация Telegram' });
+  }
+  (req as any).telegramSession = session;
+  next();
+}
+
+app.post('/api/telegram/auth', rateLimit(20, 60_000), (req: Request, res: Response) => {
+  try {
+    if (!req.body?.initData || typeof req.body.initData !== 'string') {
+      return res.status(400).json({ error: 'Telegram initData обязателен' });
+    }
+
+    const user = validateTelegramInitData(req.body.initData);
+    const now = Math.floor(Date.now() / 1000);
+    const session: TelegramSession = {
+      tgId: user.id,
+      userId: `tg-${user.id}`,
+      iat: now,
+      exp: now + TELEGRAM_SESSION_TTL_SECONDS,
+    };
+
+    return res.json({
+      authenticated: true,
+      sessionToken: encodeSession(session),
+      expiresAt: session.exp,
+      user,
+    });
+  } catch (error: any) {
+    return res.status(401).json({ error: error?.message || 'Telegram authentication failed' });
+  }
+});
+
 // --- API ROUTES ---
 
 // 1. Get VAPID Public Key
@@ -121,8 +277,9 @@ app.get('/api/push/status', rateLimit(60, 60_000), (_req: Request, res: Response
 });
 
 // 3. Register or Update Push Subscription
-app.post('/api/push/subscribe', rateLimit(30, 60_000), (req: Request, res: Response) => {
-  const { subscription, userId, districtId } = req.body;
+app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
+  const { subscription, districtId } = req.body;
+  const userId = (req as any).telegramSession.userId;
 
   if (!subscription || !subscription.endpoint || !subscription.keys) {
     return res.status(400).json({ error: 'Неверный формат подписки Web Push' });
@@ -147,10 +304,15 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), (req: Request, res: Respo
 });
 
 // 4. Unsubscribe
-app.post('/api/push/unsubscribe', rateLimit(30, 60_000), (req: Request, res: Response) => {
+app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
   const { endpoint } = req.body;
   if (!endpoint) {
     return res.status(400).json({ error: 'Endpoint обязателен' });
+  }
+
+  const current = subscriptions.get(endpoint);
+  if (current && current.userId && current.userId !== (req as any).telegramSession.userId) {
+    return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
   }
 
   const deleted = subscriptions.delete(endpoint);
@@ -163,11 +325,14 @@ app.post('/api/push/unsubscribe', rateLimit(30, 60_000), (req: Request, res: Res
 });
 
 // 5. Broadcast Critical Road Event
-app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), async (req: Request, res: Response) => {
+app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const { event } = req.body;
 
   if (!event || !event.title) {
     return res.status(400).json({ error: 'Данные события не переданы' });
+  }
+  if (event.userId !== (req as any).telegramSession.userId) {
+    return res.status(403).json({ error: 'Нельзя отправлять push от имени другого пользователя' });
   }
 
   // Determine criticality
@@ -258,7 +423,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), async (req: Requ
 });
 
 // 6. Test Push Endpoint
-app.post('/api/push/test', rateLimit(5, 60_000), async (req: Request, res: Response) => {
+app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const { targetEndpoint } = req.body;
 
   const testPayload = JSON.stringify({
@@ -276,6 +441,9 @@ app.post('/api/push/test', rateLimit(5, 60_000), async (req: Request, res: Respo
 
   if (targetEndpoint && subscriptions.has(targetEndpoint)) {
     const item = subscriptions.get(targetEndpoint)!;
+    if (item.userId && item.userId !== (req as any).telegramSession.userId) {
+      return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
+    }
     try {
       await webpush.sendNotification(item.subscription, testPayload);
       return res.json({ success: true, message: 'Тестовый пуш отправлен на ваше устройство' });
@@ -285,7 +453,10 @@ app.post('/api/push/test', rateLimit(5, 60_000), async (req: Request, res: Respo
   }
 
   // Send to all subscribers if no specific endpoint given
-  const endpoints = Array.from(subscriptions.keys());
+  const userId = (req as any).telegramSession.userId;
+  const endpoints = Array.from(subscriptions.entries())
+    .filter(([, item]) => item.userId === userId)
+    .map(([ep]) => ep);
   if (endpoints.length === 0) {
     return res.json({
       success: true,
@@ -316,7 +487,7 @@ app.post('/api/push/test', rateLimit(5, 60_000), async (req: Request, res: Respo
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---
 let chatMessages: any[] = [];
 
-app.get('/api/chat/messages', (req: Request, res: Response) => {
+app.get('/api/chat/messages', requireTelegramAuth, (req: Request, res: Response) => {
   const channelId = req.query.channelId as string;
   if (channelId) {
     return res.json(chatMessages.filter((m) => m.channelId === channelId));
@@ -324,10 +495,13 @@ app.get('/api/chat/messages', (req: Request, res: Response) => {
   res.json(chatMessages);
 });
 
-app.post('/api/chat/messages', rateLimit(60, 60_000), (req: Request, res: Response) => {
+app.post('/api/chat/messages', rateLimit(60, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
   const { message } = req.body;
   if (!message || !message.content) {
     return res.status(400).json({ error: 'Сообщение пустое' });
+  }
+  if (message.userId !== (req as any).telegramSession.userId) {
+    return res.status(403).json({ error: 'Нельзя отправлять сообщение от имени другого пользователя' });
   }
 
   // Idempotency: skip if already present
@@ -347,7 +521,7 @@ app.post('/api/chat/messages', rateLimit(60, 60_000), (req: Request, res: Respon
   res.json({ success: true, message });
 });
 
-app.post('/api/chat/reaction', rateLimit(120, 60_000), (req: Request, res: Response) => {
+app.post('/api/chat/reaction', rateLimit(120, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
   const { messageId, emoji } = req.body;
   const target = chatMessages.find((m) => m.id === messageId);
   if (target) {
@@ -385,15 +559,55 @@ async function startServer() {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws/chat', maxPayload: 16 * 1024 });
 
   wss.on('connection', (ws) => {
+    let authenticated = false;
+    let authenticatedUserId: string | null = null;
+    let messageCount = 0;
+    let windowStartedAt = Date.now();
+    const authTimeout = setTimeout(() => {
+      if (!authenticated && ws.readyState === WsClient.OPEN) {
+        ws.close(1008, 'Authentication required');
+      }
+    }, 5_000);
+
     ws.on('error', (err) => console.warn('[WS Chat] Socket error:', err));
-    connectedWsClients.add(ws);
-    console.log(`[WS Chat] Driver connected (online: ${connectedWsClients.size})`);
 
     ws.on('message', (raw) => {
       try {
         const data = JSON.parse(raw.toString());
+        if (data.type === 'AUTH' && typeof data.token === 'string') {
+          const session = verifySessionToken(data.token);
+          if (!session) {
+            ws.close(1008, 'Unauthorized');
+            return;
+          }
+          authenticated = true;
+          authenticatedUserId = session.userId;
+          clearTimeout(authTimeout);
+          setTimeout(() => {
+            if (ws.readyState === WsClient.OPEN) ws.close(1000, 'Session expired');
+          }, Math.max(1, session.exp - Math.floor(Date.now() / 1000)) * 1000);
+          connectedWsClients.add(ws);
+          ws.send(JSON.stringify({ type: 'AUTH_OK', userId: session.userId, expiresAt: session.exp }));
+          console.log(`[WS Chat] Driver connected (online: ${connectedWsClients.size})`);
+          return;
+        }
+
+        if (!authenticated) return;
+
+        const now = Date.now();
+        if (now - windowStartedAt >= 60_000) {
+          windowStartedAt = now;
+          messageCount = 0;
+        }
+        messageCount += 1;
+        if (messageCount > 60) {
+          ws.send(JSON.stringify({ type: 'RATE_LIMITED', retryAfterMs: 60_000 - (now - windowStartedAt) }));
+          return;
+        }
+
         if (data.type === 'SEND_MESSAGE' && data.message) {
           const msg = data.message;
+          if (msg.userId !== authenticatedUserId) return;
           if (!chatMessages.some((m) => m.id === msg.id)) {
             chatMessages.push(msg);
             if (chatMessages.length > 500) {
@@ -422,7 +636,8 @@ async function startServer() {
     });
 
     ws.on('close', () => {
-      connectedWsClients.delete(ws);
+      clearTimeout(authTimeout);
+      if (authenticated) connectedWsClients.delete(ws);
       console.log(`[WS Chat] Driver disconnected (online: ${connectedWsClients.size})`);
     });
   });
