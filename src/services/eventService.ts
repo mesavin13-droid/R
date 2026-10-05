@@ -148,6 +148,29 @@ export class EventService {
     ) || null;
   }
 
+  static async getEventsAsync(cityId = 'nsk-city-01', bbox?: [number, number, number, number]): Promise<RoadEvent[]> {
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+      const params = new URLSearchParams({ cityId });
+      const response = await fetch(`/api/events?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !Array.isArray(payload?.events)) {
+        throw new Error(payload?.error || 'Не удалось загрузить события');
+      }
+      const serverEvents = payload.events.map((row: any) => this.fromServerEvent(row));
+      this.events = serverEvents;
+      return serverEvents.filter((ev) => {
+        if (!bbox) return true;
+        const [south, west, north, east] = bbox;
+        return ev.latitude >= south && ev.latitude <= north && ev.longitude >= west && ev.longitude <= east;
+      });
+    }
+    return this.getEvents(cityId, bbox);
+  }
+
   /**
    * Get all active and expiring events within bounding box or city
    */
