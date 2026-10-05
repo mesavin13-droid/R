@@ -65,6 +65,22 @@ export class TelegramService {
     }
   }
 
+  static async getAuthoritativeIdentity(): Promise<{ userId: string; role: UserRole; isAdmin: boolean } | null> {
+    const token = this.getSessionToken();
+    if (!token) return null;
+    const response = await fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return null;
+    const data = await response.json().catch(() => null);
+    if (!data?.authenticated || typeof data.userId !== 'string') return null;
+    return {
+      userId: data.userId,
+      role: data.role === 'admin' ? 'admin' : 'driver',
+      isAdmin: Boolean(data.isAdmin),
+    };
+  }
+
   static getAuthHeaders(): Record<string, string> {
     const token = this.getSessionToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
