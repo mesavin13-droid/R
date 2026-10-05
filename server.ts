@@ -173,7 +173,11 @@ const ROADLIVE_ADMIN_TELEGRAM_IDS = new Set(
 );
 const TELEGRAM_SESSION_TTL_SECONDS = Math.max(
   300,
-  parseInt(process.env.TELEGRAM_SESSION_TTL_SECONDS || '86400', 10),
+  Math.min(86400, parseInt(process.env.TELEGRAM_SESSION_TTL_SECONDS || '3600', 10)),
+);
+const TELEGRAM_INIT_DATA_MAX_AGE_SECONDS = Math.max(
+  60,
+  Math.min(3600, parseInt(process.env.TELEGRAM_INIT_DATA_MAX_AGE_SECONDS || '600', 10)),
 );
 
 type TelegramAuthUser = {
@@ -217,7 +221,7 @@ function validateTelegramInitData(initData: string): TelegramAuthUser {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - authDate) > 86400) {
+  if (Math.abs(now - authDate) > TELEGRAM_INIT_DATA_MAX_AGE_SECONDS) {
     throw new Error('Telegram initData has expired');
   }
 
