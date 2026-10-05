@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" fill="none">
+  <!-- Mark -->
+  <g transform="translate(10, 10)">
+    <rect width="60" height="60" rx="18" fill="#181B1F"/>
+    <rect x="0.5" y="0.5" width="59" height="59" rx="17.5" stroke="rgba(255,255,255,0.1)"/>
+    <path d="M18 44 L18 16 L35 16 C42 16 46 20 46 26 C46 32 42 36 35 36 L18 36" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M31 35 L45 46" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="45" cy="46" r="3.5" fill="#4B8DFF"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="84" y="47" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif" font-size="24" font-weight="700" letter-spacing="3">ROADLIVE</text>
+  <circle cx="282" cy="36" r="3.5" fill="#4B8DFF"/>
+</svg>

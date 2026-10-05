@@ -1,0 +1,6 @@
+{
+  "name": "ROADLIVE — Живая карта для автомобилистов",
+  "description": "Что происходит на дороге прямо сейчас. Живая карта дорожной обстановки: ДТП, переезды, дорожный контроль, АЗС и вопросы водителей в реальном времени.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

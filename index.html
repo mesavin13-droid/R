@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>ROADLIVE — что происходит на дороге прямо сейчас</title>
+    <meta name="description" content="Живая карта дорожной обстановки в реальном времени: ДТП, переезды, дорожный контроль, очереди на АЗС и эфир автомобилистов." />
+    <meta property="og:title" content="ROADLIVE — что происходит на дороге прямо сейчас" />
+    <meta property="og:description" content="Живая карта дорожной обстановки в реальном времени: ДТП, переезды, дорожный контроль, очереди на АЗС и эфир автомобилистов." />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#111315" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ROADLIVE" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body class="bg-[#111315] text-[#F0F2F5] antialiased overflow-hidden select-none">
+    <div id="root" class="h-full w-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
