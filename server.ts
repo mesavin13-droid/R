@@ -11,6 +11,8 @@ import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const serverSupabase: SupabaseClient | null =
@@ -26,8 +28,6 @@ if (isProd && !serverSupabase) {
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const isProd = process.env.NODE_ENV === 'production';
-
 // Basic production hardening
 app.disable('x-powered-by');
 app.use((_req: Request, res: Response, next) => {
