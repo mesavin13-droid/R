@@ -76,7 +76,8 @@ export default function App() {
     });
     setEvents(loadedEvents);
     setStations(StationService.getStations());
-    setQuestions(QuestionService.getQuestions());
+    const loadedQuestions = await QuestionService.getQuestionsAsync().catch((error) => { console.warn('Could not load questions:', error); return QuestionService.getQuestions(); });
+    setQuestions(loadedQuestions);
   }, []);
 
   // Telegram Auto-authorization. Never trust initDataUnsafe for identity.
