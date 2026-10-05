@@ -1208,7 +1208,7 @@ async function startServer() {
           return;
         }
 
-        if (!authenticated) return;
+        if (!authenticated || !session) return;
 
         const now = Date.now();
         if (now - windowStartedAt >= 60_000) {
@@ -1222,7 +1222,6 @@ async function startServer() {
         }
 
         if (data.type === 'SEND_MESSAGE' && data.message) {
-          if (!session) return;
           const msg = data.message;
           if (!msg || typeof msg !== 'object' || msg.userId !== authenticatedUserId) return;
           if (typeof msg.id !== 'string' || msg.id.length === 0 || msg.id.length > 100 ||
