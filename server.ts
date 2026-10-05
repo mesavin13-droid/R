@@ -477,32 +477,43 @@ app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, as
 
 // 5. Broadcast Critical Road Event
 app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, userRateLimit(3, 60 * 60_000), async (req: Request, res: Response) => {
-  const userId = (req as any).telegramSession.userId;
-  const event = sanitizePushEvent(req.body?.event, userId);
-  if (!event) {
-    return res.status(400).json({ error: 'Недопустимые данные события' });
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return res.status(503).json({ error: 'Web Push не настроен на сервере' });
+
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = typeof req.body?.eventId === 'string' ? req.body.eventId.trim().slice(0, 100) : '';
+  if (!eventId) return res.status(400).json({ error: 'eventId обязателен' });
+
+  const profileId = await resolveEventProfile(session);
+  if (!profileId) return res.status(403).json({ error: 'Профиль водителя не найден' });
+
+  // The push payload is derived exclusively from the persisted event.
+  const { data: event, error: eventError } = await serverSupabase
+    .from('events')
+    .select('id,user_id,title,address,description,type,sub_type,status')
+    .eq('id', eventId)
+    .maybeSingle();
+
+  if (eventError || !event) return res.status(404).json({ error: 'Событие не найдено' });
+  if (event.user_id !== profileId) return res.status(403).json({ error: 'Можно уведомлять только о своем событии' });
+  if (event.status === 'hidden' || event.status === 'expired' || event.status === 'resolved') {
+    return res.status(409).json({ error: 'Событие больше не актуально' });
   }
 
-  // Criticality is derived on the server. Client input cannot force a mass alert.
   const isCritical =
-    (event.type === 'accident' && (event.subType === 'road_blocked' || event.subType === 'major')) ||
-    (event.type === 'crossing' && event.subType === 'closed') ||
-    (event.type === 'road' && (event.subType === 'closure' || event.subType === 'ice')) ||
+    (event.type === 'accident' && (event.sub_type === 'road_blocked' || event.sub_type === 'major')) ||
+    (event.type === 'crossing' && event.sub_type === 'closed') ||
+    (event.type === 'road' && (event.sub_type === 'closure' || event.sub_type === 'ice')) ||
     event.type === 'hazard';
 
-  // Construct Notification Payload
   const emoji =
-    event.type === 'accident'
-      ? '🚗'
-      : event.type === 'crossing'
-      ? '🚧'
-      : event.type === 'road'
-      ? '🛣️'
-      : '⚠️';
+    event.type === 'accident' ? '🚗' :
+    event.type === 'crossing' ? '🚧' :
+    event.type === 'road' ? '🛣️' : '⚠️';
 
   const payload = JSON.stringify({
-    title: `🚨 ROADLIVE: ${event.title}`,
-    body: `${emoji} ${event.address}${event.description ? `. ${event.description}` : ''}`,
+    title: `🚨 ROADLIVE: ${String(event.title).slice(0, 200)}`,
+    body: `${emoji} ${String(event.address).slice(0, 255)}${event.description ? `. ${String(event.description).slice(0, 1000)}` : ''}`,
     icon: '/pwa-192x192.png',
     badge: '/icon.svg',
     tag: `road-critical-${event.id}`,
@@ -517,56 +528,35 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
 
   const endpoints = Array.from(subscriptions.keys());
   if (endpoints.length === 0) {
-    return res.json({
-      success: true,
-      sentCount: 0,
-      failureCount: 0,
-      totalSubscribers: 0,
-      isCritical,
-      message: 'Нет активных подписчиков Web Push',
-    });
+    return res.json({ success: true, sentCount: 0, failureCount: 0, totalSubscribers: 0, isCritical, message: 'Нет активных подписчиков Web Push' });
   }
 
   let sentCount = 0;
   let failureCount = 0;
   const expiredEndpoints: string[] = [];
 
-  const promises = endpoints.map(async (ep) => {
+  await Promise.all(endpoints.map(async (ep) => {
     const item = subscriptions.get(ep);
     if (!item) return;
-
-    // Skip sending push notification to the creator of this event!
-    if (item.userId && event.userId && item.userId === event.userId) {
-      return;
-    }
+    if (item.userId && item.userId === session.userId) return;
 
     try {
       await webpush.sendNotification(item.subscription, payload);
       sentCount++;
     } catch (err: any) {
       failureCount++;
-      // If subscription expired or revoked (404 / 410)
-      if (err.statusCode === 404 || err.statusCode === 410) {
-        expiredEndpoints.push(ep);
-      }
+      if (err.statusCode === 404 || err.statusCode === 410) expiredEndpoints.push(ep);
     }
-  });
+  }));
 
-  await Promise.all(promises);
-
-  // Prune expired endpoints
   if (expiredEndpoints.length > 0) {
-    expiredEndpoints.forEach((ep) => subscriptions.delete(ep));
-    saveSubscriptions();
+    await Promise.all(expiredEndpoints.map(async (ep) => {
+      subscriptions.delete(ep);
+      try { await deletePushSubscription(ep); } catch {}
+    }));
   }
 
-  res.json({
-    success: true,
-    sentCount,
-    failureCount,
-    totalSubscribers: subscriptions.size,
-    isCritical,
-  });
+  res.json({ success: true, sentCount, failureCount, totalSubscribers: subscriptions.size, isCritical });
 });
 
 // 6. Test Push Endpoint
