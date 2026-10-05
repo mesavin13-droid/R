@@ -299,8 +299,8 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), (req: Request, res: Respon
       sessionToken: encodeSession(session),
       expiresAt: session.exp,
       user,
-      role: ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id)) ? 'admin' : 'driver',
-      isAdmin: ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id)),
+      role: session.role,
+      isAdmin,
     });
   } catch (error: any) {
     return res.status(401).json({ error: error?.message || 'Telegram authentication failed' });
