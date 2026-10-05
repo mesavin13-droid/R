@@ -712,6 +712,107 @@ app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) 
   res.json({ events: data || [] });
 });
 
+function eventIdIsValid(id: unknown): id is string {
+  return typeof id === 'string' && id.length <= 100 && /^[A-Za-z0-9_-]+$/.test(id);
+}
+
+async function resolveEventProfile(session: TelegramSession) {
+  const profileId = await getOrCreateTelegramProfile(session);
+  if (!profileId) throw new Error('Профиль водителя не найден');
+  return profileId;
+}
+
+app.post('/api/events/:eventId/confirmation', userRateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId)) return res.status(400).json({ error: 'Некорректный ID события' });
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+
+  const action = req.body?.action;
+  if (action !== 'confirm' && action !== 'dispute') return res.status(400).json({ error: 'Некорректное действие' });
+
+  const profileId = await resolveEventProfile(session);
+  const { data: event, error: eventError } = await serverSupabase.from('events').select('*').eq('id', eventId).maybeSingle();
+  if (eventError || !event) return res.status(404).json({ error: 'Событие не найдено' });
+  if (event.status === 'hidden' || event.status === 'expired' || event.status === 'resolved') {
+    return res.status(409).json({ error: 'Событие больше не актуально' });
+  }
+
+  const { data: existing } = await serverSupabase
+    .from('event_confirmations')
+    .select('id, action')
+    .eq('event_id', eventId)
+    .eq('user_id', profileId)
+    .maybeSingle();
+
+  if (existing?.action === action) return res.json({ event });
+
+  if (existing) {
+    await serverSupabase.from('event_confirmations').update({ action }).eq('id', existing.id);
+  } else {
+    const inserted = await serverSupabase.from('event_confirmations').insert({
+      event_id: eventId,
+      user_id: profileId,
+      action,
+      is_nearby: Boolean(req.body?.isNearby),
+      distance_meters: Number.isFinite(Number(req.body?.distanceMeters)) ? Math.max(0, Math.min(100000, Number(req.body.distanceMeters))) : null,
+    });
+    if (inserted.error) return res.status(409).json({ error: 'Не удалось записать подтверждение' });
+  }
+
+  const { count: confirms } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'confirm');
+  const { count: disputes } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'dispute');
+  const confirmationCount = Math.max(1, confirms || 0);
+  const disputeCount = Math.max(0, disputes || 0);
+  const confidence = Math.min(1, Math.round((confirmationCount / (confirmationCount + disputeCount)) * 100) / 100);
+  const ttlMinutes =
+    event.type === 'crossing' ? 20 :
+    event.type === 'accident' ? (event.sub_type === 'road_blocked' ? 60 : 45) :
+    event.type === 'patrol' || event.type === 'fuel' || event.type === 'hazard' ? 25 :
+    event.type === 'traffic_light' ? 90 :
+    event.type === 'road' ? ((event.sub_type === 'repair' || event.sub_type === 'pothole') ? 2880 : 360) : 30;
+  const now = new Date();
+  const updates: any = {
+    confirmation_count: confirmationCount,
+    dispute_count: disputeCount,
+    confidence_score: confidence,
+    updated_at: now.toISOString(),
+  };
+  if (action === 'confirm') {
+    updates.last_confirmed_at = now.toISOString();
+    updates.expires_at = new Date(now.getTime() + ttlMinutes * 60_000).toISOString();
+    updates.status = 'active';
+  }
+  const updated = await serverSupabase.from('events').update(updates).eq('id', eventId).select('*').single();
+  if (updated.error || !updated.data) return res.status(500).json({ error: 'Не удалось обновить событие' });
+  res.json({ event: updated.data });
+});
+
+app.post('/api/events/:eventId/comments', userRateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = req.params.eventId;
+  const content = typeof req.body?.content === 'string' ? req.body.content.trim().slice(0, 1000) : '';
+  if (!eventIdIsValid(eventId) || !content) return res.status(400).json({ error: 'Некорректный комментарий' });
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+  const profileId = await resolveEventProfile(session);
+  const result = await serverSupabase.from('event_comments').insert({
+    event_id: eventId,
+    user_id: profileId,
+    author_name: [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель',
+    content,
+  }).select('*').single();
+  if (result.error || !result.data) return res.status(500).json({ error: 'Не удалось сохранить комментарий' });
+  res.status(201).json({ comment: result.data });
+});
+
+app.get('/api/events/:eventId/comments', requireTelegramAuth, async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId) || !serverSupabase) return res.status(400).json({ error: 'Некорректный запрос' });
+  const result = await serverSupabase.from('event_comments').select('*').eq('event_id', eventId).order('created_at', { ascending: true }).limit(200);
+  if (result.error) return res.status(500).json({ error: 'Не удалось загрузить комментарии' });
+  res.json({ comments: result.data || [] });
+});
+
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---
 let chatMessages: any[] = [];
 
