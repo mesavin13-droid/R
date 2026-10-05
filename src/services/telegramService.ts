@@ -18,6 +18,15 @@ interface TelegramAuthResponse {
 
 const SESSION_KEY = 'roadlive_telegram_session_v1';
 
+interface VerifiedIdentity {
+  userId: string;
+  role: UserRole;
+  isAdmin: boolean;
+  expiresAt: number;
+}
+
+let verifiedIdentity: VerifiedIdentity | null = null;
+
 export class TelegramService {
   static isTelegramWebApp(): boolean {
     return typeof window !== 'undefined' && Boolean((window as any).Telegram?.WebApp?.initData);
@@ -51,6 +60,12 @@ export class TelegramService {
     }
 
     sessionStorage.setItem(SESSION_KEY, data.sessionToken);
+    verifiedIdentity = {
+      userId: `tg-${data.user.id}`,
+      role: data.role === 'admin' ? 'admin' : 'driver',
+      isAdmin: Boolean(data.isAdmin),
+      expiresAt: Number(data.expiresAt || 0),
+    };
     return data as TelegramAuthResponse;
   }
 
@@ -63,6 +78,20 @@ export class TelegramService {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem(SESSION_KEY);
     }
+    verifiedIdentity = null;
+  }
+
+  static getCachedAuthoritativeIdentity(): { userId: string; role: UserRole; isAdmin: boolean } | null {
+    if (!verifiedIdentity) return null;
+    if (!verifiedIdentity.expiresAt || verifiedIdentity.expiresAt <= Math.floor(Date.now() / 1000)) {
+      verifiedIdentity = null;
+      return null;
+    }
+    return {
+      userId: verifiedIdentity.userId,
+      role: verifiedIdentity.role,
+      isAdmin: verifiedIdentity.isAdmin,
+    };
   }
 
   static async getAuthoritativeIdentity(): Promise<{ userId: string; role: UserRole; isAdmin: boolean } | null> {
@@ -74,10 +103,16 @@ export class TelegramService {
     if (!response.ok) return null;
     const data = await response.json().catch(() => null);
     if (!data?.authenticated || typeof data.userId !== 'string') return null;
-    return {
+    verifiedIdentity = {
       userId: data.userId,
       role: data.role === 'admin' ? 'admin' : 'driver',
       isAdmin: Boolean(data.isAdmin),
+      expiresAt: Number(data.expiresAt || Math.floor(Date.now() / 1000) + 300),
+    };
+    return {
+      userId: verifiedIdentity.userId,
+      role: verifiedIdentity.role,
+      isAdmin: verifiedIdentity.isAdmin,
     };
   }
 
