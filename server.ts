@@ -127,6 +127,12 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 if (isProd && !TELEGRAM_BOT_TOKEN) {
   throw new Error('TELEGRAM_BOT_TOKEN must be configured in production');
 }
+const ROADLIVE_ADMIN_TELEGRAM_IDS = new Set(
+  (process.env.ROADLIVE_ADMIN_TELEGRAM_IDS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean),
+);
 const TELEGRAM_SESSION_TTL_SECONDS = Math.max(
   300,
   parseInt(process.env.TELEGRAM_SESSION_TTL_SECONDS || '86400', 10),
@@ -274,6 +280,8 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), (req: Request, res: Respon
       sessionToken: encodeSession(session),
       expiresAt: session.exp,
       user,
+      role: ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id)) ? 'admin' : 'driver',
+      isAdmin: ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id)),
     });
   } catch (error: any) {
     return res.status(401).json({ error: error?.message || 'Telegram authentication failed' });
@@ -282,7 +290,20 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), (req: Request, res: Respon
 
 // --- API ROUTES ---
 
-// 1. Get VAPID Public Key
+// 1. Current authenticated user / server-authoritative role
+app.get('/api/auth/me', requireTelegramAuth, (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const isAdmin = ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(session.tgId));
+  res.json({
+    authenticated: true,
+    userId: session.userId,
+    telegramId: session.tgId,
+    role: isAdmin ? 'admin' : 'driver',
+    isAdmin,
+  });
+});
+
+// 2. Get VAPID Public Key
 app.get('/api/push/public-key', (_req: Request, res: Response) => {
   res.json({
     publicKey: VAPID_PUBLIC_KEY,
@@ -290,7 +311,7 @@ app.get('/api/push/public-key', (_req: Request, res: Response) => {
   });
 });
 
-// 2. Get Push Status & Subscribers Count
+// 3. Get Push Status & Subscribers Count
 app.get('/api/push/status', rateLimit(60, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
   const userId = (req as any).telegramSession.userId;
   const ownSubscriptions = Array.from(subscriptions.values()).filter((item) => item.userId === userId).length;
