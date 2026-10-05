@@ -13,18 +13,49 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
-// Parse JSON bodies
-app.use(express.json());
+// Basic production hardening
+app.disable('x-powered-by');
+app.use((_req: Request, res: Response, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=(), camera=(self)');
+  next();
+});
+
+// Keep request bodies bounded to reduce accidental/abusive memory usage.
+app.use(express.json({ limit: '64kb' }));
+
+// Lightweight per-IP rate limiter for write endpoints. For multi-instance production,
+// move this to a shared store (e.g. Redis/Supabase) rather than process memory.
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+function rateLimit(max: number, windowMs: number) {
+  return (req: Request, res: Response, next: Function) => {
+    const now = Date.now();
+    const key = req.ip || req.socket.remoteAddress || 'unknown';
+    const current = rateBuckets.get(key);
+    if (!current || current.resetAt <= now) {
+      rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    current.count += 1;
+    if (current.count > max) return res.status(429).json({ error: 'Слишком много запросов. Попробуйте позже.' });
+    next();
+  };
+}
+
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ ok: true, service: 'roadlive', timestamp: new Date().toISOString() });
+});
 
 // VAPID Configuration
-const VAPID_PUBLIC_KEY =
-  process.env.VITE_VAPID_PUBLIC_KEY ||
-  'BBkH1ggR5gS0288ZTW81e9YP3c7sEfUvQFOtoR9PZwBCqcoS4byO-k5XMl4dB5PQnIMrNF7yrh4ZM9635fPal60';
-const VAPID_PRIVATE_KEY =
-  process.env.VAPID_PRIVATE_KEY ||
-  'c4I_EH9QwiSB_60D8yq7iqg6_Ojti_XeddXFy46Ujno';
-const VAPID_SUBJECT =
-  process.env.VAPID_SUBJECT || 'mailto:support@roadlive.app';
+const VAPID_PUBLIC_KEY = process.env.VITE_VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:support@roadlive.app';
+
+if (isProd && (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY)) {
+  console.warn('⚠️ Web Push is disabled: VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are not configured.');
+}
 
 try {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -82,7 +113,7 @@ app.get('/api/push/public-key', (_req: Request, res: Response) => {
 });
 
 // 2. Get Push Status & Subscribers Count
-app.get('/api/push/status', (_req: Request, res: Response) => {
+app.get('/api/push/status', rateLimit(60, 60_000), (_req: Request, res: Response) => {
   res.json({
     configured: Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
     subscribersCount: subscriptions.size,
@@ -90,7 +121,7 @@ app.get('/api/push/status', (_req: Request, res: Response) => {
 });
 
 // 3. Register or Update Push Subscription
-app.post('/api/push/subscribe', (req: Request, res: Response) => {
+app.post('/api/push/subscribe', rateLimit(30, 60_000), (req: Request, res: Response) => {
   const { subscription, userId, districtId } = req.body;
 
   if (!subscription || !subscription.endpoint || !subscription.keys) {
@@ -116,7 +147,7 @@ app.post('/api/push/subscribe', (req: Request, res: Response) => {
 });
 
 // 4. Unsubscribe
-app.post('/api/push/unsubscribe', (req: Request, res: Response) => {
+app.post('/api/push/unsubscribe', rateLimit(30, 60_000), (req: Request, res: Response) => {
   const { endpoint } = req.body;
   if (!endpoint) {
     return res.status(400).json({ error: 'Endpoint обязателен' });
@@ -132,7 +163,7 @@ app.post('/api/push/unsubscribe', (req: Request, res: Response) => {
 });
 
 // 5. Broadcast Critical Road Event
-app.post('/api/push/broadcast-critical', async (req: Request, res: Response) => {
+app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), async (req: Request, res: Response) => {
   const { event } = req.body;
 
   if (!event || !event.title) {
@@ -227,7 +258,7 @@ app.post('/api/push/broadcast-critical', async (req: Request, res: Response) => 
 });
 
 // 6. Test Push Endpoint
-app.post('/api/push/test', async (req: Request, res: Response) => {
+app.post('/api/push/test', rateLimit(5, 60_000), async (req: Request, res: Response) => {
   const { targetEndpoint } = req.body;
 
   const testPayload = JSON.stringify({
@@ -293,7 +324,7 @@ app.get('/api/chat/messages', (req: Request, res: Response) => {
   res.json(chatMessages);
 });
 
-app.post('/api/chat/messages', (req: Request, res: Response) => {
+app.post('/api/chat/messages', rateLimit(60, 60_000), (req: Request, res: Response) => {
   const { message } = req.body;
   if (!message || !message.content) {
     return res.status(400).json({ error: 'Сообщение пустое' });
@@ -316,7 +347,7 @@ app.post('/api/chat/messages', (req: Request, res: Response) => {
   res.json({ success: true, message });
 });
 
-app.post('/api/chat/reaction', (req: Request, res: Response) => {
+app.post('/api/chat/reaction', rateLimit(120, 60_000), (req: Request, res: Response) => {
   const { messageId, emoji } = req.body;
   const target = chatMessages.find((m) => m.id === messageId);
   if (target) {
@@ -351,9 +382,10 @@ async function startServer() {
   const httpServer = http.createServer(app);
 
   // Setup WebSocket Server for Live Driver Chat
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws/chat' });
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws/chat', maxPayload: 16 * 1024 });
 
   wss.on('connection', (ws) => {
+    ws.on('error', (err) => console.warn('[WS Chat] Socket error:', err));
     connectedWsClients.add(ws);
     console.log(`[WS Chat] Driver connected (online: ${connectedWsClients.size})`);
 
