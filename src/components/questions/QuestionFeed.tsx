@@ -62,21 +62,21 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
     setTouchStartX(null);
   };
 
-  const handleDelete = (qId: string) => {
+  const handleDelete = async (qId: string) => {
     if (window.confirm('Удалить ваш вопрос?')) {
-      QuestionService.deleteQuestion(qId, currentUser.id);
+      await QuestionService.deleteQuestion(qId, currentUser.id);
       onQuestionUpdated();
       setSwipedCardId(null);
     }
   };
 
-  const handleSendReply = (questionId: string, e: React.FormEvent) => {
+  const handleSendReply = async (questionId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim()) return;
 
     setIsReplying(true);
     try {
-      QuestionService.answerQuestion(questionId, replyText, currentUser);
+      await QuestionService.answerQuestion(questionId, replyText, currentUser);
       setReplyText('');
       onQuestionUpdated();
     } catch (e: any) {
@@ -86,8 +86,8 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
     }
   };
 
-  const handleHelpful = (questionId: string, answerId: string) => {
-    QuestionService.markAnswerHelpful(questionId, answerId);
+  const handleHelpful = async (questionId: string, answerId: string) => {
+    await QuestionService.markAnswerHelpful(questionId, answerId);
     onQuestionUpdated();
   };
 

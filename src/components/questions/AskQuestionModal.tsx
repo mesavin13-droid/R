@@ -65,7 +65,7 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const q = QuestionService.askQuestion(
+      const q = await QuestionService.askQuestion(
         {
           category,
           question: questionText,
