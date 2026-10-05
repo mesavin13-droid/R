@@ -150,7 +150,6 @@ export class NotificationService {
         headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
         body: JSON.stringify({
           subscription,
-          userId: user?.id,
           districtId: 'nsk-central',
         }),
       });
@@ -216,8 +215,8 @@ export class NotificationService {
       event.type === 'hazard' ||
       event.type === 'assistance'; // also SOS events!
 
-    const currentUserId = localStorage.getItem('roadlive_current_user_id');
-    const isAuthor = event.userId === currentUserId;
+    const currentUserId = TelegramService.getCachedAuthoritativeIdentity()?.userId || null;
+    const isAuthor = Boolean(currentUserId && event.userId === currentUserId);
 
     // Save in-app notification only if NOT the author!
     if (isCritical && !isAuthor) {
@@ -245,8 +244,8 @@ export class NotificationService {
    * Broadcast localized driver question alert to nearby users in radius
    */
   static async broadcastQuestionAlert(question: DriverQuestion, authorName: string): Promise<void> {
-    const currentUserId = localStorage.getItem('roadlive_current_user_id');
-    const isAuthor = question.userId === currentUserId;
+    const currentUserId = TelegramService.getCachedAuthoritativeIdentity()?.userId || null;
+    const isAuthor = Boolean(currentUserId && question.userId === currentUserId);
 
     if (!isAuthor) {
       this.addNotification({
@@ -263,7 +262,7 @@ export class NotificationService {
         body: JSON.stringify({
           event: {
             id: question.id,
-            userId: question.userId, // pass creator userId to backend filter!
+            userId: question.userId,
             title: `Вопрос водителя (${question.category})`,
             address: question.address,
             description: question.question,
