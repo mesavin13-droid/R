@@ -47,6 +47,24 @@ export class ChatService {
   static getChannels(): ChatChannel[] {
     return CHAT_CHANNELS;
   }
+  static async refreshFromServer(channelId?: string): Promise<void> {
+    if (!TelegramService.isTelegramWebApp() || !TelegramService.getSessionToken()) return;
+    try {
+      const url = channelId ? '/api/chat/messages?channelId=' + encodeURIComponent(channelId) : '/api/chat/messages';
+      const response = await fetch(url, { headers: TelegramService.getAuthHeaders() });
+      if (!response.ok) return;
+      const rows = await response.json();
+      if (!Array.isArray(rows)) return;
+      this.messages = rows;
+      this.persist();
+      this.listeners.forEach((fn) => {
+        if (rows.length) fn(rows[rows.length - 1]);
+      });
+    } catch (err) {
+      console.warn('[Chat] Server refresh failed:', err);
+    }
+  }
+
 
   static getMessages(channelId: string): ChatMessage[] {
     this.initialize();
