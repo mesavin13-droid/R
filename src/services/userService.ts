@@ -23,7 +23,7 @@ export class UserService {
     }
   }
 
-  static syncTelegramUser(tgUser: { id: number; first_name: string; last_name?: string; username?: string }): UserProfile {
+  static syncTelegramUser(tgUser: { id: number; first_name: string; last_name?: string; username?: string }, role: UserProfile['role'] = 'driver'): UserProfile {
     this.initialize();
     const targetId = `tg-${tgUser.id}`;
     let user = this.users.find((u) => u.id === targetId);
@@ -33,7 +33,7 @@ export class UserService {
         email: tgUser.username ? `${tgUser.username}@telegram.org` : `${tgUser.id}@telegram.org`,
         fullName: `${tgUser.first_name} ${tgUser.last_name || ''}`.trim(),
         avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${tgUser.id}`,
-        role: 'driver',
+        role,
         level: 'Новичок',
         rating: 5.0,
         helpfulConfirmationsCount: 15,
@@ -49,6 +49,7 @@ export class UserService {
     } else {
       // update name if changed
       user.fullName = `${tgUser.first_name} ${tgUser.last_name || ''}`.trim();
+      user.role = role;
       this.persist();
     }
     localStorage.setItem(CURRENT_USER_KEY, user.id);
