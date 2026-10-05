@@ -3,7 +3,6 @@ import http from 'http';
 import { WebSocketServer, WebSocket as WsClient } from 'ws';
 import dotenv from 'dotenv';
 import path from 'path';
-import fs from 'fs';
 import crypto from 'crypto';
 import webpush from 'web-push';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -106,7 +105,6 @@ interface StoredSubscription {
   createdAt: string;
 }
 
-const SUBS_FILE = path.resolve(process.cwd(), 'dev-dist/push_subscriptions.json');
 let subscriptions = new Map<string, StoredSubscription>();
 
 async function loadSubscriptions() {
@@ -402,18 +400,6 @@ function isValidPushSubscription(subscription: any): boolean {
   if (typeof subscription.keys.p256dh !== 'string' || subscription.keys.p256dh.length > 512) return false;
   if (typeof subscription.keys.auth !== 'string' || subscription.keys.auth.length > 512) return false;
   return true;
-}
-
-function sanitizePushEvent(event: any, userId: string) {
-  if (!event || typeof event !== 'object' || event.userId !== userId) return null;
-  const title = typeof event.title === 'string' ? event.title.trim().slice(0, 200) : '';
-  const address = typeof event.address === 'string' ? event.address.trim().slice(0, 255) : '';
-  const description = typeof event.description === 'string' ? event.description.trim().slice(0, 1000) : '';
-  const type = typeof event.type === 'string' ? event.type.slice(0, 50) : '';
-  const subType = typeof event.subType === 'string' ? event.subType.slice(0, 100) : undefined;
-  const id = typeof event.id === 'string' ? event.id.slice(0, 100) : '';
-  if (!title || !id || !address) return null;
-  return { id, userId, title, address, description, type, subType };
 }
 
 // 3. Register or Update Push Subscription
