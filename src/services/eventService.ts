@@ -11,6 +11,36 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 export class EventService {
   private static events: RoadEvent[] = [];
 
+  private static fromServerEvent(row: any): RoadEvent {
+    return {
+      id: row.id,
+      userId: row.user_id ? String(row.user_id) : undefined,
+      authorName: row.author_name || 'Водитель',
+      authorLevel: row.author_level || 'Новичок',
+      cityId: row.city_id,
+      districtId: row.district_id || undefined,
+      type: row.type,
+      subType: row.sub_type || undefined,
+      status: row.status,
+      title: row.title,
+      description: row.description || '',
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      address: row.address || '',
+      direction: row.direction || undefined,
+      imageUrl: row.image_url || undefined,
+      confirmationCount: Number(row.confirmation_count || 0),
+      disputeCount: Number(row.dispute_count || 0),
+      confidenceScore: Number(row.confidence_score || 0),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      lastConfirmedAt: row.last_confirmed_at,
+      expiresAt: row.expires_at,
+      comments: [],
+      confirmations: [],
+    };
+  }
+
   /**
    * In Telegram WebApp mode, all client-side event mutations must be tied to
    * the server-verified Telegram session. This is an additional guard on top
@@ -221,6 +251,32 @@ export class EventService {
       districtId: data.districtId?.trim().slice(0, 100),
       imageUrl: data.imageUrl?.trim().slice(0, 2048),
     };
+
+    // In Telegram mode, persistence is server-authoritative. The browser never
+    // inserts road events directly into Supabase or treats localStorage as truth.
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.event) {
+        throw new Error(payload?.error || 'Не удалось сохранить событие');
+      }
+      const serverEvent = this.fromServerEvent(payload.event);
+      localRealtime.broadcast('events_channel', { type: 'INSERT', event: serverEvent });
+      NotificationService.broadcastCriticalEvent(serverEvent).catch((err) => {
+        console.warn('Could not broadcast push notification:', err);
+      });
+      return serverEvent;
+    }
 
     const now = new Date();
     const ttlMins = this.getTTLMinutes(data.type, data.subType);
