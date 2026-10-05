@@ -14,7 +14,7 @@ export class EventService {
   private static fromServerEvent(row: any): RoadEvent {
     return {
       id: row.id,
-      userId: row.user_id ? String(row.user_id) : undefined,
+      userId: row.user_id ? String(row.user_id) : 'unknown',
       authorName: row.author_name || 'Водитель',
       authorLevel: row.author_level || 'Новичок',
       cityId: row.city_id,
