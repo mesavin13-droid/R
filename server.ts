@@ -462,13 +462,14 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, asyn
 
   res.json({
     success: true,
+    persistent: persisted || !serverSupabase,
     message: 'Успешно подписан на критические уведомления ROADLIVE',
     subscribersCount: subscriptions.size,
   });
 });
 
 // 4. Unsubscribe
-app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
+app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const { endpoint } = req.body;
   if (!endpoint) {
     return res.status(400).json({ error: 'Endpoint обязателен' });
