@@ -587,6 +587,131 @@ app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, userRateLi
   });
 });
 
+// --- AUTHORITATIVE ROAD EVENT API ---
+const EVENT_TYPES = new Set(['crossing','accident','patrol','fuel','road','traffic_light','hazard','other']);
+
+async function getOrCreateTelegramProfile(session: TelegramSession): Promise<string | null> {
+  if (!serverSupabase) return null;
+  const existing = await serverSupabase
+    .from('telegram_accounts')
+    .select('user_id')
+    .eq('telegram_id', session.tgId)
+    .maybeSingle();
+  if (existing.data?.user_id) return existing.data.user_id;
+
+  const user = session.user;
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim().slice(0, 100) || 'Водитель';
+  const created = await serverSupabase
+    .from('profiles')
+    .insert({
+      full_name: fullName,
+      role: session.role,
+    })
+    .select('id')
+    .single();
+  if (created.error || !created.data) {
+    console.warn('[Events] profile creation failed:', created.error?.message);
+    return null;
+  }
+
+  const linked = await serverSupabase.from('telegram_accounts').insert({
+    user_id: created.data.id,
+    telegram_id: session.tgId,
+    username: user.username || null,
+    first_name: user.first_name || null,
+    last_name: user.last_name || null,
+  });
+  if (linked.error) {
+    console.warn('[Events] Telegram account link failed:', linked.error.message);
+    return null;
+  }
+  return created.data.id;
+}
+
+function sanitizeEventInput(input: any) {
+  if (!input || typeof input !== 'object') return null;
+  const type = typeof input.type === 'string' ? input.type.trim() : '';
+  const title = typeof input.title === 'string' ? input.title.trim().slice(0, 200) : '';
+  const description = typeof input.description === 'string' ? input.description.trim().slice(0, 2000) : '';
+  const address = typeof input.address === 'string' ? input.address.trim().slice(0, 255) : '';
+  const latitude = Number(input.latitude);
+  const longitude = Number(input.longitude);
+  if (!EVENT_TYPES.has(type) || !title || !address) return null;
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return null;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
+  return {
+    type,
+    sub_type: typeof input.subType === 'string' ? input.subType.trim().slice(0, 100) || null : null,
+    title,
+    description: description || null,
+    latitude,
+    longitude,
+    address,
+    direction: typeof input.direction === 'string' ? input.direction.trim().slice(0, 100) || null : null,
+    city_id: typeof input.cityId === 'string' && input.cityId.trim() ? input.cityId.trim().slice(0, 100) : 'nsk-city-01',
+    district_id: typeof input.districtId === 'string' && input.districtId.trim() ? input.districtId.trim().slice(0, 100) : null,
+    image_url: typeof input.imageUrl === 'string' ? input.imageUrl.trim().slice(0, 2048) || null : null,
+  };
+}
+
+app.post('/api/events', rateLimit(30, 60_000), userRateLimit(20, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище событий не настроено' });
+
+  const input = sanitizeEventInput(req.body);
+  if (!input) return res.status(400).json({ error: 'Некорректные данные события' });
+
+  const profileId = await getOrCreateTelegramProfile(session);
+  if (!profileId) return res.status(503).json({ error: 'Не удалось определить профиль водителя' });
+
+  const ttlMinutes =
+    input.type === 'crossing' ? 20 :
+    input.type === 'accident' ? (input.sub_type === 'road_blocked' ? 60 : 45) :
+    input.type === 'patrol' || input.type === 'fuel' || input.type === 'hazard' ? 25 :
+    input.type === 'traffic_light' ? 90 :
+    input.type === 'road' ? ((input.sub_type === 'repair' || input.sub_type === 'pothole') ? 2880 : 360) : 30;
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000).toISOString();
+
+  const { data, error } = await serverSupabase
+    .from('events')
+    .insert({
+      user_id: profileId,
+      ...input,
+      expires_at: expiresAt,
+      status: 'active',
+      confirmation_count: 1,
+      confidence_score: 1.00,
+      last_confirmed_at: now.toISOString(),
+    })
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    console.warn('[Events] Supabase insert failed:', error?.message);
+    return res.status(500).json({ error: 'Не удалось сохранить событие' });
+  }
+
+  res.status(201).json({ event: data });
+});
+
+app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище событий не настроено' });
+  const cityId = typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01';
+  const { data, error } = await serverSupabase
+    .from('events')
+    .select('*')
+    .eq('city_id', cityId)
+    .neq('status', 'hidden')
+    .neq('status', 'expired')
+    .neq('status', 'resolved')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) return res.status(500).json({ error: 'Не удалось загрузить события' });
+  res.json({ events: data || [] });
+});
+
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---
 let chatMessages: any[] = [];
 
