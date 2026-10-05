@@ -304,6 +304,32 @@ app.get('/api/auth/me', requireTelegramAuth, (req: Request, res: Response) => {
   });
 });
 
+// Server-authoritative admin API guard. UI visibility is not a security boundary.
+function requireAdmin(req: Request, res: Response, next: Function) {
+  const session = (req as any).telegramSession as TelegramSession | undefined;
+  if (!session || !ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(session.tgId))) {
+    return res.status(403).json({ error: 'Требуются права администратора' });
+  }
+  next();
+}
+
+function requireSameOrigin(req: Request, res: Response, next: Function) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  const origin = req.header('origin');
+  const host = req.header('host');
+  if (!origin || !host) return next();
+  try {
+    if (new URL(origin).host !== host) {
+      return res.status(403).json({ error: 'Недопустимый origin' });
+    }
+  } catch {
+    return res.status(403).json({ error: 'Недопустимый origin' });
+  }
+  next();
+}
+
+app.use(requireSameOrigin);
+
 // 2. Get VAPID Public Key
 app.get('/api/push/public-key', (_req: Request, res: Response) => {
   res.json({
@@ -645,6 +671,10 @@ async function startServer() {
       try {
         const data = JSON.parse(raw.toString());
         if (data.type === 'AUTH' && typeof data.token === 'string') {
+          if (authenticated) {
+            ws.close(1008, 'Already authenticated');
+            return;
+          }
           const session = verifySessionToken(data.token);
           if (!session) {
             ws.close(1008, 'Unauthorized');
@@ -677,7 +707,10 @@ async function startServer() {
 
         if (data.type === 'SEND_MESSAGE' && data.message) {
           const msg = data.message;
-          if (msg.userId !== authenticatedUserId) return;
+          if (!msg || typeof msg !== 'object' || msg.userId !== authenticatedUserId) return;
+          if (typeof msg.id !== 'string' || msg.id.length === 0 || msg.id.length > 100 ||
+              typeof msg.channelId !== 'string' || msg.channelId.length === 0 || msg.channelId.length > 100 ||
+              typeof msg.content !== 'string' || !msg.content.trim() || msg.content.length > 2000) return;
           if (!chatMessages.some((m) => m.id === msg.id)) {
             chatMessages.push(msg);
             if (chatMessages.length > 500) {
@@ -688,7 +721,8 @@ async function startServer() {
             type: 'CHAT_MESSAGE',
             message: msg,
           });
-        } else if (data.type === 'ADD_REACTION' && data.messageId) {
+        } else if (data.type === 'ADD_REACTION' && typeof data.messageId === 'string' && data.messageId.length <= 100 &&
+                   typeof data.emoji === 'string' && [...data.emoji].length <= 16) {
           const target = chatMessages.find((m) => m.id === data.messageId);
           if (target) {
             target.reactions = target.reactions || {};
