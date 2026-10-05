@@ -5,6 +5,7 @@ import {
   MapPin, Send, MessageCircle, AlertCircle, ShieldCheck, ShieldAlert
 } from 'lucide-react';
 import { EventService } from '../../services/eventService';
+import { TelegramService } from '../../services/telegramService';
 
 interface EventDetailSheetProps {
   event: RoadEvent | null;
@@ -81,10 +82,10 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
     );
   };
 
-  const executeConfirmation = (isRemote: boolean) => {
+  const executeConfirmation = async (isRemote: boolean) => {
     setIsConfirmingAnim(true);
     try {
-      const res = EventService.confirmEvent(
+      const res = await EventService.confirmEvent(
         event.id,
         currentUser,
         userCoords ? { lat: userCoords.lat, lng: userCoords.lng } : undefined
@@ -119,16 +120,23 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
     }
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
 
     setIsSubmittingComment(true);
     try {
-      EventService.addComment(event.id, commentText, currentUser);
+      await EventService.addComment(event.id, commentText, currentUser);
       setCommentText('');
-      const updated = EventService.getEvents().find((e) => e.id === event.id) || event;
-      onEventUpdated(updated);
+      if (TelegramService.isTelegramWebApp()) {
+        const refreshed = await EventService.getEventsAsync();
+        onEventUpdated(refreshed.find((e) => e.id === event.id) || event);
+      } else {
+        const updated = EventService.getEvents().find((e) => e.id === event.id) || event;
+        onEventUpdated(updated);
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Не удалось сохранить комментарий');
     } finally {
       setIsSubmittingComment(false);
     }
