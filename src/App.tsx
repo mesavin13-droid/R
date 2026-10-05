@@ -212,12 +212,14 @@ export default function App() {
           </div>
 
           <div className="w-full space-y-2.5 pt-4">
-            <button
-              onClick={handleSimulateTelegram}
-              className="w-full py-3.5 bg-[#24A1DE] hover:bg-[#208fcf] active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-[0_4px_20px_rgba(36,161,222,0.3)] tracking-wider uppercase cursor-pointer"
-            >
-              Войти через Telegram 🚀
-            </button>
+            {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true') && (
+              <button
+                onClick={handleSimulateTelegram}
+                className="w-full py-3.5 bg-[#24A1DE] hover:bg-[#208fcf] active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-[0_4px_20px_rgba(36,161,222,0.3)] tracking-wider uppercase cursor-pointer"
+              >
+                Демо-вход через Telegram 🚀
+              </button>
+            )
             <a
               href="https://t.me"
               target="_blank"
