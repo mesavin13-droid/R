@@ -219,7 +219,7 @@ export default function App() {
               >
                 Демо-вход через Telegram 🚀
               </button>
-            )
+            )}
             <a
               href="https://t.me"
               target="_blank"
