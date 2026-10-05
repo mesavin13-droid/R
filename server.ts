@@ -109,12 +109,34 @@ interface StoredSubscription {
 const SUBS_FILE = path.resolve(process.cwd(), 'dev-dist/push_subscriptions.json');
 let subscriptions = new Map<string, StoredSubscription>();
 
-function loadSubscriptions() {
+async function loadSubscriptions() {
+  if (serverSupabase) {
+    const { data, error } = await serverSupabase
+      .from('push_subscriptions')
+      .select('endpoint,user_id,subscription,district_id,created_at');
+    if (!error && data) {
+      subscriptions = new Map(
+        data.map((row) => [
+          row.endpoint,
+          {
+            subscription: row.subscription as webpush.PushSubscription,
+            userId: row.user_id,
+            districtId: row.district_id || undefined,
+            createdAt: row.created_at,
+          },
+        ]),
+      );
+      console.log(`Loaded ${subscriptions.size} push subscriptions from Supabase.`);
+      return;
+    }
+    if (error) console.warn('[Push] Supabase subscription load failed:', error.message);
+  }
+
   try {
     if (fs.existsSync(SUBS_FILE)) {
       const data = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf-8'));
       subscriptions = new Map(Object.entries(data));
-      console.log(`Loaded ${subscriptions.size} push subscriptions from disk.`);
+      console.log(`Loaded ${subscriptions.size} push subscriptions from disk fallback.`);
     }
   } catch (err) {
     console.warn('Could not read subscriptions file, starting empty.', err);
@@ -122,6 +144,7 @@ function loadSubscriptions() {
 }
 
 function saveSubscriptions() {
+  if (serverSupabase) return;
   try {
     const dir = path.dirname(SUBS_FILE);
     if (!fs.existsSync(dir)) {
@@ -134,7 +157,34 @@ function saveSubscriptions() {
   }
 }
 
-loadSubscriptions();
+async function persistPushSubscription(endpoint: string, item: StoredSubscription): Promise<boolean> {
+  if (!serverSupabase) return false;
+  const { error } = await serverSupabase.from('push_subscriptions').upsert({
+    endpoint,
+    user_id: item.userId,
+    subscription: item.subscription,
+    district_id: item.districtId || null,
+    created_at: item.createdAt,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'endpoint' });
+  if (error) {
+    console.warn('[Push] Supabase subscription write failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
+async function deletePushSubscription(endpoint: string): Promise<boolean> {
+  if (!serverSupabase) return false;
+  const { error } = await serverSupabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  if (error) {
+    console.warn('[Push] Supabase subscription delete failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
+
 
 // --- TELEGRAM SERVER AUTHENTICATION ---
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
@@ -389,7 +439,7 @@ function sanitizePushEvent(event: any, userId: string) {
 }
 
 // 3. Register or Update Push Subscription
-app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
+app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const { subscription, districtId } = req.body;
   const userId = (req as any).telegramSession.userId;
 
@@ -398,25 +448,32 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, (req
   }
 
   const endpoint = subscription.endpoint;
-  subscriptions.set(endpoint, {
+  const existing = subscriptions.get(endpoint);
+  if (existing?.userId && existing.userId !== userId) {
+    return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
+  }
+  const item: StoredSubscription = {
     subscription,
     userId,
     districtId,
     createdAt: new Date().toISOString(),
-  });
+  };
+  const persisted = await persistPushSubscription(endpoint, item);
+  subscriptions.set(endpoint, item);
 
   saveSubscriptions();
   console.log(`[Push] Registered subscriber (total: ${subscriptions.size})`);
 
   res.json({
     success: true,
+    persistent: persisted || !serverSupabase,
     message: 'Успешно подписан на критические уведомления ROADLIVE',
     subscribersCount: subscriptions.size,
   });
 });
 
 // 4. Unsubscribe
-app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
+app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const { endpoint } = req.body;
   if (!endpoint) {
     return res.status(400).json({ error: 'Endpoint обязателен' });
@@ -428,12 +485,13 @@ app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, (r
   }
 
   const deleted = subscriptions.delete(endpoint);
+  const persisted = await deletePushSubscription(endpoint);
   if (deleted) {
     saveSubscriptions();
     console.log(`[Push] Unsubscribed (remaining: ${subscriptions.size})`);
   }
 
-  res.json({ success: true, deleted, subscribersCount: subscriptions.size });
+  res.json({ success: true, deleted, persistent: persisted || !serverSupabase, subscribersCount: subscriptions.size });
 });
 
 // 5. Broadcast Critical Road Event
@@ -960,6 +1018,7 @@ function broadcastToChatClients(data: any) {
 
 // --- CLIENT SERVING ---
 async function startServer() {
+  await loadSubscriptions();
   const httpServer = http.createServer(app);
 
   // Setup WebSocket Server for Live Driver Chat
