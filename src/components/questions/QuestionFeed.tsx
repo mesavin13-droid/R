@@ -62,7 +62,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
     setTouchStartX(null);
   };
 
-  const handleDelete = (qId: string) => {
+  const handleDelete = async (qId: string) => {
     if (window.confirm('Удалить ваш вопрос?')) {
       await QuestionService.deleteQuestion(qId, currentUser.id);
       onQuestionUpdated();
@@ -70,7 +70,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
     }
   };
 
-  const handleSendReply = (questionId: string, e: React.FormEvent) => {
+  const handleSendReply = async (questionId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!replyText.trim()) return;
 
@@ -86,7 +86,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
     }
   };
 
-  const handleHelpful = (questionId: string, answerId: string) => {
+  const handleHelpful = async (questionId: string, answerId: string) => {
     await QuestionService.markAnswerHelpful(questionId, answerId);
     onQuestionUpdated();
   };
