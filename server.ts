@@ -45,6 +45,25 @@ function rateLimit(max: number, windowMs: number) {
   };
 }
 
+
+const userRateBuckets = new Map<string, { count: number; resetAt: number }>();
+function userRateLimit(max: number, windowMs: number) {
+  return (req: Request, res: Response, next: Function) => {
+    const userId = (req as any).telegramSession?.userId;
+    if (!userId) return res.status(401).json({ error: 'Требуется авторизация Telegram' });
+    const now = Date.now();
+    const key = userId;
+    const current = userRateBuckets.get(key);
+    if (!current || current.resetAt <= now) {
+      userRateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    current.count += 1;
+    if (current.count > max) return res.status(429).json({ error: 'Слишком много действий. Попробуйте позже.' });
+    next();
+  };
+}
+
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ ok: true, service: 'roadlive', timestamp: new Date().toISOString() });
 });
@@ -105,6 +124,9 @@ loadSubscriptions();
 
 // --- TELEGRAM SERVER AUTHENTICATION ---
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+if (isProd && !TELEGRAM_BOT_TOKEN) {
+  throw new Error('TELEGRAM_BOT_TOKEN must be configured in production');
+}
 const TELEGRAM_SESSION_TTL_SECONDS = Math.max(
   300,
   parseInt(process.env.TELEGRAM_SESSION_TTL_SECONDS || '86400', 10),
@@ -269,19 +291,42 @@ app.get('/api/push/public-key', (_req: Request, res: Response) => {
 });
 
 // 2. Get Push Status & Subscribers Count
-app.get('/api/push/status', rateLimit(60, 60_000), (_req: Request, res: Response) => {
+app.get('/api/push/status', rateLimit(60, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
+  const userId = (req as any).telegramSession.userId;
+  const ownSubscriptions = Array.from(subscriptions.values()).filter((item) => item.userId === userId).length;
   res.json({
     configured: Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
-    subscribersCount: subscriptions.size,
+    subscribersCount: ownSubscriptions,
   });
 });
+
+function isValidPushSubscription(subscription: any): boolean {
+  if (!subscription || typeof subscription !== 'object') return false;
+  if (typeof subscription.endpoint !== 'string' || subscription.endpoint.length < 20 || subscription.endpoint.length > 2048) return false;
+  if (!subscription.keys || typeof subscription.keys !== 'object') return false;
+  if (typeof subscription.keys.p256dh !== 'string' || subscription.keys.p256dh.length > 512) return false;
+  if (typeof subscription.keys.auth !== 'string' || subscription.keys.auth.length > 512) return false;
+  return true;
+}
+
+function sanitizePushEvent(event: any, userId: string) {
+  if (!event || typeof event !== 'object' || event.userId !== userId) return null;
+  const title = typeof event.title === 'string' ? event.title.trim().slice(0, 200) : '';
+  const address = typeof event.address === 'string' ? event.address.trim().slice(0, 255) : '';
+  const description = typeof event.description === 'string' ? event.description.trim().slice(0, 1000) : '';
+  const type = typeof event.type === 'string' ? event.type.slice(0, 50) : '';
+  const subType = typeof event.subType === 'string' ? event.subType.slice(0, 100) : undefined;
+  const id = typeof event.id === 'string' ? event.id.slice(0, 100) : '';
+  if (!title || !id || !address) return null;
+  return { id, userId, title, address, description, type, subType };
+}
 
 // 3. Register or Update Push Subscription
 app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
   const { subscription, districtId } = req.body;
   const userId = (req as any).telegramSession.userId;
 
-  if (!subscription || !subscription.endpoint || !subscription.keys) {
+  if (!isValidPushSubscription(subscription)) {
     return res.status(400).json({ error: 'Неверный формат подписки Web Push' });
   }
 
@@ -325,19 +370,16 @@ app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, (r
 });
 
 // 5. Broadcast Critical Road Event
-app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
-  const { event } = req.body;
-
-  if (!event || !event.title) {
-    return res.status(400).json({ error: 'Данные события не переданы' });
-  }
-  if (event.userId !== (req as any).telegramSession.userId) {
-    return res.status(403).json({ error: 'Нельзя отправлять push от имени другого пользователя' });
+app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, userRateLimit(3, 60 * 60_000), async (req: Request, res: Response) => {
+  const userId = (req as any).telegramSession.userId;
+  const event = sanitizePushEvent(req.body?.event, userId);
+  if (!event) {
+    return res.status(400).json({ error: 'Недопустимые данные события' });
   }
 
-  // Determine criticality
+  // Criticality is derived on the server. Client input cannot force a mass alert.
   const isCritical =
-    event.isCritical ||
+    (event.type === 'accident' && (event.subType === 'road_blocked' || event.subType === 'major')) ||
     (event.type === 'accident' && (event.subType === 'road_blocked' || event.subType === 'major')) ||
     (event.type === 'crossing' && event.subType === 'closed') ||
     (event.type === 'road' && (event.subType === 'closure' || event.subType === 'ice')) ||
@@ -423,7 +465,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
 });
 
 // 6. Test Push Endpoint
-app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, userRateLimit(10, 60 * 60_000), async (req: Request, res: Response) => {
   const { targetEndpoint } = req.body;
 
   const testPayload = JSON.stringify({
@@ -497,8 +539,11 @@ app.get('/api/chat/messages', requireTelegramAuth, (req: Request, res: Response)
 
 app.post('/api/chat/messages', rateLimit(60, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
   const { message } = req.body;
-  if (!message || !message.content) {
+  if (!message || typeof message !== 'object' || typeof message.content !== 'string' || !message.content.trim()) {
     return res.status(400).json({ error: 'Сообщение пустое' });
+  }
+  if (message.content.length > 2000 || typeof message.id !== 'string' || message.id.length > 100 || typeof message.channelId !== 'string' || message.channelId.length > 100) {
+    return res.status(400).json({ error: 'Сообщение слишком длинное или имеет неверный формат' });
   }
   if (message.userId !== (req as any).telegramSession.userId) {
     return res.status(403).json({ error: 'Нельзя отправлять сообщение от имени другого пользователя' });
@@ -523,6 +568,9 @@ app.post('/api/chat/messages', rateLimit(60, 60_000), requireTelegramAuth, (req:
 
 app.post('/api/chat/reaction', rateLimit(120, 60_000), requireTelegramAuth, (req: Request, res: Response) => {
   const { messageId, emoji } = req.body;
+  if (typeof messageId !== 'string' || messageId.length > 100 || typeof emoji !== 'string' || [...emoji].length > 16) {
+    return res.status(400).json({ error: 'Недопустимая реакция' });
+  }
   const target = chatMessages.find((m) => m.id === messageId);
   if (target) {
     target.reactions = target.reactions || {};
