@@ -588,6 +588,16 @@ export class EventService {
   ): boolean {
     this.initialize();
     const identity = TelegramService.getCachedAuthoritativeIdentity();
+    if (TelegramService.isTelegramWebApp()) {
+      if (!identity || !identity.isAdmin) throw new Error('Недостаточно прав администратора');
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+      fetch(`/api/admin/events/${encodeURIComponent(eventId)}/moderate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action }),
+      }).catch((err) => console.warn('[Events] Server moderation failed:', err));
+    }
     if (TelegramService.isTelegramWebApp() && (!identity || !identity.isAdmin)) {
       throw new Error('Недостаточно прав администратора');
     }
@@ -723,6 +733,14 @@ export class EventService {
   static deleteEvent(eventId: string, userId: string): boolean {
     this.initialize();
     this.assertMutationIdentity(userId);
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+      fetch(`/api/events/${encodeURIComponent(eventId)}/delete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err) => console.warn('[Events] Server delete failed:', err));
+    }
     const index = this.events.findIndex((e) => e.id === eventId && e.userId === userId);
     if (index !== -1) {
       this.events.splice(index, 1);
@@ -739,6 +757,14 @@ export class EventService {
   static respondToAssistance(eventId: string, user: UserProfile): RoadEvent {
     this.initialize();
     this.assertMutationIdentity(user.id);
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+      fetch(`/api/events/${encodeURIComponent(eventId)}/assistance`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err) => console.warn('[Events] Server assistance failed:', err));
+    }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
@@ -769,6 +795,14 @@ export class EventService {
   static confirmResolved(eventId: string, userId: string): RoadEvent {
     this.initialize();
     this.assertMutationIdentity(userId);
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+      fetch(`/api/events/${encodeURIComponent(eventId)}/resolved`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err) => console.warn('[Events] Server resolve failed:', err));
+    }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
