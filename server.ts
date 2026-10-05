@@ -876,6 +876,82 @@ app.get('/api/events/:eventId/comments', requireTelegramAuth, async (req: Reques
   res.json({ comments: result.data || [] });
 });
 
+
+async function loadEventForMutation(eventId: string) {
+  if (!serverSupabase) throw new Error('Серверное хранилище не настроено');
+  const result = await serverSupabase.from('events').select('*').eq('id', eventId).maybeSingle();
+  if (result.error || !result.data) return null;
+  return result.data;
+}
+
+app.post('/api/events/:eventId/delete', userRateLimit(10, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId) || !serverSupabase) return res.status(400).json({ error: 'Некорректный запрос' });
+  const profileId = await resolveEventProfile(session);
+  const event = await loadEventForMutation(eventId);
+  if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+  if (event.user_id !== profileId) return res.status(403).json({ error: 'Удалять можно только свои события' });
+  const result = await serverSupabase.from('events').delete().eq('id', eventId).eq('user_id', profileId);
+  if (result.error) return res.status(500).json({ error: 'Не удалось удалить событие' });
+  res.json({ success: true, eventId });
+});
+
+app.post('/api/events/:eventId/assistance', userRateLimit(10, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId) || !serverSupabase) return res.status(400).json({ error: 'Некорректный запрос' });
+  const profileId = await resolveEventProfile(session);
+  const event = await loadEventForMutation(eventId);
+  if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+  const now = new Date().toISOString();
+  const helperName = [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель';
+  const updates = await serverSupabase.from('events').update({ updated_at: now }).eq('id', eventId).select('*').single();
+  if (updates.error || !updates.data) return res.status(500).json({ error: 'Не удалось обновить помощь' });
+  const comment = await serverSupabase.from('event_comments').insert({
+    event_id: eventId,
+    user_id: profileId,
+    author_name: helperName,
+    content: '🤝 Выехал на помощь водителю! Постараюсь быть как можно быстрее.',
+  }).select('*').single();
+  if (comment.error) return res.status(500).json({ error: 'Не удалось сохранить сообщение помощи' });
+  res.json({ event: updates.data, comment: comment.data });
+});
+
+app.post('/api/events/:eventId/resolved', userRateLimit(10, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId) || !serverSupabase) return res.status(400).json({ error: 'Некорректный запрос' });
+  const profileId = await resolveEventProfile(session);
+  const event = await loadEventForMutation(eventId);
+  if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+  const updates: any = { updated_at: new Date().toISOString() };
+  if (event.user_id === profileId) updates.status = 'resolved';
+  const result = await serverSupabase.from('events').update(updates).eq('id', eventId).select('*').single();
+  if (result.error || !result.data) return res.status(500).json({ error: 'Не удалось закрыть событие' });
+  res.json({ event: result.data });
+});
+
+app.post('/api/admin/events/:eventId/moderate', userRateLimit(60, 60_000), requireTelegramAuth, requireAdmin, async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  const action = req.body?.action;
+  if (!eventIdIsValid(eventId) || !['hide', 'restore', 'resolve', 'delete'].includes(action)) {
+    return res.status(400).json({ error: 'Некорректное действие' });
+  }
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+  const event = await loadEventForMutation(eventId);
+  if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+  if (action === 'delete') {
+    const result = await serverSupabase.from('events').delete().eq('id', eventId);
+    if (result.error) return res.status(500).json({ error: 'Не удалось удалить событие' });
+    return res.json({ success: true, eventId, action });
+  }
+  const status = action === 'hide' ? 'hidden' : action === 'restore' ? 'active' : 'resolved';
+  const result = await serverSupabase.from('events').update({ status, updated_at: new Date().toISOString() }).eq('id', eventId).select('*').single();
+  if (result.error || !result.data) return res.status(500).json({ error: 'Не удалось изменить событие' });
+  res.json({ success: true, event: result.data, action });
+});
+
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---
 let chatMessages: any[] = [];
 
