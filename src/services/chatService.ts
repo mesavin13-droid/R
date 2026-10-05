@@ -1,6 +1,7 @@
 import { ChatChannel, ChatMessage, UserProfile } from '../types';
 import { CHAT_CHANNELS, INITIAL_CHAT_MESSAGES } from '../data/chatData';
 import { localRealtime } from '../lib/supabase';
+import { TelegramService } from './telegramService';
 
 const CHAT_STORAGE_KEY = 'roadlive_chat_messages_v1';
 
@@ -54,6 +55,9 @@ export class ChatService {
     }
     if (this.isConnecting) return;
 
+    const sessionToken = TelegramService.getSessionToken();
+    if (!sessionToken) return;
+
     this.isConnecting = true;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/chat`;
@@ -63,6 +67,7 @@ export class ChatService {
 
       ws.onopen = () => {
         this.isConnecting = false;
+        ws.send(JSON.stringify({ type: 'AUTH', token: sessionToken }));
         console.log('[Chat WS] Connected to live driver radio');
       };
 
@@ -163,7 +168,7 @@ export class ChatService {
       try {
         await fetch('/api/chat/messages', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
           body: JSON.stringify({ message: newMsg }),
         });
       } catch (err) {
@@ -192,7 +197,7 @@ export class ChatService {
       try {
         await fetch('/api/chat/reaction', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
           body: JSON.stringify({ messageId, emoji }),
         });
       } catch {}
