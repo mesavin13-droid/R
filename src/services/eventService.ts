@@ -218,27 +218,6 @@ export class EventService {
     this.initialize();
 
     // In Telegram mode, the server is the authoritative event store.
-    if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
-      const response = await fetch('/api/events', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !Array.isArray(payload?.events)) {
-        throw new Error(payload?.error || 'Не удалось загрузить события');
-      }
-      const serverEvents = payload.events.map((row: any) => this.fromServerEvent(row));
-      this.events = serverEvents;
-      return serverEvents.filter((ev) => {
-        if (ev.status === 'hidden' || ev.status === 'expired' || ev.status === 'resolved') return false;
-        if (ev.cityId !== cityId) return false;
-        if (!bbox) return true;
-        const [south, west, north, east] = bbox;
-        return ev.latitude >= south && ev.latitude <= north && ev.longitude >= west && ev.longitude <= east;
-      });
-    }
-
     // In the real Telegram app, identity must come from the server-verified
     // Telegram session. Never trust a localStorage profile/userId for authorship.
     const authoritative = await TelegramService.getAuthoritativeIdentity();
