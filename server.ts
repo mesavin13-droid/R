@@ -304,6 +304,32 @@ app.get('/api/auth/me', requireTelegramAuth, (req: Request, res: Response) => {
   });
 });
 
+// Server-authoritative admin API guard. UI visibility is not a security boundary.
+function requireAdmin(req: Request, res: Response, next: Function) {
+  const session = (req as any).telegramSession as TelegramSession | undefined;
+  if (!session || !ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(session.tgId))) {
+    return res.status(403).json({ error: 'Требуются права администратора' });
+  }
+  next();
+}
+
+function requireSameOrigin(req: Request, res: Response, next: Function) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  const origin = req.header('origin');
+  const host = req.header('host');
+  if (!origin || !host) return next();
+  try {
+    if (new URL(origin).host !== host) {
+      return res.status(403).json({ error: 'Недопустимый origin' });
+    }
+  } catch {
+    return res.status(403).json({ error: 'Недопустимый origin' });
+  }
+  next();
+}
+
+app.use(requireSameOrigin);
+
 // 2. Get VAPID Public Key
 app.get('/api/push/public-key', (_req: Request, res: Response) => {
   res.json({
