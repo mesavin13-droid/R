@@ -69,8 +69,12 @@ export default function App() {
   const { coords: userCoords, refreshLocation } = useGeolocation();
 
   // Load Data
-  const reloadData = useCallback(() => {
-    setEvents(EventService.getEvents());
+  const reloadData = useCallback(async () => {
+    const loadedEvents = await EventService.getEventsAsync().catch((error) => {
+      console.warn('Could not load events:', error);
+      return EventService.getEvents();
+    });
+    setEvents(loadedEvents);
     setStations(StationService.getStations());
     setQuestions(QuestionService.getQuestions());
   }, []);
@@ -139,7 +143,9 @@ export default function App() {
     const interval = setInterval(() => {
       EventService.refreshEventStatuses();
       EventService.archiveOldEvents();
-      setEvents(EventService.getEvents());
+      void EventService.getEventsAsync()
+        .then(setEvents)
+        .catch(() => setEvents(EventService.getEvents()));
     }, 30000);
 
     // Realtime listeners

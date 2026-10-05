@@ -163,6 +163,8 @@ type TelegramAuthUser = {
 type TelegramSession = {
   tgId: number;
   userId: string;
+  user: TelegramAuthUser;
+  role: 'driver' | 'admin';
   iat: number;
   exp: number;
 };
@@ -282,9 +284,12 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), (req: Request, res: Respon
 
     const user = validateTelegramInitData(req.body.initData);
     const now = Math.floor(Date.now() / 1000);
+    const isAdmin = ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id));
     const session: TelegramSession = {
       tgId: user.id,
       userId: `tg-${user.id}`,
+      user,
+      role: isAdmin ? 'admin' : 'driver',
       iat: now,
       exp: now + TELEGRAM_SESSION_TTL_SECONDS,
     };
@@ -294,8 +299,8 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), (req: Request, res: Respon
       sessionToken: encodeSession(session),
       expiresAt: session.exp,
       user,
-      role: ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id)) ? 'admin' : 'driver',
-      isAdmin: ROADLIVE_ADMIN_TELEGRAM_IDS.has(String(user.id)),
+      role: session.role,
+      isAdmin,
     });
   } catch (error: any) {
     return res.status(401).json({ error: error?.message || 'Telegram authentication failed' });
@@ -585,6 +590,232 @@ app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, userRateLi
     message: `Тестовый пуш отправлен на ${sent} активных устройств`,
     sentCount: sent,
   });
+});
+
+// --- AUTHORITATIVE ROAD EVENT API ---
+const EVENT_TYPES = new Set(['crossing','accident','patrol','fuel','road','traffic_light','hazard','other']);
+
+async function getOrCreateTelegramProfile(session: TelegramSession): Promise<string | null> {
+  if (!serverSupabase) return null;
+  const existing = await serverSupabase
+    .from('telegram_accounts')
+    .select('user_id')
+    .eq('telegram_id', session.tgId)
+    .maybeSingle();
+  if (existing.data?.user_id) return existing.data.user_id;
+
+  const user = session.user;
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim().slice(0, 100) || 'Водитель';
+  const created = await serverSupabase
+    .from('profiles')
+    .insert({
+      full_name: fullName,
+      role: session.role,
+    })
+    .select('id')
+    .single();
+  if (created.error || !created.data) {
+    console.warn('[Events] profile creation failed:', created.error?.message);
+    return null;
+  }
+
+  const linked = await serverSupabase.from('telegram_accounts').insert({
+    user_id: created.data.id,
+    telegram_id: session.tgId,
+    username: user.username || null,
+    first_name: user.first_name || null,
+    last_name: user.last_name || null,
+  });
+  if (linked.error) {
+    console.warn('[Events] Telegram account link failed:', linked.error.message);
+    return null;
+  }
+  return created.data.id;
+}
+
+function sanitizeEventInput(input: any) {
+  if (!input || typeof input !== 'object') return null;
+  const type = typeof input.type === 'string' ? input.type.trim() : '';
+  const title = typeof input.title === 'string' ? input.title.trim().slice(0, 200) : '';
+  const description = typeof input.description === 'string' ? input.description.trim().slice(0, 2000) : '';
+  const address = typeof input.address === 'string' ? input.address.trim().slice(0, 255) : '';
+  const latitude = Number(input.latitude);
+  const longitude = Number(input.longitude);
+  if (!EVENT_TYPES.has(type) || !title || !address) return null;
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return null;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
+  return {
+    type,
+    sub_type: typeof input.subType === 'string' ? input.subType.trim().slice(0, 100) || null : null,
+    title,
+    description: description || null,
+    latitude,
+    longitude,
+    address,
+    direction: typeof input.direction === 'string' ? input.direction.trim().slice(0, 100) || null : null,
+    city_id: typeof input.cityId === 'string' && input.cityId.trim() ? input.cityId.trim().slice(0, 100) : 'nsk-city-01',
+    district_id: typeof input.districtId === 'string' && input.districtId.trim() ? input.districtId.trim().slice(0, 100) : null,
+    image_url: typeof input.imageUrl === 'string' ? input.imageUrl.trim().slice(0, 2048) || null : null,
+  };
+}
+
+app.post('/api/events', rateLimit(30, 60_000), userRateLimit(20, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище событий не настроено' });
+
+  const input = sanitizeEventInput(req.body);
+  if (!input) return res.status(400).json({ error: 'Некорректные данные события' });
+
+  const profileId = await getOrCreateTelegramProfile(session);
+  if (!profileId) return res.status(503).json({ error: 'Не удалось определить профиль водителя' });
+
+  const ttlMinutes =
+    input.type === 'crossing' ? 20 :
+    input.type === 'accident' ? (input.sub_type === 'road_blocked' ? 60 : 45) :
+    input.type === 'patrol' || input.type === 'fuel' || input.type === 'hazard' ? 25 :
+    input.type === 'traffic_light' ? 90 :
+    input.type === 'road' ? ((input.sub_type === 'repair' || input.sub_type === 'pothole') ? 2880 : 360) : 30;
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000).toISOString();
+
+  const { data, error } = await serverSupabase
+    .from('events')
+    .insert({
+      user_id: profileId,
+      ...input,
+      expires_at: expiresAt,
+      status: 'active',
+      confirmation_count: 1,
+      confidence_score: 1.00,
+      last_confirmed_at: now.toISOString(),
+    })
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    console.warn('[Events] Supabase insert failed:', error?.message);
+    return res.status(500).json({ error: 'Не удалось сохранить событие' });
+  }
+
+  res.status(201).json({ event: data });
+});
+
+app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище событий не настроено' });
+  const cityId = typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01';
+  const { data, error } = await serverSupabase
+    .from('events')
+    .select('*')
+    .eq('city_id', cityId)
+    .neq('status', 'hidden')
+    .neq('status', 'expired')
+    .neq('status', 'resolved')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) return res.status(500).json({ error: 'Не удалось загрузить события' });
+  res.json({ events: data || [] });
+});
+
+function eventIdIsValid(id: unknown): id is string {
+  return typeof id === 'string' && id.length <= 100 && /^[A-Za-z0-9_-]+$/.test(id);
+}
+
+async function resolveEventProfile(session: TelegramSession) {
+  const profileId = await getOrCreateTelegramProfile(session);
+  if (!profileId) throw new Error('Профиль водителя не найден');
+  return profileId;
+}
+
+app.post('/api/events/:eventId/confirmation', userRateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId)) return res.status(400).json({ error: 'Некорректный ID события' });
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+
+  const action = req.body?.action;
+  if (action !== 'confirm' && action !== 'dispute') return res.status(400).json({ error: 'Некорректное действие' });
+
+  const profileId = await resolveEventProfile(session);
+  const { data: event, error: eventError } = await serverSupabase.from('events').select('*').eq('id', eventId).maybeSingle();
+  if (eventError || !event) return res.status(404).json({ error: 'Событие не найдено' });
+  if (event.status === 'hidden' || event.status === 'expired' || event.status === 'resolved') {
+    return res.status(409).json({ error: 'Событие больше не актуально' });
+  }
+
+  const { data: existing } = await serverSupabase
+    .from('event_confirmations')
+    .select('id, action')
+    .eq('event_id', eventId)
+    .eq('user_id', profileId)
+    .maybeSingle();
+
+  if (existing?.action === action) return res.json({ event });
+
+  if (existing) {
+    await serverSupabase.from('event_confirmations').update({ action }).eq('id', existing.id);
+  } else {
+    const inserted = await serverSupabase.from('event_confirmations').insert({
+      event_id: eventId,
+      user_id: profileId,
+      action,
+      is_nearby: Boolean(req.body?.isNearby),
+      distance_meters: Number.isFinite(Number(req.body?.distanceMeters)) ? Math.max(0, Math.min(100000, Number(req.body.distanceMeters))) : null,
+    });
+    if (inserted.error) return res.status(409).json({ error: 'Не удалось записать подтверждение' });
+  }
+
+  const { count: confirms } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'confirm');
+  const { count: disputes } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'dispute');
+  const confirmationCount = Math.max(1, confirms || 0);
+  const disputeCount = Math.max(0, disputes || 0);
+  const confidence = Math.min(1, Math.round((confirmationCount / (confirmationCount + disputeCount)) * 100) / 100);
+  const ttlMinutes =
+    event.type === 'crossing' ? 20 :
+    event.type === 'accident' ? (event.sub_type === 'road_blocked' ? 60 : 45) :
+    event.type === 'patrol' || event.type === 'fuel' || event.type === 'hazard' ? 25 :
+    event.type === 'traffic_light' ? 90 :
+    event.type === 'road' ? ((event.sub_type === 'repair' || event.sub_type === 'pothole') ? 2880 : 360) : 30;
+  const now = new Date();
+  const updates: any = {
+    confirmation_count: confirmationCount,
+    dispute_count: disputeCount,
+    confidence_score: confidence,
+    updated_at: now.toISOString(),
+  };
+  if (action === 'confirm') {
+    updates.last_confirmed_at = now.toISOString();
+    updates.expires_at = new Date(now.getTime() + ttlMinutes * 60_000).toISOString();
+    updates.status = 'active';
+  }
+  const updated = await serverSupabase.from('events').update(updates).eq('id', eventId).select('*').single();
+  if (updated.error || !updated.data) return res.status(500).json({ error: 'Не удалось обновить событие' });
+  res.json({ event: updated.data });
+});
+
+app.post('/api/events/:eventId/comments', userRateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = req.params.eventId;
+  const content = typeof req.body?.content === 'string' ? req.body.content.trim().slice(0, 1000) : '';
+  if (!eventIdIsValid(eventId) || !content) return res.status(400).json({ error: 'Некорректный комментарий' });
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+  const profileId = await resolveEventProfile(session);
+  const result = await serverSupabase.from('event_comments').insert({
+    event_id: eventId,
+    user_id: profileId,
+    author_name: [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель',
+    content,
+  }).select('*').single();
+  if (result.error || !result.data) return res.status(500).json({ error: 'Не удалось сохранить комментарий' });
+  res.status(201).json({ comment: result.data });
+});
+
+app.get('/api/events/:eventId/comments', requireTelegramAuth, async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId) || !serverSupabase) return res.status(400).json({ error: 'Некорректный запрос' });
+  const result = await serverSupabase.from('event_comments').select('*').eq('event_id', eventId).order('created_at', { ascending: true }).limit(200);
+  if (result.error) return res.status(500).json({ error: 'Не удалось загрузить комментарии' });
+  res.json({ comments: result.data || [] });
 });
 
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---

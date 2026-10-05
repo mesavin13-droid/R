@@ -11,6 +11,36 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 export class EventService {
   private static events: RoadEvent[] = [];
 
+  private static fromServerEvent(row: any): RoadEvent {
+    return {
+      id: row.id,
+      userId: row.user_id ? String(row.user_id) : 'unknown',
+      authorName: row.author_name || 'Водитель',
+      authorLevel: row.author_level || 'Новичок',
+      cityId: row.city_id,
+      districtId: row.district_id || undefined,
+      type: row.type,
+      subType: row.sub_type || undefined,
+      status: row.status,
+      title: row.title,
+      description: row.description || '',
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      address: row.address || '',
+      direction: row.direction || undefined,
+      imageUrl: row.image_url || undefined,
+      confirmationCount: Number(row.confirmation_count || 0),
+      disputeCount: Number(row.dispute_count || 0),
+      confidenceScore: Number(row.confidence_score || 0),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      lastConfirmedAt: row.last_confirmed_at,
+      expiresAt: row.expires_at,
+      comments: [],
+      confirmations: [],
+    };
+  }
+
   /**
    * In Telegram WebApp mode, all client-side event mutations must be tied to
    * the server-verified Telegram session. This is an additional guard on top
@@ -118,6 +148,29 @@ export class EventService {
     ) || null;
   }
 
+  static async getEventsAsync(cityId = 'nsk-city-01', bbox?: [number, number, number, number]): Promise<RoadEvent[]> {
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+      const params = new URLSearchParams({ cityId });
+      const response = await fetch(`/api/events?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !Array.isArray(payload?.events)) {
+        throw new Error(payload?.error || 'Не удалось загрузить события');
+      }
+      const serverEvents: RoadEvent[] = payload.events.map((row: any) => this.fromServerEvent(row));
+      this.events = serverEvents;
+      return serverEvents.filter((ev) => {
+        if (!bbox) return true;
+        const [south, west, north, east] = bbox;
+        return ev.latitude >= south && ev.latitude <= north && ev.longitude >= west && ev.longitude <= east;
+      });
+    }
+    return this.getEvents(cityId, bbox);
+  }
+
   /**
    * Get all active and expiring events within bounding box or city
    */
@@ -187,6 +240,7 @@ export class EventService {
   ): Promise<RoadEvent> {
     this.initialize();
 
+    // In Telegram mode, the server is the authoritative event store.
     // In the real Telegram app, identity must come from the server-verified
     // Telegram session. Never trust a localStorage profile/userId for authorship.
     const authoritative = await TelegramService.getAuthoritativeIdentity();
@@ -221,6 +275,32 @@ export class EventService {
       districtId: data.districtId?.trim().slice(0, 100),
       imageUrl: data.imageUrl?.trim().slice(0, 2048),
     };
+
+    // In Telegram mode, persistence is server-authoritative. The browser never
+    // inserts road events directly into Supabase or treats localStorage as truth.
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.event) {
+        throw new Error(payload?.error || 'Не удалось сохранить событие');
+      }
+      const serverEvent = this.fromServerEvent(payload.event);
+      localRealtime.broadcast('events_channel', { type: 'INSERT', event: serverEvent });
+      NotificationService.broadcastCriticalEvent(serverEvent).catch((err) => {
+        console.warn('Could not broadcast push notification:', err);
+      });
+      return serverEvent;
+    }
 
     const now = new Date();
     const ttlMins = this.getTTLMinutes(data.type, data.subType);
@@ -302,13 +382,48 @@ export class EventService {
   /**
    * Confirm event ("Я здесь" / "👍 Я тоже это вижу") with distance weighting
    */
-  static confirmEvent(
+  static async confirmEvent(
     eventId: string,
     user: UserProfile,
     userLocation?: { lat: number; lng: number }
-  ): { success: boolean; event: RoadEvent; isNearby: boolean; distanceMeters?: number } {
+  ): Promise<{ success: boolean; event: RoadEvent; isNearby: boolean; distanceMeters?: number }> {
     this.initialize();
     this.assertMutationIdentity(user.id);
+
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+
+      let distanceMeters: number | undefined;
+      let isNearby = true;
+      const currentEvent = this.events.find((e) => e.id === eventId);
+      if (currentEvent && userLocation) {
+        distanceMeters = this.calculateDistanceMeters(
+          currentEvent.latitude,
+          currentEvent.longitude,
+          userLocation.lat,
+          userLocation.lng
+        );
+        isNearby = distanceMeters <= 1000;
+      }
+
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/confirmation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: 'confirm', isNearby, distanceMeters }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.event) {
+        throw new Error(payload?.error || 'Не удалось подтвердить событие');
+      }
+      const serverEvent = this.fromServerEvent(payload.event);
+      this.events = this.events.map((item) => item.id === serverEvent.id ? serverEvent : item);
+      localRealtime.broadcast('events_channel', { type: 'UPDATE', event: serverEvent });
+      return { success: true, event: serverEvent, isNearby, distanceMeters };
+    }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
@@ -411,9 +526,35 @@ export class EventService {
   /**
    * Add a driver comment / update to event
    */
-  static addComment(eventId: string, content: string, user: UserProfile): EventComment {
+  static async addComment(eventId: string, content: string, user: UserProfile): Promise<EventComment> {
     this.initialize();
     this.assertMutationIdentity(user.id);
+
+    if (TelegramService.isTelegramWebApp()) {
+      const token = TelegramService.getSessionToken();
+      if (!token) throw new Error('Сессия Telegram отсутствует');
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: content.trim().slice(0, 1000) }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.comment) {
+        throw new Error(payload?.error || 'Не удалось сохранить комментарий');
+      }
+      return {
+        id: payload.comment.id,
+        eventId: payload.comment.event_id,
+        userId: payload.comment.user_id ? String(payload.comment.user_id) : user.id,
+        authorName: payload.comment.author_name || user.fullName,
+        authorLevel: user.level,
+        content: payload.comment.content,
+        createdAt: payload.comment.created_at,
+      };
+    }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
