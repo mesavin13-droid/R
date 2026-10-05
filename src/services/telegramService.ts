@@ -1,3 +1,5 @@
+type UserRole = 'driver' | 'admin';
+
 export interface TelegramUser {
   id: number;
   first_name: string;
@@ -10,6 +12,8 @@ interface TelegramAuthResponse {
   authenticated: boolean;
   sessionToken: string;
   user: TelegramUser;
+  role: UserRole;
+  isAdmin: boolean;
 }
 
 const SESSION_KEY = 'roadlive_telegram_session_v1';
