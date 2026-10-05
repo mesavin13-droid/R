@@ -497,13 +497,13 @@ export class EventService {
     try {
       // 1. Update remote status of items older than 24h
       await supabase
-        .from('road_events')
+        .from('events')
         .update({ status: 'expired' })
         .lt('created_at', twentyFourHoursAgo);
 
       if (archivedIds.length > 0) {
         await supabase
-          .from('road_events')
+          .from('events')
           .update({ status: 'expired' })
           .in('id', archivedIds);
       }

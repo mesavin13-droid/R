@@ -123,8 +123,8 @@ export default function App() {
     }, 30000);
 
     // Realtime listeners
-    const unsubEvents = localRealtime.subscribe('road_events', (payload: any) => {
-      if (payload.type === 'NEW_EVENT' && payload.event) {
+    const unsubEvents = localRealtime.subscribe('events_channel', (payload: any) => {
+      if (payload.type === 'INSERT' && payload.event) {
         setEvents((prev) => [payload.event, ...prev.filter((e) => e.id !== payload.event.id)]);
 
         // Do not show the critical notification banner to the user who reported it!
