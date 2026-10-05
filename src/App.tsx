@@ -33,6 +33,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
   const [isTelegramAuthenticated, setIsTelegramAuthenticated] = useState(false);
+  const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
   const [isSimulated, setIsSimulated] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('map');
@@ -90,8 +91,9 @@ export default function App() {
     TelegramService.authenticate()
       .then((auth) => {
         if (cancelled) return;
-        const synced = UserService.syncTelegramUser(auth.user);
+        const synced = UserService.syncTelegramUser(auth.user, auth.isAdmin ? 'admin' : 'driver');
         setCurrentUser(synced);
+        setIsAdminAuthorized(Boolean(auth.isAdmin));
         setIsTelegramAuthenticated(true);
       })
       .catch((error: any) => {
@@ -257,6 +259,7 @@ export default function App() {
                   const auth = await TelegramService.authenticate();
                   const synced = UserService.syncTelegramUser(auth.user);
                   setCurrentUser(synced);
+                  setIsAdminAuthorized(Boolean(auth.isAdmin));
                   setIsTelegramAuthenticated(true);
                 } catch (error: any) {
                   setTelegramAuthError(error?.message || 'Не удалось подтвердить Telegram-сеанс');
@@ -569,7 +572,7 @@ export default function App() {
       />
 
       {/* Admin Dashboard */}
-      {isAdminOpen && (
+      {isAdminOpen && isAdminAuthorized && (
         <AdminDashboard
           onClose={() => setIsAdminOpen(false)}
           onRefreshData={reloadData}
