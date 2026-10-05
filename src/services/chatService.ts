@@ -3,7 +3,12 @@ import { CHAT_CHANNELS, INITIAL_CHAT_MESSAGES } from '../data/chatData';
 import { localRealtime } from '../lib/supabase';
 import { TelegramService } from './telegramService';
 
-const CHAT_STORAGE_KEY = 'roadlive_chat_messages_v1';
+const CHAT_STORAGE_KEY_PREFIX = 'roadlive_chat_messages_v2';
+
+function getChatStorageKey(): string {
+  const identity = TelegramService.getCachedAuthoritativeIdentity();
+  return identity?.userId ? `${CHAT_STORAGE_KEY_PREFIX}:${identity.userId}` : `${CHAT_STORAGE_KEY_PREFIX}:demo`;
+}
 
 export class ChatService {
   private static messages: ChatMessage[] = [];
@@ -17,7 +22,7 @@ export class ChatService {
     if (this.messages.length > 0) return;
 
     try {
-      const stored = localStorage.getItem(CHAT_STORAGE_KEY);
+      const stored = localStorage.getItem(getChatStorageKey());
       if (stored) {
         this.messages = JSON.parse(stored);
       } else {
@@ -33,7 +38,7 @@ export class ChatService {
 
   private static persist(): void {
     try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(this.messages.slice(0, 300)));
+      localStorage.setItem(getChatStorageKey(), JSON.stringify(this.messages.slice(0, 300)));
     } catch (e) {
       console.warn('Storage quota exceeded for chat', e);
     }
