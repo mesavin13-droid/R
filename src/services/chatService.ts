@@ -3,7 +3,12 @@ import { CHAT_CHANNELS, INITIAL_CHAT_MESSAGES } from '../data/chatData';
 import { localRealtime } from '../lib/supabase';
 import { TelegramService } from './telegramService';
 
-const CHAT_STORAGE_KEY = 'roadlive_chat_messages_v1';
+const CHAT_STORAGE_KEY_PREFIX = 'roadlive_chat_messages_v2';
+
+function getChatStorageKey(): string {
+  const identity = TelegramService.getCachedAuthoritativeIdentity();
+  return identity?.userId ? `${CHAT_STORAGE_KEY_PREFIX}:${identity.userId}` : `${CHAT_STORAGE_KEY_PREFIX}:demo`;
+}
 
 export class ChatService {
   private static messages: ChatMessage[] = [];
@@ -17,7 +22,7 @@ export class ChatService {
     if (this.messages.length > 0) return;
 
     try {
-      const stored = localStorage.getItem(CHAT_STORAGE_KEY);
+      const stored = localStorage.getItem(getChatStorageKey());
       if (stored) {
         this.messages = JSON.parse(stored);
       } else {
@@ -33,7 +38,7 @@ export class ChatService {
 
   private static persist(): void {
     try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(this.messages.slice(0, 300)));
+      localStorage.setItem(getChatStorageKey(), JSON.stringify(this.messages.slice(0, 300)));
     } catch (e) {
       console.warn('Storage quota exceeded for chat', e);
     }
@@ -42,6 +47,24 @@ export class ChatService {
   static getChannels(): ChatChannel[] {
     return CHAT_CHANNELS;
   }
+  static async refreshFromServer(channelId?: string): Promise<void> {
+    if (!TelegramService.isTelegramWebApp() || !TelegramService.getSessionToken()) return;
+    try {
+      const url = channelId ? '/api/chat/messages?channelId=' + encodeURIComponent(channelId) : '/api/chat/messages';
+      const response = await fetch(url, { headers: TelegramService.getAuthHeaders() });
+      if (!response.ok) return;
+      const rows = await response.json();
+      if (!Array.isArray(rows)) return;
+      this.messages = rows;
+      this.persist();
+      this.listeners.forEach((fn) => {
+        if (rows.length) fn(rows[rows.length - 1]);
+      });
+    } catch (err) {
+      console.warn('[Chat] Server refresh failed:', err);
+    }
+  }
+
 
   static getMessages(channelId: string): ChatMessage[] {
     this.initialize();

@@ -32,6 +32,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
 
   useEffect(() => {
     reloadMessages();
+    void ChatService.refreshFromServer(selectedChannelId).then(reloadMessages);
     const unsub = ChatService.subscribe(() => {
       reloadMessages();
     });

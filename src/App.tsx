@@ -264,7 +264,7 @@ export default function App() {
                 setTelegramAuthError(null);
                 try {
                   const auth = await TelegramService.authenticate();
-                  const synced = UserService.syncTelegramUser(auth.user);
+                  const synced = UserService.syncTelegramUser(auth.user, auth.isAdmin ? 'admin' : 'driver');
                   setCurrentUser(synced);
                   setIsAdminAuthorized(Boolean(auth.isAdmin));
                   setIsTelegramAuthenticated(true);

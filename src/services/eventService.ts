@@ -1,6 +1,6 @@
 import { EventComment, EventConfirmation, EventType, RoadEvent, UserProfile } from '../types';
 import { INITIAL_EVENTS } from '../data/seedData';
-import { localRealtime, supabase, isSupabaseConfigured } from '../lib/supabase';
+import { localRealtime } from '../lib/supabase';
 import { NotificationService } from './notificationService';
 import { TelegramService } from './telegramService';
 
@@ -689,42 +689,13 @@ export class EventService {
       this.events = activeEvents;
       this.persist();
 
-      // Trigger background Supabase synchronization for 24h archiving
-      this.syncSupabaseArchiving(eventsToArchive.map((e) => e.id)).catch((err) => {
-        console.warn('[Supabase Archiving] Sync notice:', err);
-      });
+      // Telegram mode is server-authoritative. Never mutate Supabase directly from the browser.
     }
 
     return {
       archivedCount: eventsToArchive.length,
       remainingCount: this.events.length,
     };
-  }
-
-  /**
-   * Sync 24-hour expiration/archiving with Supabase remote backend
-   */
-  static async syncSupabaseArchiving(archivedIds: string[] = []): Promise<void> {
-    if (!isSupabaseConfigured || !supabase) return;
-
-    const twentyFourHoursAgo = new Date(Date.now() - TWENTY_FOUR_HOURS_MS).toISOString();
-
-    try {
-      // 1. Update remote status of items older than 24h
-      await supabase
-        .from('events')
-        .update({ status: 'expired' })
-        .lt('created_at', twentyFourHoursAgo);
-
-      if (archivedIds.length > 0) {
-        await supabase
-          .from('events')
-          .update({ status: 'expired' })
-          .in('id', archivedIds);
-      }
-    } catch (err) {
-      console.warn('[Supabase Archiving Error]', err);
-    }
   }
 
   /**

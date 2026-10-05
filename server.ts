@@ -3,7 +3,6 @@ import http from 'http';
 import { WebSocketServer, WebSocket as WsClient } from 'ws';
 import dotenv from 'dotenv';
 import path from 'path';
-import fs from 'fs';
 import crypto from 'crypto';
 import webpush from 'web-push';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -23,7 +22,7 @@ const serverSupabase: SupabaseClient | null =
     : null;
 
 if (isProd && !serverSupabase) {
-  console.warn('⚠️ Server-side Supabase persistence is not configured; chat will use temporary memory only.');
+  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured in production');
 }
 
 const app = express();
@@ -106,59 +105,39 @@ interface StoredSubscription {
   createdAt: string;
 }
 
-const SUBS_FILE = path.resolve(process.cwd(), 'dev-dist/push_subscriptions.json');
 let subscriptions = new Map<string, StoredSubscription>();
 
 async function loadSubscriptions() {
-  if (serverSupabase) {
-    const { data, error } = await serverSupabase
-      .from('push_subscriptions')
-      .select('endpoint,user_id,subscription,district_id,created_at');
-    if (!error && data) {
-      subscriptions = new Map(
-        data.map((row) => [
-          row.endpoint,
-          {
-            subscription: row.subscription as webpush.PushSubscription,
-            userId: row.user_id,
-            districtId: row.district_id || undefined,
-            createdAt: row.created_at,
-          },
-        ]),
-      );
-      console.log(`Loaded ${subscriptions.size} push subscriptions from Supabase.`);
-      return;
-    }
-    if (error) console.warn('[Push] Supabase subscription load failed:', error.message);
+  if (!serverSupabase) {
+    subscriptions = new Map();
+    return;
   }
 
-  try {
-    if (fs.existsSync(SUBS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf-8'));
-      subscriptions = new Map(Object.entries(data));
-      console.log(`Loaded ${subscriptions.size} push subscriptions from disk fallback.`);
-    }
-  } catch (err) {
-    console.warn('Could not read subscriptions file, starting empty.', err);
+  const { data, error } = await serverSupabase
+    .from('push_subscriptions')
+    .select('endpoint,user_id,subscription,district_id,created_at');
+
+  if (error) {
+    throw new Error(`Failed to load push subscriptions: ${error.message}`);
   }
+
+  subscriptions = new Map(
+    (data || []).map((row) => [
+      row.endpoint,
+      {
+        subscription: row.subscription as webpush.PushSubscription,
+        userId: row.user_id,
+        districtId: row.district_id || undefined,
+        createdAt: row.created_at,
+      },
+    ]),
+  );
+  console.log(`Loaded ${subscriptions.size} push subscriptions from Supabase.`);
 }
 
-function saveSubscriptions() {
-  if (serverSupabase) return;
-  try {
-    const dir = path.dirname(SUBS_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const obj = Object.fromEntries(subscriptions.entries());
-    fs.writeFileSync(SUBS_FILE, JSON.stringify(obj, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save subscriptions file.', err);
-  }
-}
+async function persistPushSubscription(endpoint: string, item: StoredSubscription): Promise<void> {
+  if (!serverSupabase) throw new Error('Server storage is not configured');
 
-async function persistPushSubscription(endpoint: string, item: StoredSubscription): Promise<boolean> {
-  if (!serverSupabase) return false;
   const { error } = await serverSupabase.from('push_subscriptions').upsert({
     endpoint,
     user_id: item.userId,
@@ -167,21 +146,14 @@ async function persistPushSubscription(endpoint: string, item: StoredSubscriptio
     created_at: item.createdAt,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'endpoint' });
-  if (error) {
-    console.warn('[Push] Supabase subscription write failed:', error.message);
-    return false;
-  }
-  return true;
+
+  if (error) throw new Error(`Push subscription persistence failed: ${error.message}`);
 }
 
-async function deletePushSubscription(endpoint: string): Promise<boolean> {
-  if (!serverSupabase) return false;
+async function deletePushSubscription(endpoint: string): Promise<void> {
+  if (!serverSupabase) throw new Error('Server storage is not configured');
   const { error } = await serverSupabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
-  if (error) {
-    console.warn('[Push] Supabase subscription delete failed:', error.message);
-    return false;
-  }
-  return true;
+  if (error) throw new Error(`Push subscription deletion failed: ${error.message}`);
 }
 
 
@@ -199,7 +171,11 @@ const ROADLIVE_ADMIN_TELEGRAM_IDS = new Set(
 );
 const TELEGRAM_SESSION_TTL_SECONDS = Math.max(
   300,
-  parseInt(process.env.TELEGRAM_SESSION_TTL_SECONDS || '86400', 10),
+  Math.min(86400, parseInt(process.env.TELEGRAM_SESSION_TTL_SECONDS || '3600', 10)),
+);
+const TELEGRAM_INIT_DATA_MAX_AGE_SECONDS = Math.max(
+  60,
+  Math.min(3600, parseInt(process.env.TELEGRAM_INIT_DATA_MAX_AGE_SECONDS || '600', 10)),
 );
 
 type TelegramAuthUser = {
@@ -243,7 +219,7 @@ function validateTelegramInitData(initData: string): TelegramAuthUser {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - authDate) > 86400) {
+  if (Math.abs(now - authDate) > TELEGRAM_INIT_DATA_MAX_AGE_SECONDS) {
     throw new Error('Telegram initData has expired');
   }
 
@@ -426,22 +402,14 @@ function isValidPushSubscription(subscription: any): boolean {
   return true;
 }
 
-function sanitizePushEvent(event: any, userId: string) {
-  if (!event || typeof event !== 'object' || event.userId !== userId) return null;
-  const title = typeof event.title === 'string' ? event.title.trim().slice(0, 200) : '';
-  const address = typeof event.address === 'string' ? event.address.trim().slice(0, 255) : '';
-  const description = typeof event.description === 'string' ? event.description.trim().slice(0, 1000) : '';
-  const type = typeof event.type === 'string' ? event.type.slice(0, 50) : '';
-  const subType = typeof event.subType === 'string' ? event.subType.slice(0, 100) : undefined;
-  const id = typeof event.id === 'string' ? event.id.slice(0, 100) : '';
-  if (!title || !id || !address) return null;
-  return { id, userId, title, address, description, type, subType };
-}
-
 // 3. Register or Update Push Subscription
 app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
-  const { subscription, districtId } = req.body;
+  const { subscription } = req.body;
+  const districtId = typeof req.body?.districtId === 'string' ? req.body.districtId.trim().slice(0, 100) : null;
   const userId = (req as any).telegramSession.userId;
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    return res.status(503).json({ error: 'Web Push не настроен на сервере' });
+  }
 
   if (!isValidPushSubscription(subscription)) {
     return res.status(400).json({ error: 'Неверный формат подписки Web Push' });
@@ -458,15 +426,17 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, asyn
     districtId,
     createdAt: new Date().toISOString(),
   };
-  const persisted = await persistPushSubscription(endpoint, item);
+  try {
+    await persistPushSubscription(endpoint, item);
+  } catch (error: any) {
+    return res.status(503).json({ error: error?.message || 'Не удалось сохранить push-подписку' });
+  }
   subscriptions.set(endpoint, item);
-
-  saveSubscriptions();
   console.log(`[Push] Registered subscriber (total: ${subscriptions.size})`);
 
   res.json({
     success: true,
-    persistent: persisted || !serverSupabase,
+    persistent: true,
     message: 'Успешно подписан на критические уведомления ROADLIVE',
     subscribersCount: subscriptions.size,
   });
@@ -484,44 +454,56 @@ app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, as
     return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
   }
 
-  const deleted = subscriptions.delete(endpoint);
-  const persisted = await deletePushSubscription(endpoint);
-  if (deleted) {
-    saveSubscriptions();
-    console.log(`[Push] Unsubscribed (remaining: ${subscriptions.size})`);
+  try {
+    await deletePushSubscription(endpoint);
+  } catch (error: any) {
+    return res.status(503).json({ error: error?.message || 'Не удалось удалить push-подписку' });
   }
+  const deleted = subscriptions.delete(endpoint);
+  console.log(`[Push] Unsubscribed (remaining: ${subscriptions.size})`);
 
-  res.json({ success: true, deleted, persistent: persisted || !serverSupabase, subscribersCount: subscriptions.size });
+  res.json({ success: true, deleted, persistent: true, subscribersCount: subscriptions.size });
 });
 
 // 5. Broadcast Critical Road Event
 app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, userRateLimit(3, 60 * 60_000), async (req: Request, res: Response) => {
-  const userId = (req as any).telegramSession.userId;
-  const event = sanitizePushEvent(req.body?.event, userId);
-  if (!event) {
-    return res.status(400).json({ error: 'Недопустимые данные события' });
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return res.status(503).json({ error: 'Web Push не настроен на сервере' });
+
+  const session = (req as any).telegramSession as TelegramSession;
+  const eventId = typeof req.body?.eventId === 'string' ? req.body.eventId.trim().slice(0, 100) : '';
+  if (!eventId) return res.status(400).json({ error: 'eventId обязателен' });
+
+  const profileId = await resolveEventProfile(session);
+  if (!profileId) return res.status(403).json({ error: 'Профиль водителя не найден' });
+
+  // The push payload is derived exclusively from the persisted event.
+  const { data: event, error: eventError } = await serverSupabase
+    .from('events')
+    .select('id,user_id,title,address,description,type,sub_type,status')
+    .eq('id', eventId)
+    .maybeSingle();
+
+  if (eventError || !event) return res.status(404).json({ error: 'Событие не найдено' });
+  if (event.user_id !== profileId) return res.status(403).json({ error: 'Можно уведомлять только о своем событии' });
+  if (event.status === 'hidden' || event.status === 'expired' || event.status === 'resolved') {
+    return res.status(409).json({ error: 'Событие больше не актуально' });
   }
 
-  // Criticality is derived on the server. Client input cannot force a mass alert.
   const isCritical =
-    (event.type === 'accident' && (event.subType === 'road_blocked' || event.subType === 'major')) ||
-    (event.type === 'crossing' && event.subType === 'closed') ||
-    (event.type === 'road' && (event.subType === 'closure' || event.subType === 'ice')) ||
+    (event.type === 'accident' && (event.sub_type === 'road_blocked' || event.sub_type === 'major')) ||
+    (event.type === 'crossing' && event.sub_type === 'closed') ||
+    (event.type === 'road' && (event.sub_type === 'closure' || event.sub_type === 'ice')) ||
     event.type === 'hazard';
 
-  // Construct Notification Payload
   const emoji =
-    event.type === 'accident'
-      ? '🚗'
-      : event.type === 'crossing'
-      ? '🚧'
-      : event.type === 'road'
-      ? '🛣️'
-      : '⚠️';
+    event.type === 'accident' ? '🚗' :
+    event.type === 'crossing' ? '🚧' :
+    event.type === 'road' ? '🛣️' : '⚠️';
 
   const payload = JSON.stringify({
-    title: `🚨 ROADLIVE: ${event.title}`,
-    body: `${emoji} ${event.address}${event.description ? `. ${event.description}` : ''}`,
+    title: `🚨 ROADLIVE: ${String(event.title).slice(0, 200)}`,
+    body: `${emoji} ${String(event.address).slice(0, 255)}${event.description ? `. ${String(event.description).slice(0, 1000)}` : ''}`,
     icon: '/pwa-192x192.png',
     badge: '/icon.svg',
     tag: `road-critical-${event.id}`,
@@ -536,56 +518,35 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
 
   const endpoints = Array.from(subscriptions.keys());
   if (endpoints.length === 0) {
-    return res.json({
-      success: true,
-      sentCount: 0,
-      failureCount: 0,
-      totalSubscribers: 0,
-      isCritical,
-      message: 'Нет активных подписчиков Web Push',
-    });
+    return res.json({ success: true, sentCount: 0, failureCount: 0, totalSubscribers: 0, isCritical, message: 'Нет активных подписчиков Web Push' });
   }
 
   let sentCount = 0;
   let failureCount = 0;
   const expiredEndpoints: string[] = [];
 
-  const promises = endpoints.map(async (ep) => {
+  await Promise.all(endpoints.map(async (ep) => {
     const item = subscriptions.get(ep);
     if (!item) return;
-
-    // Skip sending push notification to the creator of this event!
-    if (item.userId && event.userId && item.userId === event.userId) {
-      return;
-    }
+    if (item.userId && item.userId === session.userId) return;
 
     try {
       await webpush.sendNotification(item.subscription, payload);
       sentCount++;
     } catch (err: any) {
       failureCount++;
-      // If subscription expired or revoked (404 / 410)
-      if (err.statusCode === 404 || err.statusCode === 410) {
-        expiredEndpoints.push(ep);
-      }
+      if (err.statusCode === 404 || err.statusCode === 410) expiredEndpoints.push(ep);
     }
-  });
+  }));
 
-  await Promise.all(promises);
-
-  // Prune expired endpoints
   if (expiredEndpoints.length > 0) {
-    expiredEndpoints.forEach((ep) => subscriptions.delete(ep));
-    saveSubscriptions();
+    await Promise.all(expiredEndpoints.map(async (ep) => {
+      subscriptions.delete(ep);
+      try { await deletePushSubscription(ep); } catch {}
+    }));
   }
 
-  res.json({
-    success: true,
-    sentCount,
-    failureCount,
-    totalSubscribers: subscriptions.size,
-    isCritical,
-  });
+  res.json({ success: true, sentCount, failureCount, totalSubscribers: subscriptions.size, isCritical });
 });
 
 // 6. Test Push Endpoint
@@ -1053,8 +1014,6 @@ app.post('/api/admin/events/:eventId/moderate', userRateLimit(60, 60_000), requi
 });
 
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---
-let chatMessages: any[] = [];
-
 function normalizeChatMessage(row: any) {
   return {
     id: row.external_id,
@@ -1067,7 +1026,8 @@ function normalizeChatMessage(row: any) {
 }
 
 async function loadChatMessages(channelId?: string): Promise<any[]> {
-  if (serverSupabase) {
+  if (!serverSupabase) throw new Error('Server storage is not configured');
+  {
     let query = serverSupabase
       .from('chat_messages')
       .select('external_id,channel_id,user_id,telegram_user_id,author_name,content,created_at')
@@ -1075,16 +1035,13 @@ async function loadChatMessages(channelId?: string): Promise<any[]> {
       .limit(500);
     if (channelId) query = query.eq('channel_id', channelId);
     const { data, error } = await query;
-    if (!error && data) return data.reverse().map(normalizeChatMessage);
-    if (error) console.warn('[Chat] Supabase read failed:', error.message);
+    if (error) throw new Error(`Chat storage read failed: ${error.message}`);
+    return (data || []).reverse().map(normalizeChatMessage);
   }
-
-  const result = channelId ? chatMessages.filter((m) => m.channelId === channelId) : chatMessages;
-  return result.slice(-500);
 }
 
 async function persistChatMessage(message: any, session: TelegramSession): Promise<boolean> {
-  if (!serverSupabase) return false;
+  if (!serverSupabase) throw new Error('Server storage is not configured');
   const { error } = await serverSupabase.from('chat_messages').upsert(
     {
       external_id: message.id,
@@ -1096,15 +1053,12 @@ async function persistChatMessage(message: any, session: TelegramSession): Promi
     },
     { onConflict: 'external_id', ignoreDuplicates: true },
   );
-  if (error) {
-    console.warn('[Chat] Supabase write failed:', error.message);
-    return false;
-  }
+  if (error) throw new Error(`Chat storage write failed: ${error.message}`);
   return true;
 }
 
 async function persistChatReaction(messageId: string, emoji: string, telegramUserId: number): Promise<boolean> {
-  if (!serverSupabase) return false;
+  if (!serverSupabase) throw new Error('Server storage is not configured');
   const { data: message, error: messageError } = await serverSupabase
     .from('chat_messages')
     .select('id')
@@ -1116,10 +1070,7 @@ async function persistChatReaction(messageId: string, emoji: string, telegramUse
     { message_id: message.id, telegram_user_id: telegramUserId, emoji },
     { onConflict: 'message_id,telegram_user_id,emoji', ignoreDuplicates: true },
   );
-  if (error) {
-    console.warn('[Chat] Supabase reaction write failed:', error.message);
-    return false;
-  }
+  if (error) throw new Error(`Chat reaction persistence failed: ${error.message}`);
   return true;
 }
 
@@ -1142,19 +1093,21 @@ app.post('/api/chat/messages', rateLimit(60, 60_000), requireTelegramAuth, async
   }
 
   const normalized = {
-    ...message,
+    id: message.id,
+    channelId: message.channelId,
+    userId: session.userId,
+    authorName: [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель',
     content: message.content.trim(),
-    createdAt: typeof message.createdAt === 'string' ? message.createdAt : new Date().toISOString(),
+    createdAt: new Date().toISOString(),
   };
-  const persisted = await persistChatMessage(normalized, session);
-
-  if (!persisted) {
-    if (!chatMessages.some((m) => m.id === normalized.id)) chatMessages.push(normalized);
-    if (chatMessages.length > 500) chatMessages = chatMessages.slice(-500);
+  try {
+    await persistChatMessage(normalized, session);
+  } catch (error: any) {
+    return res.status(503).json({ error: error?.message || 'Не удалось сохранить сообщение' });
   }
 
   broadcastToChatClients({ type: 'CHAT_MESSAGE', message: normalized });
-  res.json({ success: true, message: normalized, persistent: persisted });
+  res.json({ success: true, message: normalized, persistent: true });
 });
 
 app.post('/api/chat/reaction', rateLimit(120, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
@@ -1164,17 +1117,14 @@ app.post('/api/chat/reaction', rateLimit(120, 60_000), requireTelegramAuth, asyn
     return res.status(400).json({ error: 'Недопустимая реакция' });
   }
 
-  const persisted = await persistChatReaction(messageId, emoji, session.tgId);
-  if (!persisted) {
-    const target = chatMessages.find((m) => m.id === messageId);
-    if (target) {
-      target.reactions = target.reactions || {};
-      target.reactions[emoji] = (target.reactions[emoji] || 0) + 1;
-    }
+  try {
+    await persistChatReaction(messageId, emoji, session.tgId);
+  } catch (error: any) {
+    return res.status(503).json({ error: error?.message || 'Не удалось сохранить реакцию' });
   }
 
   broadcastToChatClients({ type: 'CHAT_REACTION', messageId, emoji });
-  res.json({ success: true, persistent: persisted });
+  res.json({ success: true, persistent: true });
 });
 
 let connectedWsClients = new Set<WsClient>();
@@ -1194,6 +1144,9 @@ function broadcastToChatClients(data: any) {
 
 // --- CLIENT SERVING ---
 async function startServer() {
+  if (isProd && !serverSupabase) {
+    throw new Error('ROADLIVE production startup aborted: Supabase persistence is required');
+  }
   await loadSubscriptions();
   const httpServer = http.createServer(app);
 
@@ -1203,6 +1156,7 @@ async function startServer() {
   wss.on('connection', (ws) => {
     let authenticated = false;
     let authenticatedUserId: string | null = null;
+    let session: TelegramSession | null = null;
     let messageCount = 0;
     let windowStartedAt = Date.now();
     const authTimeout = setTimeout(() => {
@@ -1214,6 +1168,7 @@ async function startServer() {
     ws.on('error', (err) => console.warn('[WS Chat] Socket error:', err));
 
     ws.on('message', (raw) => {
+      void (async () => {
       try {
         const data = JSON.parse(raw.toString());
         if (data.type === 'AUTH' && typeof data.token === 'string') {
@@ -1221,24 +1176,25 @@ async function startServer() {
             ws.close(1008, 'Already authenticated');
             return;
           }
-          const session = verifySessionToken(data.token);
-          if (!session) {
+          const verifiedSession = verifySessionToken(data.token);
+          if (!verifiedSession) {
             ws.close(1008, 'Unauthorized');
             return;
           }
+          session = verifiedSession;
           authenticated = true;
-          authenticatedUserId = session.userId;
+          authenticatedUserId = verifiedSession.userId;
           clearTimeout(authTimeout);
           setTimeout(() => {
             if (ws.readyState === WsClient.OPEN) ws.close(1000, 'Session expired');
-          }, Math.max(1, session.exp - Math.floor(Date.now() / 1000)) * 1000);
+          }, Math.max(1, verifiedSession.exp - Math.floor(Date.now() / 1000)) * 1000);
           connectedWsClients.add(ws);
-          ws.send(JSON.stringify({ type: 'AUTH_OK', userId: session.userId, expiresAt: session.exp }));
+          ws.send(JSON.stringify({ type: 'AUTH_OK', userId: verifiedSession.userId, expiresAt: verifiedSession.exp }));
           console.log(`[WS Chat] Driver connected (online: ${connectedWsClients.size})`);
           return;
         }
 
-        if (!authenticated) return;
+        if (!authenticated || !session) return;
 
         const now = Date.now();
         if (now - windowStartedAt >= 60_000) {
@@ -1257,32 +1213,30 @@ async function startServer() {
           if (typeof msg.id !== 'string' || msg.id.length === 0 || msg.id.length > 100 ||
               typeof msg.channelId !== 'string' || msg.channelId.length === 0 || msg.channelId.length > 100 ||
               typeof msg.content !== 'string' || !msg.content.trim() || msg.content.length > 2000) return;
-          if (!chatMessages.some((m) => m.id === msg.id)) {
-            chatMessages.push(msg);
-            if (chatMessages.length > 500) {
-              chatMessages = chatMessages.slice(-500);
-            }
-          }
-          broadcastToChatClients({
-            type: 'CHAT_MESSAGE',
-            message: msg,
-          });
+
+          const normalized = {
+            id: msg.id,
+            channelId: msg.channelId,
+            userId: authenticatedUserId,
+            authorName: [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель',
+            content: msg.content.trim(),
+            createdAt: new Date().toISOString(),
+          };
+          await persistChatMessage(normalized, session);
+          broadcastToChatClients({ type: 'CHAT_MESSAGE', message: normalized });
         } else if (data.type === 'ADD_REACTION' && typeof data.messageId === 'string' && data.messageId.length <= 100 &&
                    typeof data.emoji === 'string' && [...data.emoji].length <= 16) {
-          const target = chatMessages.find((m) => m.id === data.messageId);
-          if (target) {
-            target.reactions = target.reactions || {};
-            target.reactions[data.emoji] = (target.reactions[data.emoji] || 0) + 1;
-            broadcastToChatClients({
-              type: 'CHAT_REACTION',
-              messageId: data.messageId,
-              emoji: data.emoji,
-            });
-          }
+          await persistChatReaction(data.messageId, data.emoji, session.tgId);
+          broadcastToChatClients({
+            type: 'CHAT_REACTION',
+            messageId: data.messageId,
+            emoji: data.emoji,
+          });
         }
       } catch (err) {
         console.error('[WS Chat] Parse error:', err);
       }
+      })();
     });
 
     ws.on('close', () => {

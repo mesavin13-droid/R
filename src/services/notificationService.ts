@@ -233,7 +233,7 @@ export class NotificationService {
       await fetch('/api/push/broadcast-critical', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
-        body: JSON.stringify({ event, isCritical }),
+        body: JSON.stringify({ eventId: event.id }),
       });
     } catch (err) {
       console.warn('[WebPush] Server broadcast error:', err);
