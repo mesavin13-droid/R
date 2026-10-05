@@ -1014,8 +1014,6 @@ app.post('/api/admin/events/:eventId/moderate', userRateLimit(60, 60_000), requi
 });
 
 // --- DRIVER RADIO / CHAT API & REAL-TIME WEBSOCKET ---
-let chatMessages: any[] = [];
-
 function normalizeChatMessage(row: any) {
   return {
     id: row.external_id,
