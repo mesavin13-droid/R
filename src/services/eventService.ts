@@ -11,6 +11,27 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 export class EventService {
   private static events: RoadEvent[] = [];
 
+  /**
+   * In Telegram WebApp mode, all client-side event mutations must be tied to
+   * the server-verified Telegram session. This is an additional guard on top
+   * of the server API checks and prevents forged local UserProfile objects
+   * from being accepted by mutation helpers.
+   */
+  private static assertMutationIdentity(userId: string, adminOnly = false): void {
+    if (!TelegramService.isTelegramWebApp()) return;
+
+    const identity = TelegramService.getCachedAuthoritativeIdentity();
+    if (!identity) {
+      throw new Error('Сессия Telegram недействительна или истекла');
+    }
+    if (identity.userId !== userId) {
+      throw new Error('Действие запрещено: пользователь не совпадает с Telegram-сессией');
+    }
+    if (adminOnly && !identity.isAdmin) {
+      throw new Error('Недостаточно прав администратора');
+    }
+  }
+
   static initialize() {
     if (this.events.length > 0) {
       this.archiveOldEvents();
@@ -287,6 +308,7 @@ export class EventService {
     userLocation?: { lat: number; lng: number }
   ): { success: boolean; event: RoadEvent; isNearby: boolean; distanceMeters?: number } {
     this.initialize();
+    this.assertMutationIdentity(user.id);
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
@@ -352,6 +374,7 @@ export class EventService {
    */
   static disputeEvent(eventId: string, user: UserProfile): RoadEvent {
     this.initialize();
+    this.assertMutationIdentity(user.id);
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
@@ -390,6 +413,7 @@ export class EventService {
    */
   static addComment(eventId: string, content: string, user: UserProfile): EventComment {
     this.initialize();
+    this.assertMutationIdentity(user.id);
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
@@ -422,6 +446,10 @@ export class EventService {
     action: 'hide' | 'restore' | 'resolve' | 'delete'
   ): boolean {
     this.initialize();
+    const identity = TelegramService.getCachedAuthoritativeIdentity();
+    if (TelegramService.isTelegramWebApp() && (!identity || !identity.isAdmin)) {
+      throw new Error('Недостаточно прав администратора');
+    }
     const idx = this.events.findIndex((e) => e.id === eventId);
     if (idx === -1) return false;
 
@@ -553,6 +581,7 @@ export class EventService {
    */
   static deleteEvent(eventId: string, userId: string): boolean {
     this.initialize();
+    this.assertMutationIdentity(userId);
     const index = this.events.findIndex((e) => e.id === eventId && e.userId === userId);
     if (index !== -1) {
       this.events.splice(index, 1);
@@ -568,6 +597,7 @@ export class EventService {
    */
   static respondToAssistance(eventId: string, user: UserProfile): RoadEvent {
     this.initialize();
+    this.assertMutationIdentity(user.id);
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 
@@ -597,6 +627,7 @@ export class EventService {
    */
   static confirmResolved(eventId: string, userId: string): RoadEvent {
     this.initialize();
+    this.assertMutationIdentity(userId);
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
 

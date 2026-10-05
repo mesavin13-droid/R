@@ -298,6 +298,7 @@ app.get('/api/auth/me', requireTelegramAuth, (req: Request, res: Response) => {
     authenticated: true,
     userId: session.userId,
     telegramId: session.tgId,
+    expiresAt: session.exp,
     role: isAdmin ? 'admin' : 'driver',
     isAdmin,
   });
