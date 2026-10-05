@@ -163,6 +163,8 @@ type TelegramAuthUser = {
 type TelegramSession = {
   tgId: number;
   userId: string;
+  user: TelegramAuthUser;
+  role: 'driver' | 'admin';
   iat: number;
   exp: number;
 };
