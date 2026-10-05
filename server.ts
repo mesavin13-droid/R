@@ -717,6 +717,106 @@ function sanitizeEventInput(input: any) {
   };
 }
 
+function sanitizeQuestionInput(input: any) {
+  if (!input || typeof input !== 'object') return null;
+  const category = typeof input.category === 'string' ? input.category.trim().slice(0, 50) : '';
+  const question = typeof input.question === 'string' ? input.question.trim().slice(0, 1000) : '';
+  const latitude = Number(input.latitude);
+  const longitude = Number(input.longitude);
+  const address = typeof input.address === 'string' ? input.address.trim().slice(0, 255) : '';
+  if (!category || !question || !address) return null;
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return null;
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
+  return { category, question, latitude, longitude, address, city_id: typeof input.cityId === 'string' && input.cityId.trim() ? input.cityId.trim().slice(0, 100) : 'nsk-city-01', district_id: typeof input.districtId === 'string' && input.districtId.trim() ? input.districtId.trim().slice(0, 100) : null };
+}
+function sanitizeQuestionAnswer(input: any) {
+  if (!input || typeof input !== 'object') return null;
+  const content = typeof input.content === 'string' ? input.content.trim().slice(0, 1000) : '';
+  return content ? { content } : null;
+}
+app.get('/api/questions', requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище вопросов не настроено' });
+  const cityId = typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01';
+  const { data, error } = await serverSupabase.from('questions').select('id,user_id,city_id,district_id,category,question,latitude,longitude,address,answers_count,status,created_at').eq('city_id', cityId).order('created_at', { ascending: false }).limit(500);
+  if (error) return res.status(500).json({ error: 'Не удалось загрузить вопросы' });
+  const ids = (data || []).map((q: any) => q.id);
+  let answers: any[] = [];
+  if (ids.length) {
+    const result = await serverSupabase.from('question_answers').select('id,question_id,user_id,author_name,content,helpful_count,is_verified,created_at').in('question_id', ids).order('created_at', { ascending: true }).limit(2000);
+    if (!result.error) answers = result.data || [];
+  }
+  return res.json({ questions: (data || []).map((q: any) => ({ ...q, author_name: 'Водитель', answers: answers.filter((a) => a.question_id === q.id) })) });
+});
+app.post('/api/questions', userRateLimit(20, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище вопросов не настроено' });
+  const session = (req as any).telegramSession as TelegramSession;
+  const input = sanitizeQuestionInput(req.body);
+  if (!input) return res.status(400).json({ error: 'Некорректные данные вопроса' });
+  const profileId = await resolveEventProfile(session);
+  if (!profileId) return res.status(500).json({ error: 'Не удалось определить профиль водителя' });
+  const { data, error } = await serverSupabase.from('questions').insert({ ...input, user_id: profileId, answers_count: 0, status: 'open' }).select('id,user_id,city_id,district_id,category,question,latitude,longitude,address,answers_count,status,created_at').single();
+  if (error) return res.status(500).json({ error: 'Не удалось сохранить вопрос' });
+  return res.status(201).json({ question: { ...data, author_name: [session.user.first_name, session.user.last_name].filter(Boolean).join(' ') || 'Водитель', answers: [] } });
+});
+app.post('/api/questions/:questionId/answers', userRateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище ответов не настроено' });
+  const questionId = typeof req.params.questionId === 'string' ? req.params.questionId : '';
+  const input = sanitizeQuestionAnswer(req.body);
+  if (!input || !questionId) return res.status(400).json({ error: 'Некорректный ответ' });
+  const session = (req as any).telegramSession as TelegramSession;
+  const profileId = await resolveEventProfile(session);
+  if (!profileId) return res.status(500).json({ error: 'Не удалось определить профиль водителя' });
+  const { data: question, error: questionError } = await serverSupabase.from('questions').select('id,status,answers_count').eq('id', questionId).maybeSingle();
+  if (questionError || !question) return res.status(404).json({ error: 'Вопрос не найден' });
+  if (question.status !== 'open') return res.status(409).json({ error: 'Вопрос закрыт' });
+  const authorName = [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель';
+  const { data: answer, error } = await serverSupabase.from('question_answers').insert({ question_id: questionId, user_id: profileId, author_name: authorName, content: input.content, helpful_count: 0, is_verified: Boolean(session.isAdmin) }).select('id,question_id,user_id,author_name,content,helpful_count,is_verified,created_at').single();
+  if (error) return res.status(500).json({ error: 'Не удалось сохранить ответ' });
+  const { data: updatedQuestion, error: updateError } = await serverSupabase.from('questions').update({ answers_count: Number(question.answers_count || 0) + 1 }).eq('id', questionId).select('id,user_id,city_id,district_id,category,question,latitude,longitude,address,answers_count,status,created_at').single();
+  if (updateError) return res.status(500).json({ error: 'Ответ сохранён, но счётчик не обновился' });
+  return res.status(201).json({ answer, question: updatedQuestion });
+});
+app.post('/api/questions/:questionId/helpful', userRateLimit(60, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище ответов не настроено' });
+  const questionId = typeof req.params.questionId === 'string' ? req.params.questionId : '';
+  const answerId = typeof req.body?.answerId === 'string' ? req.body.answerId : '';
+  if (!questionId || !answerId || answerId.length > 100) return res.status(400).json({ error: 'Некорректные данные' });
+  const { data: answer, error: readError } = await serverSupabase.from('question_answers').select('id,question_id,helpful_count').eq('id', answerId).eq('question_id', questionId).maybeSingle();
+  if (readError || !answer) return res.status(404).json({ error: 'Ответ не найден' });
+  const { data: updated, error } = await serverSupabase.from('question_answers').update({ helpful_count: Number(answer.helpful_count || 0) + 1 }).eq('id', answerId).select('id,question_id,user_id,author_name,content,helpful_count,is_verified,created_at').single();
+  if (error) return res.status(500).json({ error: 'Не удалось отметить ответ' });
+  return res.json({ answer: updated });
+});
+app.delete('/api/questions/:questionId', userRateLimit(20, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище вопросов не настроено' });
+  const session = (req as any).telegramSession as TelegramSession;
+  const profileId = await resolveEventProfile(session);
+  if (!profileId) return res.status(500).json({ error: 'Не удалось определить профиль водителя' });
+  const questionId = typeof req.params.questionId === 'string' ? req.params.questionId : '';
+  const { data: question, error: readError } = await serverSupabase.from('questions').select('id,user_id').eq('id', questionId).maybeSingle();
+  if (readError || !question) return res.status(404).json({ error: 'Вопрос не найден' });
+  if (question.user_id !== profileId) return res.status(403).json({ error: 'Можно удалить только свой вопрос' });
+  const { error } = await serverSupabase.from('questions').delete().eq('id', questionId);
+  if (error) return res.status(500).json({ error: 'Не удалось удалить вопрос' });
+  return res.json({ success: true });
+});
+app.delete('/api/questions/:questionId/answers/:answerId', userRateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище ответов не настроено' });
+  const session = (req as any).telegramSession as TelegramSession;
+  const profileId = await resolveEventProfile(session);
+  if (!profileId) return res.status(500).json({ error: 'Не удалось определить профиль водителя' });
+  const questionId = typeof req.params.questionId === 'string' ? req.params.questionId : '';
+  const answerId = typeof req.params.answerId === 'string' ? req.params.answerId : '';
+  const { data: answer, error: readError } = await serverSupabase.from('question_answers').select('id,question_id,user_id').eq('id', answerId).eq('question_id', questionId).maybeSingle();
+  if (readError || !answer) return res.status(404).json({ error: 'Ответ не найден' });
+  if (answer.user_id !== profileId) return res.status(403).json({ error: 'Можно удалить только свой ответ' });
+  const { error } = await serverSupabase.from('question_answers').delete().eq('id', answerId);
+  if (error) return res.status(500).json({ error: 'Не удалось удалить ответ' });
+  const { data: question } = await serverSupabase.from('questions').select('answers_count').eq('id', questionId).maybeSingle();
+  await serverSupabase.from('questions').update({ answers_count: Math.max(0, Number(question?.answers_count || 0) - 1) }).eq('id', questionId);
+  return res.json({ success: true });
+});
+
 app.post('/api/events', rateLimit(30, 60_000), userRateLimit(20, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
   const session = (req as any).telegramSession as TelegramSession;
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище событий не настроено' });
