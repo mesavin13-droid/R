@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, RoadEvent, DriverQuestion } from '../../types';
-import { 
-  Star, Bell, Smartphone, Check, RefreshCw, Info, 
+import {
+  Star, Check, Info,
   MapPin, ShieldCheck, CheckCircle2, Radio, Zap, Award, HelpCircle, Trash2
 } from 'lucide-react';
 import { UserService } from '../../services/userService';
 import { EventService } from '../../services/eventService';
 import { QuestionService } from '../../services/questionService';
-import { NotificationService } from '../../services/notificationService';
-import { PWAInstallButton } from '../common/PWAInstallButton';
 import { HolidayDecorator } from '../common/HolidayDecorator';
 
 interface UserProfileModalProps {
@@ -112,9 +110,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isAdminAuthorized = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'stats' | 'events' | 'questions' | 'answers' | 'about'>('stats');
-  const [pushStatus, setPushStatus] = useState<string | null>(null);
-  const [isPushActive, setIsPushActive] = useState(false);
-  const [isProcessingPush, setIsProcessingPush] = useState(false);
   const [hideOldEvents, setHideOldEvents] = useState(
     localStorage.getItem('roadlive_hide_old_events') === 'true'
   );
@@ -162,41 +157,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     if (onSettingsChange) onSettingsChange();
   };
 
-  useEffect(() => {
-    NotificationService.isSubscribed().then((active) => {
-      setIsPushActive(active);
-    });
-  }, []);
-
-  const handleTogglePush = async () => {
-    setIsProcessingPush(true);
-    try {
-      if (isPushActive) {
-        const res = await NotificationService.unsubscribeFromPush();
-        setIsPushActive(false);
-        setPushStatus(res.message);
-      } else {
-        const res = await NotificationService.subscribeToPush(currentUser);
-        setIsPushActive(res.success);
-        setPushStatus(res.message);
-      }
-    } finally {
-      setIsProcessingPush(false);
-      setTimeout(() => setPushStatus(null), 4000);
-    }
-  };
-
-  const handleSendTestPush = async () => {
-    setIsProcessingPush(true);
-    try {
-      const res = await NotificationService.sendTestPush();
-      setPushStatus(res.message);
-    } finally {
-      setIsProcessingPush(false);
-      setTimeout(() => setPushStatus(null), 4000);
-    }
-  };
-
   return (
     <div className="h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Profile Header */}
@@ -234,19 +194,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="grid grid-cols-3 gap-2 mt-4 max-w-2xl mx-auto text-center">
           <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
             <p className="text-lg sm:text-xl font-bold text-white">
-              {currentUser.helpfulConfirmationsCount || 247}
+              {currentUser.helpfulConfirmationsCount || 0}
             </p>
             <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">подтверждений</p>
           </div>
           <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
             <p className="text-lg sm:text-xl font-bold text-white">
-              {currentUser.eventsCount || 82}
+              {currentUser.eventsCount || 0}
             </p>
             <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">сообщений</p>
           </div>
           <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
             <p className="text-lg sm:text-xl font-bold text-white">
-              {currentUser.answersCount || 31}
+              {currentUser.answersCount || 0}
             </p>
             <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">ответов</p>
           </div>
@@ -326,88 +286,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <span className="text-xs text-warning font-semibold uppercase tracking-wider">Открыть →</span>
               </div>
             )}
-
-            {/* System notifications & VAPID */}
-            <div className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-4">
-              <h2 className="text-xs font-medium uppercase tracking-wider text-muted">
-                Системные уведомления и PWA
-              </h2>
-
-              <div className="space-y-2 py-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center">
-                      <Bell className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-semibold text-white">Web Push (VAPID)</p>
-                        <span
-                          className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                            isPushActive
-                              ? 'bg-success/15 text-success border border-success/30'
-                              : 'bg-white/5 text-muted'
-                          }`}
-                        >
-                          {isPushActive ? 'Включено' : 'Выключено'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted">
-                        Оповещения о перекрытиях и авариях
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleTogglePush}
-                    disabled={isProcessingPush}
-                    className={`px-3.5 py-1.5 text-xs font-medium rounded-xl transition active:scale-95 ${
-                      isPushActive
-                        ? 'bg-white/5 text-muted hover:text-white border border-white/10'
-                        : 'bg-accent hover:bg-accent-strong text-white shadow-xs'
-                    }`}
-                  >
-                    {isPushActive ? 'Отключить' : 'Включить'}
-                  </button>
-                </div>
-
-                {isPushActive && (
-                  <div className="pt-2 border-t border-white/5 flex justify-end">
-                    <button
-                      onClick={handleSendTestPush}
-                      disabled={isProcessingPush}
-                      className="text-xs text-accent hover:underline flex items-center gap-1.5 font-medium"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      <span>Отправить тестовый Push</span>
-                    </button>
-                  </div>
-                )}
-
-                {pushStatus && (
-                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-xs text-white">
-                    {pushStatus}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* PWA App Install Block */}
-            <div className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center">
-                    <Smartphone className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-white">Автономное приложение (PWA)</p>
-                    <p className="text-[11px] text-muted">
-                      Установка на рабочий стол смартфона
-                    </p>
-                  </div>
-                </div>
-                <PWAInstallButton />
-              </div>
-            </div>
           </div>
         )}
 
