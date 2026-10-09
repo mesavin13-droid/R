@@ -1,5 +1,7 @@
 // Helper module to generate RoadLive signature dark teardrop glass pins & vector icons
 
+import { colors } from '../../theme/tokens';
+
 export function getRoadLivePinSvg(
   type: string,
   subType: string,
@@ -63,14 +65,14 @@ export function getRoadLivePinSvg(
   }
 
   const ringGlow = isHighActivity
-    ? `<circle cx="22" cy="22" r="21" fill="none" stroke="#38BDF8" stroke-width="2.5" class="animate-pulse" filter="drop-shadow(0 0 8px #38BDF8)"/>`
+    ? `<circle cx="22" cy="22" r="21" fill="none" stroke="${colors.info}" stroke-width="2.5" class="animate-pulse" filter="drop-shadow(0 0 8px ${colors.info})"/>`
     : '';
 
   const badgeCounter =
     confirmationCount > 1
       ? `<g transform="translate(28, 2)">
-          <circle cx="7" cy="7" r="7" fill="${accentColor}" stroke="#ffffff" stroke-width="1.5"/>
-          <text x="7" y="10.5" text-anchor="middle" fill="#ffffff" font-size="9" font-weight="bold" font-family="sans-serif">${confirmationCount}</text>
+          <circle cx="7" cy="7" r="7" fill="${accentColor}" stroke="${colors.ink}" stroke-width="1.5"/>
+          <text x="7" y="10.5" text-anchor="middle" fill="${colors.ink}" font-size="9" font-weight="bold" font-family="sans-serif">${confirmationCount}</text>
         </g>`
       : '';
 
@@ -81,15 +83,15 @@ export function getRoadLivePinSvg(
         ${ringGlow}
         
         <!-- Teardrop Pin Outer Contour -->
-        <path d="M22 3C12.611 3 5 10.611 5 20c0 12.5 17 21 17 21s17-8.5 17-21C39 10.611 31.389 3 22 3z" 
-              fill="#0B111E" 
-              fill-opacity="0.88" 
-              stroke="${accentColor}" 
-              stroke-width="2" 
+        <path d="M22 3C12.611 3 5 10.611 5 20c0 12.5 17 21 17 21s17-8.5 17-21C39 10.611 31.389 3 22 3z"
+              fill="${colors.graphite950}"
+              fill-opacity="0.88"
+              stroke="${accentColor}"
+              stroke-width="2"
               stroke-linecap="round"/>
 
         <!-- Inner Glass Highlight Circle -->
-        <circle cx="22" cy="19" r="13" fill="#151D2A" fill-opacity="0.75" stroke="${accentColor}" stroke-opacity="0.4" stroke-width="1"/>
+        <circle cx="22" cy="19" r="13" fill="${colors.surfaceBlue}" fill-opacity="0.75" stroke="${accentColor}" stroke-opacity="0.4" stroke-width="1"/>
 
         <!-- Vector Icon Centered -->
         <g transform="translate(10, 7)">

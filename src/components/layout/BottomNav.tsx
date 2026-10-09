@@ -25,7 +25,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   ];
 
   return (
-    <nav className="fixed bottom-0 sm:bottom-3 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 z-40 sm:max-w-md w-full bg-[#111315]/82 backdrop-blur-2xl border-t sm:border border-white/[0.08] sm:rounded-full shadow-[0_12px_36px_rgba(0,0,0,0.6)] px-3 safe-bottom select-none">
+    <nav className="fixed bottom-0 sm:bottom-3 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 z-40 sm:max-w-md w-full bg-graphite/82 backdrop-blur-2xl border-t sm:border border-white/[0.08] sm:rounded-full shadow-[0_12px_36px_rgba(0,0,0,0.6)] px-3 safe-bottom select-none">
       <div className="grid grid-cols-5 items-center h-14 max-w-md mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -36,7 +36,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               key={tab.id}
               onClick={() => onTabChange(tab.id as NavTab)}
               className={`relative flex flex-col items-center justify-center h-full min-h-[44px] min-w-[44px] py-1 transition-all active:scale-95 ${
-                isActive ? 'text-white' : 'text-[#5F656D] hover:text-[#9AA0A8]'
+                isActive ? 'text-white' : 'text-faint hover:text-muted'
               }`}
             >
               <div className="relative">
@@ -46,10 +46,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   }`}
                 />
                 {isActive && (
-                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#4B8DFF]"></span>
+                  <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent"></span>
                 )}
                 {Boolean(tab.badge && tab.badge > 0) && (
-                  <span className="absolute -top-1 -right-2 flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-[#4B8DFF] text-white text-[9px] font-bold">
+                  <span className="absolute -top-1 -right-2 flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-accent text-white text-[9px] font-bold">
                     {tab.badge}
                   </span>
                 )}

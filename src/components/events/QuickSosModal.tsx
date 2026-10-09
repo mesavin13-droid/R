@@ -72,25 +72,25 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-[#181B1F] border border-[#FF3B30]/50 rounded-3xl shadow-[0_16px_48px_rgba(255,59,48,0.3)] overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-md bg-surface-800 border border-danger/50 rounded-3xl shadow-[0_16px_48px_rgba(255,59,48,0.3)] overflow-hidden flex flex-col">
         {/* Top Critical Alert Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-[#FF3B30]/25 via-[#181B1F] to-[#181B1F] border-b border-[#FF3B30]/30 flex items-center justify-between">
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-danger/25 via-surface-800 to-surface-800 border-b border-danger/30 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#FF3B30] text-white flex items-center justify-center text-lg font-bold shadow-md animate-pulse">
+            <div className="w-9 h-9 rounded-2xl bg-danger text-white flex items-center justify-center text-lg font-bold shadow-md animate-pulse">
               🆘
             </div>
             <div>
               <h3 className="text-base font-bold text-white leading-snug">
                 Срочный SOS-запрос помощи
               </h3>
-              <p className="text-[11px] text-[#FF3B30] font-medium">
+              <p className="text-[11px] text-danger font-medium">
                 Мгновенно уведомит водителей поблизости
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-[#9AA0A8] hover:text-white transition active:scale-90"
+            className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-muted hover:text-white transition active:scale-90"
           >
             <X className="w-4 h-4" />
           </button>
@@ -98,7 +98,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-4 sm:p-5 space-y-4 overflow-y-auto max-h-[75vh]">
-          <p className="text-xs text-[#9AA0A8]">
+          <p className="text-xs text-muted">
             Выберите тип нужной помощи. Ваш запрос с геолокацией появится на карте как <strong>критическое SOS-уведомление</strong>:
           </p>
 
@@ -113,14 +113,14 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
                   onClick={() => setSelectedSubtype(opt.id)}
                   className={`p-3 rounded-2xl text-left border transition active:scale-98 flex items-start gap-2.5 cursor-pointer ${
                     isSelected
-                      ? 'bg-[#FF3B30]/15 border-[#FF3B30] shadow-[0_4px_16px_rgba(255,59,48,0.25)]'
-                      : 'bg-[#20242A] hover:bg-[#282E36] border-white/10'
+                      ? 'bg-danger/15 border-danger shadow-[0_4px_16px_rgba(255,59,48,0.25)]'
+                      : 'bg-surface-700 hover:bg-surface-650 border-white/10'
                   }`}
                 >
                   <span className="text-2xl shrink-0">{opt.icon}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-white truncate">{opt.title}</p>
-                    <p className="text-[10px] text-[#9AA0A8] leading-tight mt-0.5 line-clamp-2">{opt.desc}</p>
+                    <p className="text-[10px] text-muted leading-tight mt-0.5 line-clamp-2">{opt.desc}</p>
                   </div>
                 </button>
               );
@@ -129,7 +129,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
 
           {/* Optional Comment Input */}
           <div className="space-y-1.5 pt-1">
-            <label className="text-[11px] text-[#9AA0A8] font-medium block">
+            <label className="text-[11px] text-muted font-medium block">
               Уточнение (марка машины, детали местоположения):
             </label>
             <input
@@ -137,13 +137,13 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
               value={customComment}
               onChange={(e) => setCustomComment(e.target.value)}
               placeholder="Например: Синий Солярис, около АЗС, есть провода"
-              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-[#5F656D] focus:outline-none focus:border-[#FF3B30]/60 transition"
+              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-faint focus:outline-none focus:border-danger/60 transition"
             />
           </div>
 
           {/* Location Badge */}
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#111315] border border-white/5 text-[11px] text-[#9AA0A8]">
-            <MapPin className="w-3.5 h-3.5 text-[#FF3B30] shrink-0" />
+          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-graphite border border-white/5 text-[11px] text-muted">
+            <MapPin className="w-3.5 h-3.5 text-danger shrink-0" />
             <span className="truncate">
               {userCoords ? `Точка GPS: ${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}` : 'Локация: По центру карты'}
             </span>
@@ -153,7 +153,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
           <button
             onClick={handlePublishSos}
             disabled={isSubmitting}
-            className="w-full py-3 px-4 rounded-2xl bg-[#FF3B30] hover:bg-[#E03126] text-white font-bold text-sm shadow-[0_8px_24px_rgba(255,59,48,0.4)] transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-2xl bg-danger hover:bg-danger-strong text-white font-bold text-sm shadow-[0_8px_24px_rgba(255,59,48,0.4)] transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? (
               <span>Отправка SOS...</span>

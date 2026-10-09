@@ -68,15 +68,15 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
   const getStatusBadge = () => {
     if (event.status === 'expiring') {
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-[#E5A93C] font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#E5A93C]"></span>
+        <span className="inline-flex items-center gap-1.5 text-xs text-warning font-medium">
+          <span className="w-1.5 h-1.5 rounded-full bg-warning"></span>
           Устаревает
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-[#34C759] font-medium">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span>
+      <span className="inline-flex items-center gap-1.5 text-xs text-success font-medium">
+        <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
         Сейчас
       </span>
     );
@@ -199,27 +199,27 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               {getStatusBadge()}
-              <span className="text-xs text-[#9AA0A8]">· {getTimeAgo(event.createdAt)}</span>
+              <span className="text-xs text-muted">· {getTimeAgo(event.createdAt)}</span>
               {distanceText && (
-                <span className={`text-xs ${isWithin1000m ? 'text-[#34C759]' : 'text-[#9AA0A8]'}`}>
+                <span className={`text-xs ${isWithin1000m ? 'text-success' : 'text-muted'}`}>
                   · {distanceText} {isWithin1000m ? '(рядом)' : ''}
                 </span>
               )}
             </div>
 
-            <h2 className="text-lg sm:text-xl font-semibold text-[#F0F2F5] leading-snug">
+            <h2 className="text-lg sm:text-xl font-semibold text-ink leading-snug">
               {event.title}
             </h2>
 
-            <div className="flex items-center gap-1.5 text-xs text-[#9AA0A8] mt-1">
-              <MapPin className="w-3.5 h-3.5 text-[#4B8DFF] shrink-0" />
+            <div className="flex items-center gap-1.5 text-xs text-muted mt-1">
+              <MapPin className="w-3.5 h-3.5 text-accent shrink-0" />
               <span className="truncate text-white font-medium">{event.address}</span>
             </div>
           </div>
 
           <button
             onClick={handleAnimatedClose}
-            className="p-1.5 rounded-full bg-white/5 text-[#9AA0A8] hover:text-white hover:bg-white/10 transition shrink-0 active:scale-90"
+            className="p-1.5 rounded-full bg-white/5 text-muted hover:text-white hover:bg-white/10 transition shrink-0 active:scale-90"
           >
             <X className="w-4 h-4" />
           </button>
@@ -228,25 +228,25 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
         {/* Content Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           {notice && (
-            <div className="p-3 rounded-2xl bg-[#34C759]/15 border border-[#34C759]/30 text-xs text-[#34C759] font-medium flex items-center gap-2 animate-in fade-in">
-              <Check className="w-4 h-4 text-[#34C759] shrink-0" />
+            <div className="p-3 rounded-2xl bg-success/15 border border-success/30 text-xs text-success font-medium flex items-center gap-2 animate-in fade-in">
+              <Check className="w-4 h-4 text-success shrink-0" />
               <span>{notice}</span>
             </div>
           )}
 
           {warningNotice && (
-            <div className="p-3 rounded-2xl bg-[#E5A93C]/15 border border-[#E5A93C]/30 text-xs text-[#E5A93C] font-medium flex items-center gap-2 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-[#E5A93C] shrink-0" />
+            <div className="p-3 rounded-2xl bg-warning/15 border border-warning/30 text-xs text-warning font-medium flex items-center gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-warning shrink-0" />
               <span>{warningNotice}</span>
             </div>
           )}
 
           {event.isRemoteReport && (
-            <div className="p-3 rounded-2xl bg-[#E5A93C]/10 border border-[#E5A93C]/25 text-xs text-[#E5A93C] flex items-start gap-2.5">
+            <div className="p-3 rounded-2xl bg-warning/10 border border-warning/25 text-xs text-warning flex items-start gap-2.5">
               <span className="text-base leading-none">⚠️</span>
               <div>
                 <p className="font-semibold text-white">Дистанционное сообщение</p>
-                <p className="text-[11px] text-[#9AA0A8] mt-0.5">
+                <p className="text-[11px] text-muted mt-0.5">
                   Автор указал точку вне радиуса присутствия ({event.distanceFromAuthorMeters ? `${(event.distanceFromAuthorMeters / 1000).toFixed(1)} км` : '>1 км'}).
                 </p>
               </div>
@@ -254,12 +254,12 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
           )}
 
           {event.type === 'assistance' && (
-            <div className="p-3.5 rounded-2xl bg-[#FF3B30]/15 border border-[#FF3B30]/35 space-y-2.5 animate-in fade-in">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#FF3B30]">
+            <div className="p-3.5 rounded-2xl bg-danger/15 border border-danger/35 space-y-2.5 animate-in fade-in">
+              <div className="flex items-center gap-2 text-xs font-bold text-danger">
                 <span className="text-base">🆘</span>
                 <span>Запрос взаимовыручки водителей!</span>
               </div>
-              <p className="text-[11px] text-[#F0F2F5] leading-relaxed">
+              <p className="text-[11px] text-ink leading-relaxed">
                 Водителю необходима помощь с аккумулятором, тросом, колесом или топливом.
               </p>
 
@@ -272,7 +272,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                     setNotice('🤝 Автор уведомлён: вы выехали на помощь!');
                     setTimeout(() => setNotice(null), 4000);
                   }}
-                  className="w-full py-2.5 px-3 rounded-xl bg-[#FF3B30] hover:bg-[#E03126] text-white text-xs font-bold transition active:scale-95 shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl bg-danger hover:bg-danger-strong text-white text-xs font-bold transition active:scale-95 shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>🤝 Выехать на помощь водителю</span>
                 </button>
@@ -285,7 +285,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                     Вы выехали на помощь! Подтвердите завершение:
                   </p>
                   {event.helperConfirmedResolved ? (
-                    <div className="text-center text-[#34C759] text-xs font-semibold py-1">
+                    <div className="text-center text-success text-xs font-semibold py-1">
                       ✓ Вы подтвердили, что помогли. Ждем подтверждения автора.
                     </div>
                   ) : (
@@ -299,7 +299,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                           handleAnimatedClose();
                         }
                       }}
-                      className="w-full py-2 px-3 rounded-lg bg-[#34C759] hover:bg-[#2fb350] text-white text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5"
+                      className="w-full py-2 px-3 rounded-lg bg-success hover:bg-success-bright text-white text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5"
                     >
                       <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                       <span>Я помог (закрыть)</span>
@@ -311,7 +311,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
               {/* Case 3: Current user is the creator of the SOS */}
               {event.userId === currentUser.id && event.helperUserId && (
                 <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                  <p className="text-[11px] text-[#4B8DFF] font-semibold">
+                  <p className="text-[11px] text-accent font-semibold">
                     🤝 {event.helperName} едет к вам на помощь!
                   </p>
                   <button
@@ -322,7 +322,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                       setTimeout(() => setNotice(null), 4000);
                       handleAnimatedClose();
                     }}
-                    className="w-full py-2 px-3 rounded-lg bg-[#34C759] hover:bg-[#2fb350] text-white text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5"
+                    className="w-full py-2 px-3 rounded-lg bg-success hover:bg-success-bright text-white text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                     <span>Помощь получена (закрыть вызов)</span>
@@ -332,8 +332,8 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
 
               {/* Case 4: Any other driver viewing the card when someone is already on their way */}
               {event.helperUserId && event.helperUserId !== currentUser.id && event.userId !== currentUser.id && (
-                <div className="p-2.5 rounded-xl bg-[#34C759]/10 border border-[#34C759]/20 text-center">
-                  <p className="text-[11px] text-[#34C759] font-semibold flex items-center justify-center gap-1.5">
+                <div className="p-2.5 rounded-xl bg-success/10 border border-success/20 text-center">
+                  <p className="text-[11px] text-success font-semibold flex items-center justify-center gap-1.5">
                     <span>🤝</span>
                     <span>{event.helperName} уже едет на помощь!</span>
                   </p>
@@ -343,39 +343,39 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
           )}
 
           {event.description && (
-            <div className="p-3.5 rounded-2xl bg-[#181B1F] border border-white/[0.06] text-xs sm:text-sm text-[#F0F2F5] leading-relaxed">
+            <div className="p-3.5 rounded-2xl bg-surface-800 border border-white/[0.06] text-xs sm:text-sm text-ink leading-relaxed">
               {event.description}
             </div>
           )}
 
           {/* Verification Metrics Card */}
-          <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-[#181B1F] border border-white/[0.06] text-center">
+          <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-surface-800 border border-white/[0.06] text-center">
             <div>
               <p className="text-lg font-bold text-white">
                 {event.confirmationCount}
               </p>
-              <p className="text-[10px] text-[#9AA0A8] font-normal uppercase tracking-wider">
+              <p className="text-[10px] text-muted font-normal uppercase tracking-wider">
                 {event.type === 'assistance' ? 'откликов' : 'подтверждений'}
               </p>
             </div>
             <div>
-              <p className="text-lg font-bold text-[#4B8DFF]">
+              <p className="text-lg font-bold text-accent">
                 {Math.round(event.confidenceScore * 100)}%
               </p>
-              <p className="text-[10px] text-[#9AA0A8] font-normal uppercase tracking-wider">достоверность</p>
+              <p className="text-[10px] text-muted font-normal uppercase tracking-wider">достоверность</p>
             </div>
           </div>
 
           {/* Remote Confirmation Warning Dialog Prompt */}
           {showRemoteConfirmModal && (
-            <div className="p-3.5 rounded-2xl bg-[#181B1F] border border-[#E5A93C]/40 space-y-2.5 animate-in fade-in">
+            <div className="p-3.5 rounded-2xl bg-surface-800 border border-warning/40 space-y-2.5 animate-in fade-in">
               <div className="flex items-start gap-2 text-xs">
-                <ShieldAlert className="w-4 h-4 text-[#E5A93C] shrink-0 mt-0.5" />
+                <ShieldAlert className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p className="font-semibold text-white">
                     Вы находитесь в {distanceText} от события
                   </p>
-                  <p className="text-[11px] text-[#9AA0A8] leading-relaxed">
+                  <p className="text-[11px] text-muted leading-relaxed">
                     Радиус достоверного подтверждения — <strong>1000 метров</strong>. Информация не может считаться гарантированно точной без присутствия на месте.
                   </p>
                 </div>
@@ -384,13 +384,13 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   onClick={() => setShowRemoteConfirmModal(false)}
-                  className="py-2 px-2 text-xs font-medium text-[#9AA0A8] hover:text-white bg-white/5 rounded-xl transition"
+                  className="py-2 px-2 text-xs font-medium text-muted hover:text-white bg-white/5 rounded-xl transition"
                 >
                   Отмена
                 </button>
                 <button
                   onClick={() => executeConfirmation(true)}
-                  className="py-2 px-2 text-xs font-medium text-white bg-[#E5A93C]/20 border border-[#E5A93C]/40 hover:bg-[#E5A93C]/30 rounded-xl transition"
+                  className="py-2 px-2 text-xs font-medium text-white bg-warning/20 border border-warning/40 hover:bg-warning/30 rounded-xl transition"
                 >
                   Всё равно подтвердить
                 </button>
@@ -404,8 +404,8 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
               onClick={handleConfirmClick}
               className={`flex items-center justify-center gap-2 py-3 px-3 rounded-2xl font-medium text-xs transition active:scale-95 ${
                 hasConfirmed
-                  ? 'bg-[#34C759]/20 text-[#34C759] border border-[#34C759]/40'
-                  : 'bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white shadow-xs'
+                  ? 'bg-success/20 text-success border border-success/40'
+                  : 'bg-accent hover:bg-accent-strong text-white shadow-xs'
               } ${isConfirmingAnim ? 'scale-105' : ''}`}
             >
               <Check className="w-4 h-4" />
@@ -421,9 +421,9 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                 const el = document.getElementById('comment-input');
                 el?.focus();
               }}
-              className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl font-medium text-xs text-[#F0F2F5] bg-[#181B1F] hover:bg-[#20242A] border border-white/[0.08] transition active:scale-95"
+              className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl font-medium text-xs text-ink bg-surface-800 hover:bg-surface-700 border border-white/[0.08] transition active:scale-95"
             >
-              <MessageCircle className="w-4 h-4 text-[#9AA0A8]" />
+              <MessageCircle className="w-4 h-4 text-muted" />
               <span>Ответить</span>
             </button>
           </div>
@@ -431,12 +431,12 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
           {/* Community Stream */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-[#9AA0A8]">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-muted">
                 Последние сообщения ({event.comments?.length || 0})
               </h3>
               <button
                 onClick={handleShare}
-                className="flex items-center gap-1 text-xs text-[#4B8DFF] hover:underline font-normal"
+                className="flex items-center gap-1 text-xs text-accent hover:underline font-normal"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span>Поделиться</span>
@@ -448,17 +448,17 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                 event.comments.map((cm) => (
                   <div
                     key={cm.id}
-                    className="p-3 rounded-2xl bg-[#181B1F] border border-white/[0.05] text-xs space-y-1"
+                    className="p-3 rounded-2xl bg-surface-800 border border-white/[0.05] text-xs space-y-1"
                   >
-                    <div className="flex items-center justify-between text-[11px] text-[#9AA0A8]">
+                    <div className="flex items-center justify-between text-[11px] text-muted">
                       <span className="font-medium text-white">{cm.authorName}</span>
                       <span>{getTimeAgo(cm.createdAt)}</span>
                     </div>
-                    <p className="text-[#F0F2F5] leading-relaxed">{cm.content}</p>
+                    <p className="text-ink leading-relaxed">{cm.content}</p>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-[#5F656D] italic py-2 text-center">
+                <p className="text-xs text-faint italic py-2 text-center">
                   Пока нет комментариев
                 </p>
               )}
@@ -469,7 +469,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
         {/* Comment Input Footer */}
         <form
           onSubmit={handleAddComment}
-          className="p-3 sm:p-4 bg-[#14171B] border-t border-white/[0.08] flex items-center gap-2 safe-bottom"
+          className="p-3 sm:p-4 bg-graphite-900 border-t border-white/[0.08] flex items-center gap-2 safe-bottom"
         >
           <input
             id="comment-input"
@@ -477,12 +477,12 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
             placeholder="Написать сообщение..."
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
-            className="flex-1 text-sm bg-[#181B1F] rounded-full px-4 py-2.5 outline-none border border-white/[0.08] focus:border-[#4B8DFF]/60 text-white placeholder:text-[#5F656D]"
+            className="flex-1 text-sm bg-surface-800 rounded-full px-4 py-2.5 outline-none border border-white/[0.08] focus:border-accent/60 text-white placeholder:text-faint"
           />
           <button
             type="submit"
             disabled={!commentText.trim() || isSubmittingComment}
-            className="p-2.5 bg-[#4B8DFF] hover:bg-[#3C7AE6] disabled:opacity-30 text-white rounded-full transition active:scale-95 shadow-xs"
+            className="p-2.5 bg-accent hover:bg-accent-strong disabled:opacity-30 text-white rounded-full transition active:scale-95 shadow-xs"
           >
             <Send className="w-4 h-4" />
           </button>

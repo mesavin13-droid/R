@@ -85,12 +85,12 @@ export const DriverChat: React.FC<DriverChatProps> = ({
   ];
 
   return (
-    <div className="h-full flex flex-col bg-[#111315] overflow-hidden pb-16 select-none">
+    <div className="h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Top Header & Channels Bar */}
-      <div className="bg-[#181B1F]/80 backdrop-blur-2xl border-b border-white/[0.08] p-4 sm:p-5">
+      <div className="bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08] p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3 mb-3.5 max-w-2xl mx-auto">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#20242A] border border-white/10 text-[#4B8DFF] flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center font-bold">
               <Radio className="w-4 h-4" />
             </div>
             <div>
@@ -99,7 +99,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
                   {activeChannel.name}
                 </h1>
               </div>
-              <p className="text-xs text-[#9AA0A8] truncate mt-0.5">{activeChannel.description}</p>
+              <p className="text-xs text-muted truncate mt-0.5">{activeChannel.description}</p>
             </div>
           </div>
         </div>
@@ -114,8 +114,8 @@ export const DriverChat: React.FC<DriverChatProps> = ({
                 onClick={() => setSelectedChannelId(ch.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all select-none ${
                   isSelected
-                    ? 'bg-[#20242A] text-white border border-[#4B8DFF]/60 shadow-xs'
-                    : 'bg-[#181B1F] text-[#9AA0A8] border border-white/[0.06] hover:text-white'
+                    ? 'bg-surface-700 text-white border border-accent/60 shadow-xs'
+                    : 'bg-surface-800 text-muted border border-white/[0.06] hover:text-white'
                 }`}
               >
                 <span>{ch.icon}</span>
@@ -130,16 +130,16 @@ export const DriverChat: React.FC<DriverChatProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-3.5 max-w-2xl mx-auto w-full">
         {messages.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <div className="w-10 h-10 rounded-2xl bg-[#20242A] border border-white/10 text-[#4B8DFF] mx-auto flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-surface-700 border border-white/10 text-accent mx-auto flex items-center justify-center mb-3">
               <Radio className="w-5 h-5" />
             </div>
             <p className="text-sm font-semibold text-white">В эфире пока тихо</p>
-            <p className="text-xs text-[#9AA0A8] mt-1 mb-4">
+            <p className="text-xs text-muted mt-1 mb-4">
               Сообщите обстановку на вашем маршруте
             </p>
             <button
               onClick={() => handleSendMessage('Всем привет! Как обстановка на дорогах?')}
-              className="px-4 py-2 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white text-xs font-medium rounded-xl transition active:scale-95"
+              className="px-4 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-medium rounded-xl transition active:scale-95"
             >
               Выйти в эфир
             </button>
@@ -154,7 +154,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
                 className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all`}
               >
                 {/* Meta info */}
-                <div className="flex items-center gap-1.5 px-2 mb-1 text-[11px] text-[#9AA0A8]">
+                <div className="flex items-center gap-1.5 px-2 mb-1 text-[11px] text-muted">
                   <span className="font-medium text-white">{m.userName}</span>
                   <span>· ★ {m.userRating.toFixed(1)}</span>
                   <span>· {getTimeAgo(m.createdAt)}</span>
@@ -164,8 +164,8 @@ export const DriverChat: React.FC<DriverChatProps> = ({
                 <div
                   className={`relative max-w-[85%] sm:max-w-[78%] rounded-2xl p-3.5 text-xs sm:text-sm leading-relaxed border ${
                     isMe
-                      ? 'bg-[#1C2433] text-white border-[#4B8DFF]/40 rounded-br-xs'
-                      : 'bg-[#181B1F] text-[#F0F2F5] border-white/[0.08] rounded-bl-xs'
+                      ? 'bg-graphite-925 text-white border-accent/40 rounded-br-xs'
+                      : 'bg-surface-800 text-ink border-white/[0.08] rounded-bl-xs'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{m.content}</p>
@@ -178,7 +178,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
                           onFocusMap(m.latitude, m.longitude);
                         }
                       }}
-                      className="mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-normal w-fit cursor-pointer transition bg-white/5 hover:bg-white/10 text-[#4B8DFF] border border-white/5"
+                      className="mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-normal w-fit cursor-pointer transition bg-white/5 hover:bg-white/10 text-accent border border-white/5"
                     >
                       <MapPin className="w-3 h-3 shrink-0" />
                       <span className="truncate">{m.locationName}</span>
@@ -221,14 +221,14 @@ export const DriverChat: React.FC<DriverChatProps> = ({
       </div>
 
       {/* Composer Section */}
-      <div className="p-3 sm:p-4 bg-[#181B1F]/90 backdrop-blur-2xl border-t border-white/[0.08] max-w-2xl mx-auto w-full">
+      <div className="p-3 sm:p-4 bg-surface-800/90 backdrop-blur-2xl border-t border-white/[0.08] max-w-2xl mx-auto w-full">
         {/* Quick Driver Presets */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
           {driverPresets.map((preset) => (
             <button
               key={preset}
               onClick={() => handleSendMessage(preset)}
-              className="px-3 py-1 bg-[#20242A] hover:bg-white/10 text-[#F0F2F5] text-xs font-normal rounded-xl whitespace-nowrap transition active:scale-95 border border-white/[0.06] shrink-0"
+              className="px-3 py-1 bg-surface-700 hover:bg-white/10 text-ink text-xs font-normal rounded-xl whitespace-nowrap transition active:scale-95 border border-white/[0.06] shrink-0"
             >
               {preset}
             </button>
@@ -243,20 +243,20 @@ export const DriverChat: React.FC<DriverChatProps> = ({
           }}
           className="flex items-center gap-2"
         >
-          <div className="relative flex-1 flex items-center bg-[#111315] rounded-xl px-4 py-2 border border-white/[0.08] focus-within:border-[#4B8DFF]/60 transition">
+          <div className="relative flex-1 flex items-center bg-graphite rounded-xl px-4 py-2 border border-white/[0.08] focus-within:border-accent/60 transition">
             <input
               type="text"
               placeholder="Сообщение в эфир..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              className="w-full text-xs sm:text-sm bg-transparent outline-none text-white placeholder:text-[#5F656D]"
+              className="w-full text-xs sm:text-sm bg-transparent outline-none text-white placeholder:text-faint"
             />
           </div>
 
           <button
             type="submit"
             disabled={!inputText.trim() || isSending}
-            className="p-2.5 bg-[#4B8DFF] hover:bg-[#3C7AE6] disabled:opacity-30 text-white rounded-xl transition active:scale-95 shadow-xs shrink-0"
+            className="p-2.5 bg-accent hover:bg-accent-strong disabled:opacity-30 text-white rounded-xl transition active:scale-95 shadow-xs shrink-0"
           >
             <Send className="w-4 h-4" />
           </button>

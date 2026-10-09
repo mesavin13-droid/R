@@ -66,22 +66,22 @@ export const StationSheet: React.FC<StationSheetProps> = ({
     switch (station.queueStatus) {
       case 'none':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#34C759]/10 text-[#34C759] text-xs font-medium border border-[#34C759]/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span>
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-success/10 text-success text-xs font-medium border border-success/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-success"></span>
             Свободно
           </span>
         );
       case 'small':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E5A93C]/10 text-[#E5A93C] text-xs font-medium border border-[#E5A93C]/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E5A93C]"></span>
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-warning/10 text-warning text-xs font-medium border border-warning/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-warning"></span>
             2–4 авто
           </span>
         );
       case 'large':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FF453A]/10 text-[#FF453A] text-xs font-medium border border-[#FF453A]/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF453A]"></span>
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-danger/10 text-danger text-xs font-medium border border-danger/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-danger"></span>
             Большая очередь
           </span>
         );
@@ -118,24 +118,24 @@ export const StationSheet: React.FC<StationSheetProps> = ({
         <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-start justify-between gap-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="px-2 py-0.5 rounded-lg bg-[#20242A] text-[#9AA0A8] border border-white/5 text-[10px] font-medium">
+              <span className="px-2 py-0.5 rounded-lg bg-surface-700 text-muted border border-white/5 text-[10px] font-medium">
                 {station.brand}
               </span>
-              <span className="text-[11px] text-[#9AA0A8]">
+              <span className="text-[11px] text-muted">
                 {getTimeAgo(station.lastReportedAt)} назад
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-semibold text-white leading-tight">
               {station.name}
             </h2>
-            <div className="flex items-center gap-1 text-xs text-[#9AA0A8] mt-1">
-              <MapPin className="w-3.5 h-3.5 text-[#4B8DFF] shrink-0" />
+            <div className="flex items-center gap-1 text-xs text-muted mt-1">
+              <MapPin className="w-3.5 h-3.5 text-accent shrink-0" />
               <span className="truncate text-white">{station.address}</span>
             </div>
           </div>
           <button
             onClick={handleAnimatedClose}
-            className="p-1.5 rounded-full bg-white/5 text-[#9AA0A8] hover:text-white transition active:scale-90"
+            className="p-1.5 rounded-full bg-white/5 text-muted hover:text-white transition active:scale-90"
           >
             <X className="w-4 h-4" />
           </button>
@@ -144,8 +144,8 @@ export const StationSheet: React.FC<StationSheetProps> = ({
         {/* Content */}
         <div className="p-4 sm:p-5 space-y-4">
           {successNotice && (
-            <div className="p-3 rounded-xl bg-[#4B8DFF]/15 border border-[#4B8DFF]/30 text-xs text-white font-medium flex items-center gap-2">
-              <Check className="w-4 h-4 text-[#4B8DFF] shrink-0" />
+            <div className="p-3 rounded-xl bg-accent/15 border border-accent/30 text-xs text-white font-medium flex items-center gap-2">
+              <Check className="w-4 h-4 text-accent shrink-0" />
               <span>{successNotice}</span>
             </div>
           )}
@@ -157,52 +157,52 @@ export const StationSheet: React.FC<StationSheetProps> = ({
           )}
 
           {/* Current Queue Status */}
-          <div className="p-3.5 bg-[#181B1F] rounded-2xl border border-white/[0.06] flex items-center justify-between">
+          <div className="p-3.5 bg-surface-800 rounded-2xl border border-white/[0.06] flex items-center justify-between">
             <div>
-              <p className="text-[10px] text-[#9AA0A8] uppercase tracking-wider font-medium">Очередь сейчас</p>
+              <p className="text-[10px] text-muted uppercase tracking-wider font-medium">Очередь сейчас</p>
               <div className="mt-1">{getQueueBadge()}</div>
             </div>
             <div className="text-right">
               <p className="text-base font-bold text-white">
                 {station.observationsCount || 12}
               </p>
-              <p className="text-[10px] uppercase font-normal tracking-wider text-[#9AA0A8]">отметок</p>
+              <p className="text-[10px] uppercase font-normal tracking-wider text-muted">отметок</p>
             </div>
           </div>
 
           {/* Fuel Prices in Dark Grid */}
           <div>
-            <h3 className="text-xs font-medium uppercase tracking-wider text-[#9AA0A8] mb-2">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted mb-2">
               Цены на топливо
             </h3>
             <div className="grid grid-cols-2 gap-2">
               {station.fuelTypes.ai92 && (
-                <div className="p-2.5 bg-[#181B1F] rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
-                  <span className="text-[#9AA0A8]">АИ-92</span>
+                <div className="p-2.5 bg-surface-800 rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
+                  <span className="text-muted">АИ-92</span>
                   <span className="font-semibold text-white">{station.fuelTypes.ai92.toFixed(2)} ₽</span>
                 </div>
               )}
               {station.fuelTypes.ai95 && (
-                <div className="p-2.5 bg-[#181B1F] rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
-                  <span className="text-[#9AA0A8]">АИ-95</span>
+                <div className="p-2.5 bg-surface-800 rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
+                  <span className="text-muted">АИ-95</span>
                   <span className="font-semibold text-white">{station.fuelTypes.ai95.toFixed(2)} ₽</span>
                 </div>
               )}
               {station.fuelTypes.ai98 && (
-                <div className="p-2.5 bg-[#181B1F] rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
-                  <span className="text-[#9AA0A8]">АИ-98</span>
+                <div className="p-2.5 bg-surface-800 rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
+                  <span className="text-muted">АИ-98</span>
                   <span className="font-semibold text-white">{station.fuelTypes.ai98.toFixed(2)} ₽</span>
                 </div>
               )}
               {station.fuelTypes.ai100 && (
-                <div className="p-2.5 bg-[#181B1F] rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
-                  <span className="text-[#9AA0A8]">АИ-100</span>
+                <div className="p-2.5 bg-surface-800 rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
+                  <span className="text-muted">АИ-100</span>
                   <span className="font-semibold text-white">{station.fuelTypes.ai100.toFixed(2)} ₽</span>
                 </div>
               )}
               {station.fuelTypes.dt && (
-                <div className="p-2.5 bg-[#181B1F] rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
-                  <span className="text-[#9AA0A8]">Дизель</span>
+                <div className="p-2.5 bg-surface-800 rounded-xl border border-white/[0.06] flex justify-between items-center text-xs">
+                  <span className="text-muted">Дизель</span>
                   <span className="font-semibold text-white">{station.fuelTypes.dt.toFixed(2)} ₽</span>
                 </div>
               )}
@@ -211,8 +211,8 @@ export const StationSheet: React.FC<StationSheetProps> = ({
 
           {/* 1-Tap Queue Reporter */}
           <div className="pt-2 border-t border-white/[0.08] safe-bottom">
-            <p className="text-xs font-medium text-[#9AA0A8] mb-2.5 flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-[#4B8DFF]" />
+            <p className="text-xs font-medium text-muted mb-2.5 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-accent" />
               <span>Отметить очередь в 1 тап:</span>
             </p>
 
@@ -220,21 +220,21 @@ export const StationSheet: React.FC<StationSheetProps> = ({
               <button
                 onClick={() => handleReportQueue('none')}
                 disabled={isReporting}
-                className="py-2.5 px-2 text-xs font-medium text-white bg-[#181B1F] hover:border-[#34C759]/50 border border-white/[0.08] rounded-xl transition active:scale-95 text-center"
+                className="py-2.5 px-2 text-xs font-medium text-white bg-surface-800 hover:border-success/50 border border-white/[0.08] rounded-xl transition active:scale-95 text-center"
               >
                 Нет
               </button>
               <button
                 onClick={() => handleReportQueue('small')}
                 disabled={isReporting}
-                className="py-2.5 px-2 text-xs font-medium text-white bg-[#181B1F] hover:border-[#E5A93C]/50 border border-white/[0.08] rounded-xl transition active:scale-95 text-center"
+                className="py-2.5 px-2 text-xs font-medium text-white bg-surface-800 hover:border-warning/50 border border-white/[0.08] rounded-xl transition active:scale-95 text-center"
               >
                 2–4 авто
               </button>
               <button
                 onClick={() => handleReportQueue('large')}
                 disabled={isReporting}
-                className="py-2.5 px-2 text-xs font-medium text-white bg-[#181B1F] hover:border-[#FF453A]/50 border border-white/[0.08] rounded-xl transition active:scale-95 text-center"
+                className="py-2.5 px-2 text-xs font-medium text-white bg-surface-800 hover:border-danger/50 border border-white/[0.08] rounded-xl transition active:scale-95 text-center"
               >
                 Большая
               </button>

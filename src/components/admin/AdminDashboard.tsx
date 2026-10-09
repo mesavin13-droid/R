@@ -1,3 +1,4 @@
+import { colors } from '../../theme/tokens';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RoadEvent, FuelStation, SponsoredBanner, CustomAdIcon } from '../../types';
 import { 
@@ -112,7 +113,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adIcon, setAdIcon] = useState('🛞');
   const [selectedCustomIconId, setSelectedCustomIconId] = useState<string | null>(null);
   const [adCustomLogoUrl, setAdCustomLogoUrl] = useState<string>('');
-  const [adBannerColor, setAdBannerColor] = useState('#4B8DFF');
+  const [adBannerColor, setAdBannerColor] = useState<string>(colors.accent);
   const [adAddress, setAdAddress] = useState('');
   const [adLat, setAdLat] = useState('55.0089');
   const [adLng, setAdLng] = useState('82.9372');
@@ -566,18 +567,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#111315] overflow-hidden select-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex flex-col bg-graphite overflow-hidden select-none animate-in fade-in duration-200">
       {/* Dark Graphite Header */}
-      <header className="p-4 sm:p-5 bg-[#181B1F] border-b border-white/[0.08] flex items-center justify-between">
+      <header className="p-4 sm:p-5 bg-surface-800 border-b border-white/[0.08] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[#20242A] border border-white/10 text-[#E5A93C] flex items-center justify-center font-bold">
+          <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-warning flex items-center justify-center font-bold">
             <ShieldAlert className="w-4 h-4" />
           </div>
           <div>
             <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight">
               ROADLIVE · Панель управления & Модерация
             </h1>
-            <p className="text-[11px] text-[#9AA0A8]">
+            <p className="text-[11px] text-muted">
               Управление дорожными событиями, кастомными SVG иконками и рекламой 2ГИС
             </p>
           </div>
@@ -591,16 +592,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               setPushFeedback(res.message);
               setTimeout(() => setPushFeedback(null), 4000);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#20242A] hover:bg-white/10 border border-white/10 text-white font-medium text-xs rounded-xl transition active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-700 hover:bg-white/10 border border-white/10 text-white font-medium text-xs rounded-xl transition active:scale-95"
             title="Отправить тестовое критическое оповещение"
           >
-            <BellRing className="w-3.5 h-3.5 text-[#4B8DFF]" />
+            <BellRing className="w-3.5 h-3.5 text-accent" />
             <span className="hidden sm:inline">Тестовый пуш</span>
           </button>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full bg-white/5 text-[#9AA0A8] hover:text-white transition"
+            className="p-1.5 rounded-full bg-white/5 text-muted hover:text-white transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -608,15 +609,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </header>
 
       {pushFeedback && (
-        <div className="bg-[#20242A] border-b border-[#4B8DFF]/40 text-white px-4 py-2 text-xs text-center animate-in fade-in flex items-center justify-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-[#E5A93C]" />
+        <div className="bg-surface-700 border-b border-accent/40 text-white px-4 py-2 text-xs text-center animate-in fade-in flex items-center justify-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-warning" />
           <span>{pushFeedback}</span>
         </div>
       )}
 
       {/* Main Tabs Navigation */}
-      <div className="bg-[#181B1F]/60 border-b border-white/[0.08] px-4 py-2">
-        <div className="flex items-center p-1 bg-[#111315] rounded-xl max-w-4xl mx-auto border border-white/[0.06] overflow-x-auto no-scrollbar">
+      <div className="bg-surface-800/60 border-b border-white/[0.08] px-4 py-2">
+        <div className="flex items-center p-1 bg-graphite rounded-xl max-w-4xl mx-auto border border-white/[0.06] overflow-x-auto no-scrollbar">
           {[
             { id: 'overview', label: 'Сводка' },
             ...(isOwner ? [{ id: 'ads_management', label: `Управление рекламой (${ads.length})` }] : []),
@@ -631,8 +632,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all select-none ${
                 activeTab === tab.id
-                  ? 'bg-[#20242A] text-white border border-white/10 shadow-xs'
-                  : 'text-[#9AA0A8] hover:text-white'
+                  ? 'bg-surface-700 text-white border border-white/10 shadow-xs'
+                  : 'text-muted hover:text-white'
               }`}
             >
               {tab.label}
@@ -647,56 +648,56 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-4">
             {/* Top Metrics Banner */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06]">
-                <p className="text-[10px] font-medium text-[#9AA0A8] uppercase tracking-wider">
+              <div className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06]">
+                <p className="text-[10px] font-medium text-muted uppercase tracking-wider">
                   Сегодня
                 </p>
                 <p className="text-2xl font-bold text-white mt-1">1 248</p>
-                <p className="text-[11px] text-[#34C759] mt-0.5">
+                <p className="text-[11px] text-success mt-0.5">
                   событий
                 </p>
               </div>
 
-              <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06]">
-                <p className="text-[10px] font-medium text-[#9AA0A8] uppercase tracking-wider">
+              <div className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06]">
+                <p className="text-[10px] font-medium text-muted uppercase tracking-wider">
                   Подтверждений
                 </p>
                 <p className="text-2xl font-bold text-white mt-1">743</p>
-                <p className="text-[11px] text-[#4B8DFF] mt-0.5">
+                <p className="text-[11px] text-accent mt-0.5">
                   проверено
                 </p>
               </div>
 
-              <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06]">
-                <p className="text-[10px] font-medium text-[#9AA0A8] uppercase tracking-wider">
+              <div className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06]">
+                <p className="text-[10px] font-medium text-muted uppercase tracking-wider">
                   Кастомных SVG иконок
                 </p>
                 <p className="text-2xl font-bold text-white mt-1">{customIcons.length}</p>
-                <p className="text-[11px] text-[#E5A93C] mt-0.5">
+                <p className="text-[11px] text-warning mt-0.5">
                   в каталоге
                 </p>
               </div>
 
-              <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06]">
-                <p className="text-[10px] font-medium text-[#9AA0A8] uppercase tracking-wider">
+              <div className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06]">
+                <p className="text-[10px] font-medium text-muted uppercase tracking-wider">
                   Активных рекламных меток
                 </p>
                 <p className="text-2xl font-bold text-white mt-1">{ads.filter(a => a.isActive !== false).length}</p>
-                <p className="text-[11px] text-[#34C759] mt-0.5">
+                <p className="text-[11px] text-success mt-0.5">
                   на карте города
                 </p>
               </div>
             </div>
 
             {/* Праздничное оформление аватаров */}
-            <div className="bg-[#181B1F] p-5 rounded-2xl border border-white/[0.06] space-y-4">
+            <div className="bg-surface-800 p-5 rounded-2xl border border-white/[0.06] space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#AF52DE]/10 text-[#AF52DE] flex items-center justify-center text-xl shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-purple/10 text-purple flex items-center justify-center text-xl shrink-0">
                   🎉
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">Праздничные атрибуты аватаров</h3>
-                  <p className="text-xs text-[#9AA0A8] mt-0.5">
+                  <p className="text-xs text-muted mt-0.5">
                     Выберите активный праздник, чтобы надеть тематический аксессуар на аватар каждого водителя
                   </p>
                 </div>
@@ -722,17 +723,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       }}
                       className={`p-3.5 rounded-xl border text-left transition relative overflow-hidden active:scale-95 cursor-pointer ${
                         isActive
-                          ? 'bg-[#AF52DE]/15 border-[#AF52DE] text-white shadow-[0_4px_16px_rgba(175,82,222,0.15)]'
-                          : 'bg-[#111315] hover:bg-white/5 border-white/[0.06] text-[#9AA0A8] hover:text-white'
+                          ? 'bg-purple/15 border-purple text-white shadow-[0_4px_16px_rgba(175,82,222,0.15)]'
+                          : 'bg-graphite hover:bg-white/5 border-white/[0.06] text-muted hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{holiday.icon}</span>
                         <p className="text-xs font-bold leading-tight">{holiday.label}</p>
                       </div>
-                      <p className="text-[10px] text-[#555A60] mt-1.5 leading-none">{holiday.desc}</p>
+                      <p className="text-[10px] text-faintest mt-1.5 leading-none">{holiday.desc}</p>
                       {isActive && (
-                        <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#AF52DE]" />
+                        <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple" />
                       )}
                     </button>
                   );
@@ -741,21 +742,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Banner Link to Ads Management */}
-            <div className="bg-gradient-to-r from-[#181B1F] to-[#20242A] p-5 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-surface-800 to-surface-700 p-5 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#4B8DFF]/20 border border-[#4B8DFF]/30 text-[#4B8DFF] flex items-center justify-center text-2xl shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-accent/20 border border-accent/30 text-accent flex items-center justify-center text-2xl shrink-0">
                   <Layers className="w-6 h-6" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">Раздел «Управление рекламой»</h3>
-                  <p className="text-xs text-[#9AA0A8] mt-0.5">
+                  <p className="text-xs text-muted mt-0.5">
                     Загрузка векторных SVG иконок, создание динамических брендированных меток 2ГИС и настройка спецпредложений
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveTab('ads_management')}
-                className="px-4 py-2.5 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white text-xs font-semibold rounded-xl transition active:scale-95 shrink-0"
+                className="px-4 py-2.5 bg-accent hover:bg-accent-strong text-white text-xs font-semibold rounded-xl transition active:scale-95 shrink-0"
               >
                 Перейти к управлению рекламой →
               </button>
@@ -786,20 +787,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
                   <span>Управление рекламой & SVG Иконками</span>
                 </h2>
-                <p className="text-xs text-[#9AA0A8] mt-0.5">
+                <p className="text-xs text-muted mt-0.5">
                   Загружайте кастомные SVG иконки компаний и настраивайте интерактивные рекламные метки для карты
                 </p>
               </div>
 
               {/* Sub-tabs: Campaigns vs Custom SVG Icons */}
-              <div className="flex items-center p-1 bg-[#14171B] rounded-xl border border-white/10">
+              <div className="flex items-center p-1 bg-graphite-900 rounded-xl border border-white/10">
                 <button
                   type="button"
                   onClick={() => setAdsSubTab('campaigns')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                     adsSubTab === 'campaigns'
-                      ? 'bg-[#4B8DFF] text-white shadow-xs'
-                      : 'text-[#9AA0A8] hover:text-white'
+                      ? 'bg-accent text-white shadow-xs'
+                      : 'text-muted hover:text-white'
                   }`}
                 >
                   Рекламные кампании ({ads.length})
@@ -809,8 +810,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onClick={() => setAdsSubTab('svg_icons')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                     adsSubTab === 'svg_icons'
-                      ? 'bg-[#4B8DFF] text-white shadow-xs'
-                      : 'text-[#9AA0A8] hover:text-white'
+                      ? 'bg-accent text-white shadow-xs'
+                      : 'text-muted hover:text-white'
                   }`}
                 >
                   Кастомные SVG ({customIcons.length})
@@ -819,14 +820,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Interval & Auto-Dismiss Settings Bar */}
-            <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="bg-surface-800 p-4 rounded-2xl border border-white/10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#4B8DFF]/15 border border-[#4B8DFF]/30 text-[#4B8DFF] flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-xl bg-accent/15 border border-accent/30 text-accent flex items-center justify-center font-bold">
                   ⏱️
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold text-white">Таймеры и интервал показа баннеров</h4>
-                  <p className="text-[11px] text-[#9AA0A8]">
+                  <p className="text-[11px] text-muted">
                     Интервал появления раз в 15 минут (900с) и автоскрытие через 30с при отсутствии действий.
                   </p>
                 </div>
@@ -834,8 +835,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="flex items-center gap-3 flex-wrap w-full lg:w-auto">
                 {/* Interval Input */}
-                <div className="flex items-center gap-1.5 bg-[#111315] px-3 py-1.5 rounded-xl border border-white/10">
-                  <span className="text-xs text-[#9AA0A8]">Интервал:</span>
+                <div className="flex items-center gap-1.5 bg-graphite px-3 py-1.5 rounded-xl border border-white/10">
+                  <span className="text-xs text-muted">Интервал:</span>
                   <input
                     type="number"
                     min="5"
@@ -846,7 +847,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       setAdIntervalSeconds(val);
                       handleSaveAdTiming(val, adAutoDismissSeconds, adEnabled);
                     }}
-                    className="w-16 bg-[#181B1F] border border-white/15 rounded-lg px-2 py-1 text-xs text-white text-center font-bold focus:outline-hidden focus:border-[#4B8DFF]"
+                    className="w-16 bg-surface-800 border border-white/15 rounded-lg px-2 py-1 text-xs text-white text-center font-bold focus:outline-hidden focus:border-accent"
                   />
                   <span className="text-xs text-white font-medium">сек</span>
                 </div>
@@ -865,8 +866,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       onClick={() => handleSaveAdTiming(p.val, adAutoDismissSeconds, adEnabled)}
                       className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                         adIntervalSeconds === p.val
-                          ? 'bg-[#4B8DFF] text-white shadow-xs'
-                          : 'bg-[#20242A] text-[#9AA0A8] hover:text-white border border-white/5'
+                          ? 'bg-accent text-white shadow-xs'
+                          : 'bg-surface-700 text-muted hover:text-white border border-white/5'
                       }`}
                     >
                       {p.label}
@@ -875,8 +876,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 {/* Auto-Dismiss Input */}
-                <div className="flex items-center gap-1.5 bg-[#111315] px-3 py-1.5 rounded-xl border border-white/10">
-                  <span className="text-xs text-[#9AA0A8]">Скрытие через:</span>
+                <div className="flex items-center gap-1.5 bg-graphite px-3 py-1.5 rounded-xl border border-white/10">
+                  <span className="text-xs text-muted">Скрытие через:</span>
                   <input
                     type="number"
                     min="5"
@@ -887,7 +888,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       setAdAutoDismissSeconds(val);
                       handleSaveAdTiming(adIntervalSeconds, val, adEnabled);
                     }}
-                    className="w-14 bg-[#181B1F] border border-white/15 rounded-lg px-2 py-1 text-xs text-white text-center font-bold focus:outline-hidden focus:border-[#4B8DFF]"
+                    className="w-14 bg-surface-800 border border-white/15 rounded-lg px-2 py-1 text-xs text-white text-center font-bold focus:outline-hidden focus:border-accent"
                   />
                   <span className="text-xs text-white font-medium">сек</span>
                 </div>
@@ -912,10 +913,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <FileCode className="w-4 h-4 text-[#4B8DFF]" />
+                      <FileCode className="w-4 h-4 text-accent" />
                       <span>Каталог векторных SVG иконок</span>
                     </h3>
-                    <p className="text-xs text-[#9AA0A8]">
+                    <p className="text-xs text-muted">
                       Загружайте файлы .svg или вставляйте SVG код логотипов компаний для использования в рекламе на карте
                     </p>
                   </div>
@@ -923,7 +924,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsUploadingSvg(!isUploadingSvg)}
-                    className="px-3.5 py-2 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white text-xs font-semibold rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5"
+                    className="px-3.5 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-semibold rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5 stroke-[3]" />
                     <span>{isUploadingSvg ? 'Свернуть форму' : 'Загрузить новый SVG'}</span>
@@ -932,16 +933,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* SVG Uploader Form */}
                 {isUploadingSvg && (
-                  <form onSubmit={handleSaveCustomSvgIcon} className="bg-[#181B1F] p-4 sm:p-5 rounded-2xl border border-white/10 space-y-4 animate-in slide-in-from-top-3 duration-200">
+                  <form onSubmit={handleSaveCustomSvgIcon} className="bg-surface-800 p-4 sm:p-5 rounded-2xl border border-white/10 space-y-4 animate-in slide-in-from-top-3 duration-200">
                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
                       <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                        <Upload className="w-4 h-4 text-[#4B8DFF]" />
+                        <Upload className="w-4 h-4 text-accent" />
                         <span>Загрузка кастомной SVG иконки</span>
                       </h4>
                       <button
                         type="button"
                         onClick={() => setIsUploadingSvg(false)}
-                        className="text-[#9AA0A8] hover:text-white"
+                        className="text-muted hover:text-white"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -949,7 +950,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                        <label className="block text-xs font-medium text-muted mb-1">
                           Название иконки / Бренд *
                         </label>
                         <input
@@ -958,18 +959,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           value={svgName}
                           onChange={(e) => setSvgName(e.target.value)}
                           placeholder="Например: Логотип Газпром / Мойка Аква"
-                          className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#4B8DFF]"
+                          className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-accent"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                        <label className="block text-xs font-medium text-muted mb-1">
                           Категория
                         </label>
                         <select
                           value={svgCategory}
                           onChange={(e) => setSvgCategory(e.target.value)}
-                          className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#4B8DFF]"
+                          className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-accent"
                         >
                           <option value="Автосервис">Автосервис / СТО</option>
                           <option value="Шиномонтаж">Шиномонтаж</option>
@@ -986,7 +987,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {/* SVG File or Raw Code */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium text-[#9AA0A8]">
+                        <label className="text-xs font-medium text-muted">
                           SVG код или загрузка файла .svg *
                         </label>
 
@@ -1001,9 +1002,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <button
                             type="button"
                             onClick={() => svgFileInputRef.current?.click()}
-                            className="px-2.5 py-1 bg-[#20242A] hover:bg-[#282D35] text-white text-[11px] rounded-lg border border-white/10 flex items-center gap-1.5 transition"
+                            className="px-2.5 py-1 bg-surface-700 hover:bg-surface-600 text-white text-[11px] rounded-lg border border-white/10 flex items-center gap-1.5 transition"
                           >
-                            <Upload className="w-3 h-3 text-[#4B8DFF]" />
+                            <Upload className="w-3 h-3 text-accent" />
                             <span>Выбрать .svg файл</span>
                           </button>
                         </div>
@@ -1015,14 +1016,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         value={svgRawCode}
                         onChange={(e) => setSvgRawCode(e.target.value)}
                         placeholder='<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"> ... </svg>'
-                        className="w-full bg-[#111315] border border-white/10 rounded-xl p-3 text-xs text-white font-mono focus:outline-hidden focus:border-[#4B8DFF]"
+                        className="w-full bg-graphite border border-white/10 rounded-xl p-3 text-xs text-white font-mono focus:outline-hidden focus:border-accent"
                       />
                     </div>
 
                     {/* Live SVG Preview */}
                     {svgRawCode.trim() && (
-                      <div className="p-3 bg-[#14171B] rounded-xl border border-white/5 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-[#111315] border border-white/10 flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-inner">
+                      <div className="p-3 bg-graphite-900 rounded-xl border border-white/5 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-graphite border border-white/10 flex items-center justify-center p-1 overflow-hidden shrink-0 shadow-inner">
                           <div 
                             className="w-10 h-10 flex items-center justify-center"
                             dangerouslySetInnerHTML={{ __html: AdService.sanitizeSvg(svgRawCode) }}
@@ -1030,7 +1031,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                         <div>
                           <p className="text-xs font-bold text-white">{svgName || 'Предпросмотр SVG'}</p>
-                          <p className="text-[11px] text-[#34C759]">SVG код валиден и готов к сохранению</p>
+                          <p className="text-[11px] text-success">SVG код валиден и готов к сохранению</p>
                         </div>
                       </div>
                     )}
@@ -1039,13 +1040,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsUploadingSvg(false)}
-                        className="px-4 py-2 bg-white/5 text-[#9AA0A8] text-xs font-medium rounded-xl hover:bg-white/10 transition"
+                        className="px-4 py-2 bg-white/5 text-muted text-xs font-medium rounded-xl hover:bg-white/10 transition"
                       >
                         Отмена
                       </button>
                       <button
                         type="submit"
-                        className="px-5 py-2 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white text-xs font-semibold rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5"
+                        className="px-5 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-semibold rounded-xl shadow-md transition active:scale-95 flex items-center gap-1.5"
                       >
                         <Check className="w-4 h-4 stroke-[3]" />
                         <span>Добавить SVG иконку в библиотеку</span>
@@ -1059,10 +1060,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {customIcons.map((item) => (
                     <div
                       key={item.id}
-                      className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.08] flex items-center justify-between gap-3 group hover:border-white/20 transition"
+                      className="bg-surface-800 p-4 rounded-2xl border border-white/[0.08] flex items-center justify-between gap-3 group hover:border-white/20 transition"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded-xl bg-[#111315] border border-white/10 flex items-center justify-center p-1.5 shrink-0 shadow-inner group-hover:border-[#4B8DFF]/40 transition">
+                        <div className="w-12 h-12 rounded-xl bg-graphite border border-white/10 flex items-center justify-center p-1.5 shrink-0 shadow-inner group-hover:border-accent/40 transition">
                           <div 
                             className="w-9 h-9 flex items-center justify-center"
                             dangerouslySetInnerHTML={{ __html: item.svgContent }}
@@ -1070,10 +1071,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                         <div className="min-w-0">
                           <h4 className="text-xs font-bold text-white truncate">{item.name}</h4>
-                          <span className="text-[10px] text-[#4B8DFF] bg-[#4B8DFF]/10 px-1.5 py-0.2 rounded font-medium">
+                          <span className="text-[10px] text-accent bg-accent/10 px-1.5 py-0.2 rounded font-medium">
                             {item.category || 'Иконка'}
                           </span>
-                          <p className="text-[9px] text-[#9AA0A8] truncate mt-0.5">
+                          <p className="text-[9px] text-muted truncate mt-0.5">
                             {new Date(item.createdAt).toLocaleDateString()}
                           </p>
                         </div>
@@ -1082,7 +1083,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <button
                         type="button"
                         onClick={() => handleDeleteCustomSvgIcon(item.id)}
-                        className="p-1.5 rounded-lg bg-white/5 text-[#9AA0A8] hover:text-[#FF453A] hover:bg-[#FF453A]/10 transition"
+                        className="p-1.5 rounded-lg bg-white/5 text-muted hover:text-danger hover:bg-danger/10 transition"
                         title="Удалить иконку"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1100,11 +1101,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div>
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
                       <span>Список рекламных меток на карте</span>
-                      <span className="text-xs px-2 py-0.5 rounded-md bg-[#4B8DFF]/20 text-[#4B8DFF] border border-[#4B8DFF]/30">
+                      <span className="text-xs px-2 py-0.5 rounded-md bg-accent/20 text-accent border border-accent/30">
                         {ads.length} меток
                       </span>
                     </h3>
-                    <p className="text-xs text-[#9AA0A8]">
+                    <p className="text-xs text-muted">
                       Отображаются в виде стильных круглых меток с вашим кастомным SVG или логотипом компании
                     </p>
                   </div>
@@ -1113,7 +1114,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button
                       type="button"
                       onClick={handleResetClosedAds}
-                      className="flex-1 sm:flex-none px-3 py-2 bg-[#20242A] hover:bg-white/10 text-[#9AA0A8] hover:text-white text-xs font-medium rounded-xl border border-white/10 transition active:scale-95 flex items-center justify-center gap-1.5"
+                      className="flex-1 sm:flex-none px-3 py-2 bg-surface-700 hover:bg-white/10 text-muted hover:text-white text-xs font-medium rounded-xl border border-white/10 transition active:scale-95 flex items-center justify-center gap-1.5"
                       title="Восстановить скрытые пользователем плашки"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -1123,7 +1124,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsCreatingAd(!isCreatingAd)}
-                      className="flex-1 sm:flex-none px-3.5 py-2 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white text-xs font-semibold rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
+                      className="flex-1 sm:flex-none px-3.5 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-semibold rounded-xl shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5 stroke-[3]" />
                       <span>{isCreatingAd ? 'Свернуть форму' : 'Создать рекламную метку'}</span>
@@ -1133,16 +1134,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* CREATE / EDIT AD FORM */}
                 {isCreatingAd && (
-                  <form onSubmit={handleCreateAd} className="bg-[#181B1F] p-4 sm:p-6 rounded-2xl border border-white/10 space-y-4 animate-in slide-in-from-top-3 duration-250">
+                  <form onSubmit={handleCreateAd} className="bg-surface-800 p-4 sm:p-6 rounded-2xl border border-white/10 space-y-4 animate-in slide-in-from-top-3 duration-250">
                     <div className="flex items-center justify-between border-b border-white/10 pb-3">
                       <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-[#E5A93C]" />
+                        <Sparkles className="w-4 h-4 text-warning" />
                         <span>Новая рекламная кампания на карте</span>
                       </h3>
                       <button
                         type="button"
                         onClick={() => setIsCreatingAd(false)}
-                        className="p-1 rounded-lg text-[#9AA0A8] hover:text-white"
+                        className="p-1 rounded-lg text-muted hover:text-white"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1153,7 +1154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="lg:col-span-2 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                            <label className="block text-xs font-medium text-muted mb-1">
                               Название компании / места *
                             </label>
                             <input
@@ -1162,18 +1163,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               value={adTitle}
                               onChange={(e) => setAdTitle(e.target.value)}
                               placeholder="Например: Автокомплекс YES PRO"
-                              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#4B8DFF]"
+                              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-accent"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                            <label className="block text-xs font-medium text-muted mb-1">
                               Категория / Бейдж
                             </label>
                             <select
                               value={adCategory}
                               onChange={(e) => setAdCategory(e.target.value)}
-                              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#4B8DFF]"
+                              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-accent"
                             >
                               <option value="Автосервис">Автосервис / СТО</option>
                               <option value="Шиномонтаж">Шиномонтаж 24/7</option>
@@ -1189,7 +1190,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                          <label className="block text-xs font-medium text-muted mb-1">
                             Краткий слоган / спецпредложение
                           </label>
                           <input
@@ -1197,18 +1198,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             value={adSubtitle}
                             onChange={(e) => setAdSubtitle(e.target.value)}
                             placeholder="Например: Правка дисков и балансировка за 15 минут со скидкой 20%"
-                            className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-[#4B8DFF]"
+                            className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-accent"
                           />
                         </div>
 
                         {/* --- COMPREHENSIVE ICON & CUSTOM SVG CHOOSER --- */}
-                        <div className="p-4 rounded-xl bg-[#14171B] border border-white/5 space-y-3">
+                        <div className="p-4 rounded-xl bg-graphite-900 border border-white/5 space-y-3">
                           <div className="flex items-center justify-between">
                             <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                              <ImageIcon className="w-3.5 h-3.5 text-[#4B8DFF]" />
+                              <ImageIcon className="w-3.5 h-3.5 text-accent" />
                               <span>Выбор иконки / Логотипа рекламы</span>
                             </label>
-                            <span className="text-[10px] text-[#9AA0A8]">
+                            <span className="text-[10px] text-muted">
                               Отображается внутри метки на карте
                             </span>
                           </div>
@@ -1216,7 +1217,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           {/* 1. Custom Uploaded SVGs Section */}
                           {customIcons.length > 0 && (
                             <div>
-                              <p className="text-[11px] font-semibold text-[#4B8DFF] mb-2 flex items-center gap-1">
+                              <p className="text-[11px] font-semibold text-accent mb-2 flex items-center gap-1">
                                 <FileCode className="w-3 h-3" />
                                 <span>Загруженные кастомные SVG иконки:</span>
                               </p>
@@ -1231,8 +1232,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     }}
                                     className={`p-2 rounded-xl flex flex-col items-center justify-center gap-1 border transition-all ${
                                       selectedCustomIconId === item.id && !adCustomLogoUrl
-                                        ? 'bg-[#4B8DFF]/25 border-[#4B8DFF] text-white scale-105 shadow-sm'
-                                        : 'bg-[#181B1F] border-white/5 hover:border-white/20 text-[#9AA0A8] hover:text-white'
+                                        ? 'bg-accent/25 border-accent text-white scale-105 shadow-sm'
+                                        : 'bg-surface-800 border-white/5 hover:border-white/20 text-muted hover:text-white'
                                     }`}
                                     title={item.name}
                                   >
@@ -1259,24 +1260,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <button
                               type="button"
                               onClick={() => logoFileInputRef.current?.click()}
-                              className="px-3.5 py-2 bg-[#20242A] hover:bg-[#282D35] text-white text-xs font-medium rounded-xl border border-white/10 flex items-center gap-2 transition active:scale-95"
+                              className="px-3.5 py-2 bg-surface-700 hover:bg-surface-600 text-white text-xs font-medium rounded-xl border border-white/10 flex items-center gap-2 transition active:scale-95"
                             >
-                              <Upload className="w-3.5 h-3.5 text-[#4B8DFF]" />
+                              <Upload className="w-3.5 h-3.5 text-accent" />
                               <span>Загрузить прямой логотип (PNG / JPG)</span>
                             </button>
 
                             {adCustomLogoUrl && (
-                              <div className="flex items-center gap-2 bg-[#111315] px-2.5 py-1 rounded-xl border border-[#34C759]/30">
+                              <div className="flex items-center gap-2 bg-graphite px-2.5 py-1 rounded-xl border border-success/30">
                                 <img
                                   src={adCustomLogoUrl}
                                   alt="Logo"
                                   className="w-6 h-6 object-cover rounded-full border border-white/20"
                                 />
-                                <span className="text-[11px] text-[#34C759] font-medium">Логотип прикреплён</span>
+                                <span className="text-[11px] text-success font-medium">Логотип прикреплён</span>
                                 <button
                                   type="button"
                                   onClick={() => setAdCustomLogoUrl('')}
-                                  className="text-[#9AA0A8] hover:text-white p-0.5"
+                                  className="text-muted hover:text-white p-0.5"
                                   title="Удалить логотип"
                                 >
                                   <X className="w-3 h-3" />
@@ -1287,7 +1288,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                           {/* 3. Preset Icons Grid */}
                           <div className="pt-2 border-t border-white/5">
-                            <p className="text-[11px] text-[#9AA0A8] mb-2">
+                            <p className="text-[11px] text-muted mb-2">
                               Или выберите стандартную иконку:
                             </p>
                             <div className="grid grid-cols-5 sm:grid-cols-8 gap-1.5">
@@ -1302,8 +1303,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   }}
                                   className={`p-2 rounded-xl flex flex-col items-center justify-center gap-1 border transition-all ${
                                     !adCustomLogoUrl && !selectedCustomIconId && adIcon === item.icon
-                                      ? 'bg-[#4B8DFF]/20 border-[#4B8DFF] text-white scale-105 shadow-sm'
-                                      : 'bg-[#181B1F] border-white/5 hover:border-white/20 text-[#9AA0A8] hover:text-white'
+                                      ? 'bg-accent/20 border-accent text-white scale-105 shadow-sm'
+                                      : 'bg-surface-800 border-white/5 hover:border-white/20 text-muted hover:text-white'
                                   }`}
                                   title={item.label}
                                 >
@@ -1315,9 +1316,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                           {/* 4. Accent Color */}
                           <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                            <span className="text-xs text-[#9AA0A8]">Цвет подсветки метки:</span>
+                            <span className="text-xs text-muted">Цвет подсветки метки:</span>
                             <div className="flex items-center gap-2">
-                              {['#4B8DFF', '#FF9F0A', '#34C759', '#AF52DE', '#FF453A', '#30B0C7'].map((c) => (
+                              {[colors.accent, colors.warningStrong, colors.success, colors.purple, colors.danger, colors.info2].map((c) => (
                                 <button
                                   key={c}
                                   type="button"
@@ -1335,7 +1336,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {/* Coordinates & Address */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="sm:col-span-1">
-                            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                            <label className="block text-xs font-medium text-muted mb-1">
                               Широта (Lat)
                             </label>
                             <input
@@ -1343,11 +1344,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               required
                               value={adLat}
                               onChange={(e) => setAdLat(e.target.value)}
-                              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
+                              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
                             />
                           </div>
                           <div className="sm:col-span-1">
-                            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                            <label className="block text-xs font-medium text-muted mb-1">
                               Долгота (Lng)
                             </label>
                             <input
@@ -1355,7 +1356,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               required
                               value={adLng}
                               onChange={(e) => setAdLng(e.target.value)}
-                              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
+                              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
                             />
                           </div>
                           <div className="sm:col-span-1 flex items-end">
@@ -1365,7 +1366,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 setAdLat('55.0084');
                                 setAdLng('82.9357');
                               }}
-                              className="w-full py-2 bg-[#20242A] hover:bg-white/10 text-white text-xs font-medium rounded-xl border border-white/10 transition"
+                              className="w-full py-2 bg-surface-700 hover:bg-white/10 text-white text-xs font-medium rounded-xl border border-white/10 transition"
                             >
                               В центр города
                             </button>
@@ -1373,7 +1374,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                          <label className="block text-xs font-medium text-muted mb-1">
                             Точный адрес *
                           </label>
                           <input
@@ -1382,14 +1383,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             value={adAddress}
                             onChange={(e) => setAdAddress(e.target.value)}
                             placeholder="ул. Станционная, 32/1"
-                            className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
+                            className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
                           />
                         </div>
 
                         {/* Phone, Promo code, and details */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
-                            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                            <label className="block text-xs font-medium text-muted mb-1">
                               Телефон для звонка
                             </label>
                             <input
@@ -1397,12 +1398,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               value={adPhone}
                               onChange={(e) => setAdPhone(e.target.value)}
                               placeholder="+7 (383) 299-44-22"
-                              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
+                              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                            <label className="block text-xs font-medium text-muted mb-1">
                               Промокод
                             </label>
                             <input
@@ -1410,12 +1411,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               value={adPromoCode}
                               onChange={(e) => setAdPromoCode(e.target.value)}
                               placeholder="ROADLIVE20"
-                              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden font-mono"
+                              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden font-mono"
                             />
                           </div>
 
                           <div>
-                            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                            <label className="block text-xs font-medium text-muted mb-1">
                               Размер скидки / Подарок
                             </label>
                             <input
@@ -1423,13 +1424,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               value={adDiscountText}
                               onChange={(e) => setAdDiscountText(e.target.value)}
                               placeholder="Скидка 20%"
-                              className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
+                              className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                          <label className="block text-xs font-medium text-muted mb-1">
                             Полное описание для карточки спонсора
                           </label>
                           <textarea
@@ -1437,22 +1438,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             value={adDetails}
                             onChange={(e) => setAdDetails(e.target.value)}
                             placeholder="Круглосуточный экспресс-сервис для легковых и внедорожников..."
-                            className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
+                            className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden"
                           />
                         </div>
                       </div>
 
                       {/* Right Column: Live 2GIS Logo Pin Preview */}
-                      <div className="flex flex-col items-center justify-center p-6 bg-[#111315] rounded-2xl border border-white/10 text-center space-y-3">
-                        <p className="text-xs font-bold text-[#9AA0A8] uppercase tracking-wider">
+                      <div className="flex flex-col items-center justify-center p-6 bg-graphite rounded-2xl border border-white/10 text-center space-y-3">
+                        <p className="text-xs font-bold text-muted uppercase tracking-wider">
                           Превью метки логотипа на карте (2ГИС)
                         </p>
 
                         {/* Interactive Mock Map Surface */}
-                        <div className="relative w-48 h-48 rounded-2xl bg-[#1C2026] border border-white/10 flex items-center justify-center overflow-hidden shadow-inner">
+                        <div className="relative w-48 h-48 rounded-2xl bg-surface-850 border border-white/10 flex items-center justify-center overflow-hidden shadow-inner">
                           {/* Grid road lines */}
                           <div className="absolute inset-0 opacity-15">
-                            <div className="w-full h-1 bg-[#4B8DFF] top-1/2 -translate-y-1/2 absolute rotate-12" />
+                            <div className="w-full h-1 bg-accent top-1/2 -translate-y-1/2 absolute rotate-12" />
                             <div className="h-full w-1 bg-white/40 left-1/3 absolute" />
                           </div>
 
@@ -1475,15 +1476,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           />
                         </div>
 
-                        <div className="text-left w-full text-xs space-y-1 bg-[#181B1F] p-3 rounded-xl border border-white/5">
+                        <div className="text-left w-full text-xs space-y-1 bg-surface-800 p-3 rounded-xl border border-white/5">
                           <p className="font-bold text-white truncate">{adTitle || 'Название компании'}</p>
-                          <p className="text-[11px] text-[#4B8DFF]">{adCategory}</p>
-                          <p className="text-[10px] text-[#9AA0A8] truncate">{adAddress || 'Адрес на карте'}</p>
+                          <p className="text-[11px] text-accent">{adCategory}</p>
+                          <p className="text-[10px] text-muted truncate">{adAddress || 'Адрес на карте'}</p>
                         </div>
 
                         <button
                           type="submit"
-                          className="w-full py-3 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white text-xs font-semibold rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+                          className="w-full py-3 bg-accent hover:bg-accent-strong text-white text-xs font-semibold rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
                         >
                           <Check className="w-4 h-4 stroke-[3]" />
                           <span>Сохранить и разместить на карте</span>
@@ -1500,13 +1501,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     return (
                       <div
                         key={ad.id}
-                        className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition hover:border-white/20"
+                        className="bg-surface-800 p-4 rounded-2xl border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition hover:border-white/20"
                       >
                         <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                           {/* Visual Logo Container */}
                           <div 
-                            className="w-12 h-12 rounded-2xl bg-[#111315] border border-white/10 flex items-center justify-center text-2xl shrink-0 shadow-sm overflow-hidden p-1"
-                            style={{ borderColor: `${ad.bannerColor || '#4B8DFF'}40` }}
+                            className="w-12 h-12 rounded-2xl bg-graphite border border-white/10 flex items-center justify-center text-2xl shrink-0 shadow-sm overflow-hidden p-1"
+                            style={{ borderColor: `${ad.bannerColor || colors.accent}40` }}
                           >
                             {visual.customLogoUrl ? (
                               <img src={visual.customLogoUrl} alt="Logo" className="w-full h-full object-cover rounded-xl" />
@@ -1521,52 +1522,52 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <span 
                                 className="text-[10px] font-medium px-2 py-0.5 rounded-md border"
                                 style={{
-                                  backgroundColor: `${ad.bannerColor || '#4B8DFF'}15`,
-                                  color: ad.bannerColor || '#4B8DFF',
-                                  borderColor: `${ad.bannerColor || '#4B8DFF'}30`,
+                                  backgroundColor: `${ad.bannerColor || colors.accent}15`,
+                                  color: ad.bannerColor || colors.accent,
+                                  borderColor: `${ad.bannerColor || colors.accent}30`,
                                 }}
                               >
                                 {ad.categoryBadge}
                               </span>
                               {ad.discountText && (
-                                <span className="text-[10px] font-bold text-[#34C759] bg-[#34C759]/10 px-2 py-0.5 rounded-md border border-[#34C759]/20">
+                                <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-md border border-success/20">
                                   {ad.discountText}
                                 </span>
                               )}
                               {ad.isActive === false && (
-                                <span className="text-[10px] font-semibold text-[#FF453A] bg-[#FF453A]/10 px-2 py-0.5 rounded-md border border-[#FF453A]/20">
+                                <span className="text-[10px] font-semibold text-danger bg-danger/10 px-2 py-0.5 rounded-md border border-danger/20">
                                   Приостановлена
                                 </span>
                               )}
                             </div>
 
-                            <p className="text-xs text-[#9AA0A8] truncate mt-0.5">{ad.subtitle}</p>
+                            <p className="text-xs text-muted truncate mt-0.5">{ad.subtitle}</p>
 
-                            <div className="flex items-center gap-3 text-[11px] text-[#9AA0A8] mt-1.5 flex-wrap">
+                            <div className="flex items-center gap-3 text-[11px] text-muted mt-1.5 flex-wrap">
                               <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-[#4B8DFF]" />
+                                <MapPin className="w-3 h-3 text-accent" />
                                 <span className="truncate max-w-[200px]">{ad.address}</span>
                               </span>
                               {ad.promoCode && (
-                                <span className="flex items-center gap-1 font-mono text-[#E5A93C]">
+                                <span className="flex items-center gap-1 font-mono text-warning">
                                   <Tag className="w-3 h-3" />
                                   <span>{ad.promoCode}</span>
                                 </span>
                               )}
                               {ad.phone && (
                                 <span className="flex items-center gap-1">
-                                  <Phone className="w-3 h-3 text-[#34C759]" />
+                                  <Phone className="w-3 h-3 text-success" />
                                   <span>{ad.phone}</span>
                                 </span>
                               )}
                               <span
-                                className="flex items-center gap-1 tabular-nums text-[#9AA0A8]"
+                                className="flex items-center gap-1 tabular-nums text-muted"
                                 title="Показы и переходы из кампании"
                               >
                                 <Eye className="w-3 h-3" />
                                 <span>{(ad.impressions || 0).toLocaleString('ru-RU')}</span>
                                 <span className="text-white/20">/</span>
-                                <span className="text-[#4B8DFF]">{(ad.clicks || 0).toLocaleString('ru-RU')}</span>
+                                <span className="text-accent">{(ad.clicks || 0).toLocaleString('ru-RU')}</span>
                               </span>
                             </div>
                           </div>
@@ -1579,8 +1580,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onClick={() => handleToggleAdActive(ad.id)}
                             className={`p-2 rounded-xl border text-xs font-medium transition active:scale-95 flex items-center gap-1.5 ${
                               ad.isActive !== false
-                                ? 'bg-[#34C759]/15 border-[#34C759]/30 text-[#34C759] hover:bg-[#34C759]/25'
-                                : 'bg-white/5 border-white/10 text-[#9AA0A8] hover:text-white'
+                                ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                : 'bg-white/5 border-white/10 text-muted hover:text-white'
                             }`}
                             title={ad.isActive !== false ? 'Приостановить показ' : 'Активировать показ'}
                           >
@@ -1591,7 +1592,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <button
                             type="button"
                             onClick={() => handleDeleteAd(ad.id)}
-                            className="p-2 rounded-xl bg-white/5 hover:bg-[#FF453A]/20 text-[#9AA0A8] hover:text-[#FF453A] border border-white/10 hover:border-[#FF453A]/30 transition active:scale-95"
+                            className="p-2 rounded-xl bg-white/5 hover:bg-danger/20 text-muted hover:text-danger border border-white/10 hover:border-danger/30 transition active:scale-95"
                             title="Удалить кампанию"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -1609,20 +1610,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* EVENTS TAB */}
         {activeTab === 'events' && (
           <div className="space-y-3">
-            <h2 className="text-xs font-medium uppercase tracking-wider text-[#9AA0A8] mb-3">
+            <h2 className="text-xs font-medium uppercase tracking-wider text-muted mb-3">
               Все дорожные инциденты для модерации
             </h2>
             {events.map((ev) => (
               <div
                 key={ev.id}
-                className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3"
+                className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{ev.type === 'crossing' ? '🚧' : ev.type === 'accident' ? '🚗' : ev.type === 'patrol' ? '👮' : '⛽'}</span>
                   <div>
                     <h4 className="text-xs sm:text-sm font-semibold text-white">{ev.title}</h4>
-                    <p className="text-[11px] text-[#9AA0A8]">{ev.address || `${ev.latitude}, ${ev.longitude}`}</p>
-                    <p className="text-[10px] text-[#4B8DFF] mt-0.5">Статус: {ev.status} · Подтверждений: {ev.confirmationCount}</p>
+                    <p className="text-[11px] text-muted">{ev.address || `${ev.latitude}, ${ev.longitude}`}</p>
+                    <p className="text-[10px] text-accent mt-0.5">Статус: {ev.status} · Подтверждений: {ev.confirmationCount}</p>
                   </div>
                 </div>
 
@@ -1630,14 +1631,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {ev.status !== 'resolved' && (
                     <button
                       onClick={() => handleModerate(ev.id, 'resolve')}
-                      className="px-2.5 py-1.5 bg-[#34C759]/15 text-[#34C759] hover:bg-[#34C759]/25 text-xs rounded-xl font-medium"
+                      className="px-2.5 py-1.5 bg-success/15 text-success hover:bg-success/25 text-xs rounded-xl font-medium"
                     >
                       Решено
                     </button>
                   )}
                   <button
                     onClick={() => handleModerate(ev.id, 'delete')}
-                    className="p-1.5 rounded-xl bg-white/5 text-[#9AA0A8] hover:text-[#FF453A]"
+                    className="p-1.5 rounded-xl bg-white/5 text-muted hover:text-danger"
                     title="Удалить"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1652,46 +1653,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'users' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-medium uppercase tracking-wider text-[#9AA0A8]">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-muted">
                 Список зарегистрированных водителей
               </h2>
               <button
                 onClick={() => void loadUsers()}
-                className="text-[11px] text-[#9AA0A8] hover:text-white transition flex items-center gap-1"
+                className="text-[11px] text-muted hover:text-white transition flex items-center gap-1"
               >
                 <RotateCcw className="w-3 h-3" /> Обновить
               </button>
             </div>
 
             {usersMessage && (
-              <div className="p-2.5 rounded-xl bg-[#FF9F0A]/15 border border-[#FF9F0A]/30 text-[11px] text-white">
+              <div className="p-2.5 rounded-xl bg-warning-strong/15 border border-warning-strong/30 text-[11px] text-white">
                 {usersMessage}
               </div>
             )}
 
             {adminUsers.length === 0 && !usersMessage && (
-              <p className="text-xs text-[#9AA0A8] py-4 text-center">Загрузка пользователей…</p>
+              <p className="text-xs text-muted py-4 text-center">Загрузка пользователей…</p>
             )}
 
             {adminUsers.map((u) => (
               <div
                 key={u.id}
-                className={`bg-[#181B1F] p-4 rounded-2xl border flex items-center justify-between ${
-                  u.isBanned ? 'border-[#FF453A]/40' : 'border-white/[0.06]'
+                className={`bg-surface-800 p-4 rounded-2xl border flex items-center justify-between ${
+                  u.isBanned ? 'border-danger/40' : 'border-white/[0.06]'
                 }`}
               >
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-semibold text-white truncate">
                     {u.fullName}
                     {u.level ? ` (${u.level})` : ''}
-                    {u.isOwner && <span className="ml-2 text-[10px] text-[#FFD60A]">ВЛАДЕЛЕЦ</span>}
+                    {u.isOwner && <span className="ml-2 text-[10px] text-amber">ВЛАДЕЛЕЦ</span>}
                   </h4>
-                  <p className="text-[11px] text-[#9AA0A8] truncate">
+                  <p className="text-[11px] text-muted truncate">
                     {u.username ? `@${u.username}` : u.telegramId ? `tg: ${u.telegramId}` : 'не входил'}
                     {u.rating != null ? ` · Рейтинг: ⭐ ${u.rating}` : ''}
                   </p>
                   {u.isBanned && (
-                    <p className="text-[11px] text-[#FF453A] mt-1">
+                    <p className="text-[11px] text-danger mt-1">
                       Заблокирован{u.bannedByUsername ? ` @${u.bannedByUsername}` : ''}
                       {u.banReason ? `: ${u.banReason}` : ''}
                     </p>
@@ -1703,7 +1704,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   disabled={usersBusy || u.isOwner}
                   title={u.isOwner ? 'Владельца банить нельзя' : undefined}
                   className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition disabled:opacity-40 disabled:cursor-not-allowed ${
-                    u.isBanned ? 'bg-[#34C759]/20 text-[#34C759]' : 'bg-[#FF453A]/20 text-[#FF453A]'
+                    u.isBanned ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
                   }`}
                 >
                   {u.isBanned ? 'Разблокировать' : 'Заблокировать'}
@@ -1716,7 +1717,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* STATIONS TAB */}
         {activeTab === 'stations' && (
           <div className="space-y-4">
-            <form onSubmit={handleAddStation} className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] space-y-3">
+            <form onSubmit={handleAddStation} className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06] space-y-3">
               <h3 className="text-xs font-semibold text-white">Добавить новую АЗС</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <input
@@ -1724,27 +1725,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   placeholder="Название (например: Прайм №14)"
                   value={newStationName}
                   onChange={(e) => setNewStationName(e.target.value)}
-                  className="bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
                 />
                 <input
                   type="text"
                   placeholder="Адрес (ул. Большевистская, 125)"
                   value={newStationAddress}
                   onChange={(e) => setNewStationAddress(e.target.value)}
-                  className="bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
                 />
               </div>
               <button
                 type="submit"
                 disabled={stationsBusy}
-                className="py-2 px-4 bg-[#4B8DFF] text-white text-xs font-medium rounded-xl hover:bg-[#3C7AE6] disabled:opacity-40"
+                className="py-2 px-4 bg-accent text-white text-xs font-medium rounded-xl hover:bg-accent-strong disabled:opacity-40"
               >
                 Сохранить АЗС
               </button>
             </form>
 
             {stationsMessage && (
-              <div className="p-2.5 rounded-xl bg-[#FF9F0A]/15 border border-[#FF9F0A]/30 text-[11px] text-white">
+              <div className="p-2.5 rounded-xl bg-warning-strong/15 border border-warning-strong/30 text-[11px] text-white">
                 {stationsMessage}
               </div>
             )}
@@ -1753,7 +1754,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <h3 className="text-xs font-semibold text-white">АЗС на карте</h3>
               <button
                 onClick={() => void loadStations()}
-                className="text-[11px] text-[#9AA0A8] hover:text-white transition flex items-center gap-1"
+                className="text-[11px] text-muted hover:text-white transition flex items-center gap-1"
               >
                 <RotateCcw className="w-3 h-3" /> Обновить
               </button>
@@ -1761,11 +1762,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="space-y-2">
               {adminStations.map((st) => (
-                <div key={st.id} className="bg-[#181B1F] p-3.5 rounded-xl border border-white/[0.06] flex items-center justify-between gap-3">
+                <div key={st.id} className="bg-surface-800 p-3.5 rounded-xl border border-white/[0.06] flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <h4 className="text-xs font-semibold text-white truncate">{st.name} ({st.brand})</h4>
-                    <p className="text-[10px] text-[#9AA0A8] truncate">{st.address}</p>
-                    <p className="text-[10px] text-[#9AA0A8] mt-0.5">
+                    <p className="text-[10px] text-muted truncate">{st.address}</p>
+                    <p className="text-[10px] text-muted mt-0.5">
                       Очередь: {st.queueStatus ?? '—'}
                       {st.lastReportedAt ? ` · ${new Date(st.lastReportedAt).toLocaleString('ru-RU')}` : ''}
                     </p>
@@ -1774,14 +1775,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onClick={() => void handleDeleteStation(st.id)}
                     disabled={stationsBusy}
                     title="Скрыть АЗС с карты"
-                    className="p-1 text-[#9AA0A8] hover:text-[#FF453A] shrink-0 disabled:opacity-40"
+                    className="p-1 text-muted hover:text-danger shrink-0 disabled:opacity-40"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
               {adminStations.length === 0 && !stationsMessage && (
-                <p className="text-xs text-[#9AA0A8] py-4 text-center">Загрузка АЗС…</p>
+                <p className="text-xs text-muted py-4 text-center">Загрузка АЗС…</p>
               )}
             </div>
           </div>
@@ -1789,10 +1790,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {isOwner && activeTab === 'staff' && (
           <div className="space-y-4">
-            <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] space-y-3">
+            <div className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06] space-y-3">
               <div>
                 <h3 className="text-xs font-semibold text-white">Выдать права сотруднику</h3>
-                <p className="text-[11px] text-[#9AA0A8] mt-1">
+                <p className="text-[11px] text-muted mt-1">
                   Введите numeric Telegram id. Роль moderator даёт только модерацию событий,
                   роль admin — модерацию, водителей и АЗС. Управление рекламой и сотрудниками
                   остаётся только у владельца.
@@ -1805,12 +1806,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   placeholder="Telegram id, например 8766469908"
                   value={staffTelegramId}
                   onChange={(e) => setStaffTelegramId(e.target.value.replace(/[^\d]/g, ''))}
-                  className="bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
                 />
                 <select
                   value={staffRole}
                   onChange={(e) => setStaffRole(e.target.value as 'moderator' | 'admin')}
-                  className="bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                  className="bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
                 >
                   <option value="moderator">Модератор</option>
                   <option value="admin">Администратор</option>
@@ -1818,32 +1819,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={staffBusy || !staffTelegramId}
-                  className="py-2 px-4 bg-[#4B8DFF] disabled:opacity-50 rounded-xl text-white text-xs font-bold whitespace-nowrap"
+                  className="py-2 px-4 bg-accent disabled:opacity-50 rounded-xl text-white text-xs font-bold whitespace-nowrap"
                 >
                   {staffBusy ? 'Сохраняем…' : 'Выдать'}
                 </button>
               </form>
-              {staffMessage && <p className="text-[11px] text-[#9AA0A8]">{staffMessage}</p>}
+              {staffMessage && <p className="text-[11px] text-muted">{staffMessage}</p>}
             </div>
 
-            <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] space-y-2">
+            <div className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06] space-y-2">
               <h3 className="text-xs font-semibold text-white">Текущие сотрудники</h3>
-              <p className="text-[11px] text-[#9AA0A8]">Владелец задаётся переменной окружения сервера и не может быть изменён здесь.</p>
-              {staff.length === 0 && <p className="text-[11px] text-[#9AA0A8]">Пока никого не добавили.</p>}
+              <p className="text-[11px] text-muted">Владелец задаётся переменной окружения сервера и не может быть изменён здесь.</p>
+              {staff.length === 0 && <p className="text-[11px] text-muted">Пока никого не добавили.</p>}
               {staff.map((member) => (
-                <div key={member.telegram_id} className="flex items-center justify-between gap-3 bg-[#111315] rounded-xl px-3 py-2">
+                <div key={member.telegram_id} className="flex items-center justify-between gap-3 bg-graphite rounded-xl px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-xs text-white truncate">
                       {member.granted_by_username ? `@${member.granted_by_username}` : ''} {member.telegram_id}
                     </p>
-                    <p className="text-[10px] text-[#9AA0A8]">
+                    <p className="text-[10px] text-muted">
                       {member.role === 'admin' ? 'Администратор' : 'Модератор'}
                     </p>
                   </div>
                   <button
                     onClick={() => handleRemoveStaff(member.telegram_id)}
                     disabled={staffBusy}
-                    className="p-1 text-[#9AA0A8] hover:text-[#FF453A] disabled:opacity-50"
+                    className="p-1 text-muted hover:text-danger disabled:opacity-50"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -1855,14 +1856,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {isOwner && activeTab === 'channel' && (
           <div className="space-y-4">
-            <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] space-y-4">
+            <div className="bg-surface-800 p-4 rounded-2xl border border-white/[0.06] space-y-4">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#4B8DFF]/15 border border-[#4B8DFF]/25 flex items-center justify-center shrink-0">
-                  <Lock className="w-4 h-4 text-[#4B8DFF]" />
+                <div className="w-9 h-9 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4 text-accent" />
                 </div>
                 <div className="space-y-1">
                   <h3 className="text-xs font-semibold text-white">Обязательная подписка на канал</h3>
-                  <p className="text-[11px] text-[#9AA0A8] leading-relaxed">
+                  <p className="text-[11px] text-muted leading-relaxed">
                     Пока включена, водители не могут открыть карту, пока не подписаны на канал.
                     Подписка проверяется автоматически через Telegram Bot API ({'{getChatMember}'}).
                     Бот должен быть администратором канала.
@@ -1872,17 +1873,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-wider text-[#9AA0A8] font-bold">Ссылка на канал</label>
+                  <label className="text-[10px] uppercase tracking-wider text-muted font-bold">Ссылка на канал</label>
                   <input
                     type="text"
                     placeholder="https://t.me/roadlive_news"
                     value={channelLink}
                     onChange={(e) => setChannelLink(e.target.value.trim())}
-                    className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-[#555A60] focus:border-[#4B8DFF] outline-none"
+                    className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-faintest focus:border-accent outline-none"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase tracking-wider text-[#9AA0A8] font-bold">
+                  <label className="text-[10px] uppercase tracking-wider text-muted font-bold">
                     ID канала (только для приватных)
                   </label>
                   <input
@@ -1890,7 +1891,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     placeholder="-1001234567890"
                     value={channelChatId}
                     onChange={(e) => setChannelChatId(e.target.value.trim())}
-                    className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-[#555A60] focus:border-[#4B8DFF] outline-none"
+                    className="w-full bg-graphite border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-faintest focus:border-accent outline-none"
                   />
                 </div>
               </div>
@@ -1899,7 +1900,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   onClick={saveChannel}
                   disabled={channelBusy || !channelLink}
-                  className="py-2 px-4 bg-[#4B8DFF] disabled:opacity-50 rounded-xl text-white text-xs font-bold"
+                  className="py-2 px-4 bg-accent disabled:opacity-50 rounded-xl text-white text-xs font-bold"
                 >
                   {channelBusy ? 'Сохраняем…' : 'Сохранить канал'}
                 </button>
@@ -1907,27 +1908,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     onClick={disableChannel}
                     disabled={channelBusy}
-                    className="py-2 px-4 bg-white/5 hover:bg-[#FF453A]/15 rounded-xl text-xs font-bold text-[#FF8A80] border border-[#FF453A]/25 disabled:opacity-50"
+                    className="py-2 px-4 bg-white/5 hover:bg-danger/15 rounded-xl text-xs font-bold text-danger-soft border border-danger/25 disabled:opacity-50"
                   >
                     Отключить подписку
                   </button>
                 )}
               </div>
 
-              {channelMessage && <p className="text-[11px] text-[#9AA0A8]">{channelMessage}</p>}
+              {channelMessage && <p className="text-[11px] text-muted">{channelMessage}</p>}
 
               {channelSaved && (
-                <div className="space-y-1.5 bg-[#111315] rounded-xl p-3 border border-white/[0.06]">
-                  <p className="text-[11px] text-[#9AA0A8]">
+                <div className="space-y-1.5 bg-graphite rounded-xl p-3 border border-white/[0.06]">
+                  <p className="text-[11px] text-muted">
                     Канал: <span className="text-white font-semibold">{channelSaved.username ? `@${channelSaved.username}` : channelSaved.chatId}</span>
                   </p>
-                  <p className="text-[11px] text-[#9AA0A8]">
+                  <p className="text-[11px] text-muted">
                     Статус бота:{' '}
                     {channelProbe === null
                       ? 'проверка…'
                       : channelProbe.accessible
-                        ? <span className="text-[#30D158] font-semibold">готов — бот может проверять подписку</span>
-                        : <span className="text-[#FF8A80] font-semibold">бот не администратор канала: {channelProbe.detail || 'недоступен'}</span>}
+                        ? <span className="text-success-bright font-semibold">готов — бот может проверять подписку</span>
+                        : <span className="text-danger-soft font-semibold">бот не администратор канала: {channelProbe.detail || 'недоступен'}</span>}
                   </p>
                 </div>
               )}
@@ -1935,12 +1936,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 onClick={setBotMenuButton}
                 disabled={channelBusy}
-                className="py-2 px-4 bg-gradient-to-r from-[#24A1DE] to-[#4B8DFF] rounded-xl text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50"
+                className="py-2 px-4 bg-gradient-to-r from-telegram to-accent rounded-xl text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 Установить кнопку меню бота «Открыть карту»
               </button>
-              <p className="text-[10px] text-[#555A60]">
+              <p className="text-[10px] text-faintest">
                 Добавляет кнопку Mini App в чате с ботом, чтобы пользователи попадали на карту одним нажатием.
               </p>
             </div>

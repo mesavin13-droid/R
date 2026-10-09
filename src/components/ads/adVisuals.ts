@@ -1,9 +1,11 @@
 // Pure Brand Logo / Icon Badge in 2GIS Map Style (Clean without building)
 
+import { colors } from '../../theme/tokens';
+
 export const get3DAdSvg = (
   id: string,
   icon: string,
-  accentColor: string = '#4B8DFF',
+  accentColor: string = colors.accent,
   customLogoUrl?: string
 ): string => {
   const clipId = `logo-clip-${id.replace(/[^a-zA-Z0-9]/g, '_')}`;
@@ -20,8 +22,8 @@ export const get3DAdSvg = (
           <circle cx="24" cy="24" r="17" />
         </clipPath>
         <radialGradient id="grad-${clipId}" cx="0.5" cy="0.3" r="0.7">
-          <stop offset="0%" stop-color="#20252D" stop-opacity="0.55" />
-          <stop offset="100%" stop-color="#111315" stop-opacity="0.65" />
+          <stop offset="0%" stop-color="${colors.surface700}" stop-opacity="0.55" />
+          <stop offset="100%" stop-color="${colors.graphite}" stop-opacity="0.65" />
         </radialGradient>
       </defs>
 

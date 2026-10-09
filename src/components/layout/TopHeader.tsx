@@ -7,6 +7,7 @@ import { HolidayDecorator } from '../common/HolidayDecorator';
 import { EventType, UserProfile, SponsoredBanner, RoadEvent } from '../../types';
 import { AdService } from '../../services/adService';
 import { CriticalSosBanner } from '../events/CriticalSosBanner';
+import { colors } from '../../theme/tokens';
 
 interface TopHeaderProps {
   selectedCategory: EventType | 'all' | 'question' | 'station';
@@ -39,15 +40,15 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const adsToDisplay = allAds.filter((b) => b.isActive !== false);
 
   const categories = [
-    { id: 'all', label: 'Все', icon: Compass, color: '#38BDF8' },
-    { id: 'assistance', label: 'Помощь SOS', icon: LifeBuoy, color: '#FF3B30' },
-    { id: 'crossing', label: 'Переезд', icon: Construction, color: '#FF9F0A' },
-    { id: 'accident', label: 'ДТП', icon: AlertTriangle, color: '#FF453A' },
-    { id: 'patrol', label: 'Контроль', icon: ShieldCheck, color: '#30B0C7' },
-    { id: 'fuel', label: 'АЗС', icon: Fuel, color: '#AF52DE' },
-    { id: 'road', label: 'Дорога', icon: Navigation, color: '#60A5FA' },
-    { id: 'traffic_light', label: 'Светофор', icon: Disc, color: '#FFD60A' },
-    { id: 'question', label: 'Вопросы', icon: HelpCircle, color: '#C084FC' },
+    { id: 'all', label: 'Все', icon: Compass, color: colors.info },
+    { id: 'assistance', label: 'Помощь SOS', icon: LifeBuoy, color: colors.danger },
+    { id: 'crossing', label: 'Переезд', icon: Construction, color: colors.warningStrong },
+    { id: 'accident', label: 'ДТП', icon: AlertTriangle, color: colors.danger },
+    { id: 'patrol', label: 'Контроль', icon: ShieldCheck, color: colors.info2 },
+    { id: 'fuel', label: 'АЗС', icon: Fuel, color: colors.purple },
+    { id: 'road', label: 'Дорога', icon: Navigation, color: colors.roadBlue },
+    { id: 'traffic_light', label: 'Светофор', icon: Disc, color: colors.amber },
+    { id: 'question', label: 'Вопросы', icon: HelpCircle, color: colors.purple2 },
   ];
 
   return (
@@ -63,12 +64,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         <button
           type="button"
           onClick={onOpenAbout}
-          className="flex items-center justify-center w-8 h-8 rounded-xl bg-[#111315] hover:bg-[#20242A] border border-white/10 shrink-0 transition active:scale-95 cursor-pointer shadow-xs"
+          className="flex items-center justify-center w-8 h-8 rounded-xl bg-graphite hover:bg-surface-700 border border-white/10 shrink-0 transition active:scale-95 cursor-pointer shadow-xs"
           title="О сервисе ROADLIVE"
           aria-label="Открыть справку о сервисе ROADLIVE"
         >
           <span className="font-mono font-bold text-xs text-white">R</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-[#4B8DFF] ml-0.5"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-accent ml-0.5"></span>
         </button>
 
         {/* Middle Full-Width Marquee Running Line (Бегущая строка от логотипа до аккаунта) */}
@@ -84,21 +85,21 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 <div
                   key={`ad_loop1_${ad.id}_${idx}`}
                   onClick={() => onSelectSponsoredPlace && onSelectSponsoredPlace(ad)}
-                  className="flex items-center gap-2 hover:text-[#4B8DFF] transition cursor-pointer shrink-0"
+                  className="flex items-center gap-2 hover:text-accent transition cursor-pointer shrink-0"
                   title={`⭐ ${ad.title} — Нажмите для подробностей`}
                   role="button"
                   tabIndex={0}
                   aria-label={`Рекламная кампания: ${ad.title}`}
                 >
                   <span className="text-xs">{ad.icon || '📢'}</span>
-                  <span className="font-bold text-white group-hover:text-[#4B8DFF]">{ad.title}:</span>
-                  <span className="text-[#9AA0A8]">{ad.subtitle}</span>
+                  <span className="font-bold text-white group-hover:text-accent">{ad.title}:</span>
+                  <span className="text-muted">{ad.subtitle}</span>
                   {ad.promoCode && (
-                    <span className="text-[10px] font-mono text-[#E5A93C] bg-[#E5A93C]/10 px-1.5 py-0.2 rounded border border-[#E5A93C]/20">
+                    <span className="text-[10px] font-mono text-warning bg-warning/10 px-1.5 py-0.2 rounded border border-warning/20">
                       {ad.promoCode}
                     </span>
                   )}
-                  <span className="text-[#4B8DFF]/40 px-1">✦</span>
+                  <span className="text-accent/40 px-1">✦</span>
                 </div>
               ))}
 
@@ -107,21 +108,21 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 <div
                   key={`ad_loop2_${ad.id}_${idx}`}
                   onClick={() => onSelectSponsoredPlace && onSelectSponsoredPlace(ad)}
-                  className="flex items-center gap-2 hover:text-[#4B8DFF] transition cursor-pointer shrink-0"
+                  className="flex items-center gap-2 hover:text-accent transition cursor-pointer shrink-0"
                   title={`⭐ ${ad.title} — Нажмите для подробностей`}
                   role="button"
                   tabIndex={0}
                   aria-label={`Рекламная кампания: ${ad.title}`}
                 >
                   <span className="text-xs">{ad.icon || '📢'}</span>
-                  <span className="font-bold text-white group-hover:text-[#4B8DFF]">{ad.title}:</span>
-                  <span className="text-[#9AA0A8]">{ad.subtitle}</span>
+                  <span className="font-bold text-white group-hover:text-accent">{ad.title}:</span>
+                  <span className="text-muted">{ad.subtitle}</span>
                   {ad.promoCode && (
-                    <span className="text-[10px] font-mono text-[#E5A93C] bg-[#E5A93C]/10 px-1.5 py-0.2 rounded border border-[#E5A93C]/20">
+                    <span className="text-[10px] font-mono text-warning bg-warning/10 px-1.5 py-0.2 rounded border border-warning/20">
                       {ad.promoCode}
                     </span>
                   )}
-                  <span className="text-[#4B8DFF]/40 px-1">✦</span>
+                  <span className="text-accent/40 px-1">✦</span>
                 </div>
               ))}
             </div>
@@ -134,17 +135,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <button
             type="button"
             onClick={onOpenProfile}
-            className="flex items-center gap-1.5 bg-[#20242A] hover:bg-white/10 px-2.5 py-1.5 rounded-xl border border-white/10 transition active:scale-95 shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 bg-surface-700 hover:bg-white/10 px-2.5 py-1.5 rounded-xl border border-white/10 transition active:scale-95 shadow-xs cursor-pointer"
             title="Профиль водителя"
             aria-label={`Профиль водителя ${currentUser.fullName}, рейтинг ${currentUser.rating.toFixed(1)}`}
           >
             <div className="relative">
               <HolidayDecorator size="sm" />
-              <div className="w-5 h-5 rounded-full bg-[#111315] text-white flex items-center justify-center text-[10px] font-bold border border-white/20">
+              <div className="w-5 h-5 rounded-full bg-graphite text-white flex items-center justify-center text-[10px] font-bold border border-white/20">
                 {currentUser.fullName[0]}
               </div>
             </div>
-            <span className="text-[11px] font-semibold text-[#F0F2F5]">
+            <span className="text-[11px] font-semibold text-ink">
               ★ {currentUser.rating.toFixed(1)}
             </span>
           </button>
@@ -170,11 +171,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               aria-label={`Фильтр карты: ${cat.label}`}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer shrink-0 active:scale-95 shadow-xs border ${
                 isSelected
-                  ? 'bg-[#0B111E]/90 text-white border-[#38BDF8] shadow-[0_0_12px_rgba(56,189,248,0.4)] font-semibold'
-                  : 'bg-[#0B111E]/70 hover:bg-[#151D2A] text-[#9AA0A8] hover:text-white border-white/10 backdrop-blur-md'
+                  ? 'bg-graphite-950/90 text-white border-info shadow-[0_0_12px_rgba(56,189,248,0.4)] font-semibold'
+                  : 'bg-graphite-950/70 hover:bg-surface-blue text-muted hover:text-white border-white/10 backdrop-blur-md'
               }`}
             >
-              <IconComp className="w-3.5 h-3.5" style={{ color: isSelected ? '#38BDF8' : cat.color }} aria-hidden="true" />
+              <IconComp className="w-3.5 h-3.5" style={{ color: isSelected ? colors.info : cat.color }} aria-hidden="true" />
               <span>{cat.label}</span>
             </button>
           );

@@ -1,3 +1,4 @@
+import { colors } from '../../theme/tokens';
 import React, { useState, useEffect, useRef } from 'react';
 import { SponsoredBanner } from '../../types';
 import { AdService } from '../../services/adService';
@@ -99,7 +100,7 @@ export const FloatingMapAdSticker: React.FC<FloatingMapAdStickerProps> = ({
   const adSvg = get3DAdSvg(
     ad.id,
     ad.icon,
-    ad.bannerColor || '#4B8DFF',
+    ad.bannerColor || colors.accent,
     visual.customLogoUrl || ad.customLogoUrl
   );
 
@@ -131,8 +132,8 @@ export const FloatingMapAdSticker: React.FC<FloatingMapAdStickerProps> = ({
         </button>
 
         {/* Top Countdown Pill (30s auto-hide indicator) */}
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-40 bg-[#0B111E]/90 text-[#38BDF8] text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full border border-[#38BDF8]/40 shadow-xs flex items-center gap-1 backdrop-blur-md">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-ping shrink-0" />
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-40 bg-graphite-950/90 text-info text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full border border-info/40 shadow-xs flex items-center gap-1 backdrop-blur-md">
+          <span className="w-1.5 h-1.5 rounded-full bg-info animate-ping shrink-0" />
           <span>{timeLeft}s</span>
         </div>
 

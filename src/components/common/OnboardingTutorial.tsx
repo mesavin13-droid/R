@@ -19,19 +19,19 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
     {
       title: '🚧 Сообщайте о дорожных событиях',
       description: 'Видите ДТП, закрытый переезд или засаду ДПС? Нажмите кнопку «+» на карте, выберите точную точку и предупредите всех водителей в реальном времени.',
-      icon: <MapPin className="w-6 h-6 text-[#4B8DFF]" />,
+      icon: <MapPin className="w-6 h-6 text-accent" />,
       badge: 'Карта и События',
     },
     {
       title: '❓ Задавайте вопросы и отвечайте',
       description: 'Интересует ситуация на конкретном переезде? Поставьте интерактивную метку вопроса на карте. Водители поблизости получат пуш-уведомление и сразу ответят.',
-      icon: <HelpCircle className="w-6 h-6 text-[#AF52DE]" />,
+      icon: <HelpCircle className="w-6 h-6 text-purple" />,
       badge: 'Интерактивные метки',
     },
     {
       title: '🔔 Мгновенные гео-пуши',
       description: 'Активируйте уведомления в профиле, чтобы автоматически получать предупреждения, если прямо перед вами закрылся переезд или возник затор.',
-      icon: <Bell className="w-6 h-6 text-[#30B0C7]" />,
+      icon: <Bell className="w-6 h-6 text-info-2" />,
       badge: 'Будьте в курсе',
     },
   ];
@@ -61,11 +61,11 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
       aria-label="Обучение работе с ROADLIVE"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-300 select-none"
     >
-      <div className="relative w-full max-w-sm bg-[#181B1F]/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex flex-col text-[#F0F2F5] transition-all duration-300 scale-100">
+      <div className="relative w-full max-w-sm bg-surface-800/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex flex-col text-ink transition-all duration-300 scale-100">
         
         {/* Progress header */}
         <div className="flex items-center justify-between mb-5">
-          <span className="text-[10px] uppercase tracking-wider font-semibold text-[#4B8DFF] bg-[#4B8DFF]/10 px-2.5 py-1 rounded-full border border-[#4B8DFF]/20">
+          <span className="text-[10px] uppercase tracking-wider font-semibold text-accent bg-accent/10 px-2.5 py-1 rounded-full border border-accent/20">
             {step.badge}
           </span>
           <div className="flex items-center gap-1.5">
@@ -73,7 +73,7 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
               <span
                 key={i}
                 className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                  i === currentStep ? 'bg-[#4B8DFF] w-4' : 'bg-white/20'
+                  i === currentStep ? 'bg-accent w-4' : 'bg-white/20'
                 }`}
               />
             ))}
@@ -88,7 +88,7 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
           <h3 className="text-base font-bold text-white tracking-tight">
             {step.title}
           </h3>
-          <p className="text-xs text-[#9AA0A8] leading-relaxed max-w-[280px]">
+          <p className="text-xs text-muted leading-relaxed max-w-[280px]">
             {step.description}
           </p>
         </div>
@@ -98,14 +98,14 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
           {currentStep > 0 ? (
             <button
               onClick={() => setCurrentStep(currentStep - 1)}
-              className="px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-white/10 text-xs font-semibold text-[#9AA0A8] transition active:scale-95 cursor-pointer"
+              className="px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-white/10 text-xs font-semibold text-muted transition active:scale-95 cursor-pointer"
             >
               Назад
             </button>
           ) : (
             <button
               onClick={handleComplete}
-              className="px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-white/10 text-xs font-semibold text-[#9AA0A8] transition active:scale-95 cursor-pointer"
+              className="px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-white/10 text-xs font-semibold text-muted transition active:scale-95 cursor-pointer"
             >
               Пропустить
             </button>
@@ -113,7 +113,7 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
 
           <button
             onClick={handleNext}
-            className="flex-1 py-3 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white font-semibold text-xs rounded-xl transition active:scale-95 shadow-lg shadow-[#4B8DFF]/25 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="flex-1 py-3 bg-accent hover:bg-accent-strong text-white font-semibold text-xs rounded-xl transition active:scale-95 shadow-lg shadow-accent/25 flex items-center justify-center gap-1.5 cursor-pointer"
           >
             {currentStep === steps.length - 1 ? (
               <>
@@ -132,7 +132,7 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
         {/* Close Button top-right */}
         <button
           onClick={handleComplete}
-          className="absolute top-4 right-4 p-1 rounded-full bg-white/5 text-[#9AA0A8] hover:text-white transition"
+          className="absolute top-4 right-4 p-1 rounded-full bg-white/5 text-muted hover:text-white transition"
         >
           <X className="w-4 h-4" />
         </button>

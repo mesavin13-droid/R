@@ -54,7 +54,7 @@ export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
       aria-live="assertive"
       aria-label="Срочный экстренный вызов помощи SOS на дороге"
     >
-      <div className="p-2.5 sm:p-3 rounded-2xl bg-[#FF3B30]/95 backdrop-blur-2xl border border-white/30 text-white shadow-[0_10px_32px_rgba(255,59,48,0.55)] flex flex-col gap-2">
+      <div className="p-2.5 sm:p-3 rounded-2xl bg-danger/95 backdrop-blur-2xl border border-white/30 text-white shadow-[0_10px_32px_rgba(255,59,48,0.55)] flex flex-col gap-2">
         {/* Header Row with Close Button */}
         <div className="flex items-center justify-between gap-2 border-b border-white/20 pb-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -119,7 +119,7 @@ export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
                 onSelectEvent(latestSos);
               }
             }}
-            className="py-1.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-[#FF3B30] font-bold text-[11px] shadow-sm transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
+            className="py-1.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-danger font-bold text-[11px] shadow-sm transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
           >
             <span>🤝 Еду помочь</span>
           </button>

@@ -1,5 +1,60 @@
 @import "tailwindcss";
 
+/*
+ * ROADLIVE design tokens — single source of truth.
+ * Every colour the UI uses is declared once here and consumed as a semantic
+ * Tailwind utility (bg-graphite, text-muted, border-accent, …). Components
+ * must NOT hard-code hex values; changing the palette means editing this block
+ * only. Keep names semantic (role), never literal (blue-500).
+ */
+@theme {
+  /* Surfaces / backgrounds */
+  --color-graphite: #111315;      /* app background */
+  --color-graphite-950: #0b111e;  /* deepest */
+  --color-graphite-900: #14171b;  /* overlays */
+  --color-surface-800: #181b1f;   /* cards, dark panels */
+  --color-surface-750: #1e232b;
+  --color-surface-700: #20242a;   /* raised surface */
+  --color-surface-600: #282d35;   /* hover surface */
+
+  /* Brand accent (primary interactive) */
+  --color-accent: #4b8dff;
+  --color-accent-strong: #3c7ae6;
+  --color-accent-soft: rgba(75, 141, 255, 0.15);
+
+  /* Informational / categorical */
+  --color-info: #38bdf8;
+  --color-info-2: #30b0c7;
+  --color-telegram: #24a1de;
+  --color-purple: #af52de;
+  --color-purple-2: #c084fc;
+
+  /* Status */
+  --color-success: #34c759;
+  --color-warning: #e5a93c;
+  --color-warning-strong: #ff9f0a;
+  --color-amber: #ffd60a;
+  --color-danger: #ff453a;
+  --color-danger-strong: #e03126;
+  --color-danger-alt: #ff3b30;   /* legacy red, kept for one-off accents */
+  --color-danger-soft: #ff8a80;
+
+  /* Text */
+  --color-ink: #f0f2f5;          /* primary text */
+  --color-muted: #9aa0a8;        /* secondary text */
+  --color-faint: #5f656d;        /* tertiary / inactive */
+  --color-faintest: #555a60;     /* disabled / hints */
+
+  /* Extra surface tints used by gradients & panels (kept for fidelity) */
+  --color-surface-900: #121519;  /* inset channel card */
+  --color-surface-850: #1c2026;
+  --color-surface-650: #282e36;
+  --color-surface-blue: #151d2a; /* blue-tinted dark panel */
+  --color-graphite-925: #1c2433; /* deep blue-graphite */
+  --color-accent-deep: #2a5bd7;  /* gradient end of the brand accent */
+  --color-success-bright: #30d158;
+}
+
 @layer base {
   :root {
     --bg-graphite: #111315;

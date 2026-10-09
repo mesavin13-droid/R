@@ -1,3 +1,4 @@
+import { colors } from '../../theme/tokens';
 import React, { useState } from 'react';
 import { SponsoredBanner } from '../../types';
 import { X, Navigation, Phone, Tag, Copy, Check, ChevronRight, MapPin, ExternalLink } from 'lucide-react';
@@ -41,32 +42,32 @@ export const MapAdBanner: React.FC<MapAdBannerProps> = ({
     <div className="absolute left-3 right-3 sm:left-4 sm:right-auto sm:w-[380px] top-20 sm:top-20 z-20 pointer-events-auto select-none animate-in slide-in-from-top-4 duration-300">
       <div 
         onClick={() => onSelectBannerDetails(banner)}
-        className="group relative bg-[#181B1F]/95 backdrop-blur-2xl rounded-2xl border border-white/10 hover:border-white/20 p-3 sm:p-3.5 shadow-[0_12px_36px_rgba(0,0,0,0.6)] cursor-pointer transition-all"
+        className="group relative bg-surface-800/95 backdrop-blur-2xl rounded-2xl border border-white/10 hover:border-white/20 p-3 sm:p-3.5 shadow-[0_12px_36px_rgba(0,0,0,0.6)] cursor-pointer transition-all"
       >
         {/* Subtle accent light indicator */}
         <div 
           className="absolute top-0 left-6 right-6 h-0.5 rounded-full opacity-60"
-          style={{ backgroundColor: banner.bannerColor || '#4B8DFF' }}
+          style={{ backgroundColor: banner.bannerColor || colors.accent }}
         />
 
         {/* Top Meta Bar */}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] font-semibold uppercase tracking-wider text-[#9AA0A8] bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-muted bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
               Реклама
             </span>
             <span 
               className="text-[10px] font-medium px-2 py-0.5 rounded-md border"
               style={{
-                backgroundColor: `${banner.bannerColor || '#4B8DFF'}15`,
-                color: banner.bannerColor || '#4B8DFF',
-                borderColor: `${banner.bannerColor || '#4B8DFF'}30`,
+                backgroundColor: `${banner.bannerColor || colors.accent}15`,
+                color: banner.bannerColor || colors.accent,
+                borderColor: `${banner.bannerColor || colors.accent}30`,
               }}
             >
               {banner.categoryBadge}
             </span>
             {banner.discountText && (
-              <span className="text-[10px] font-bold text-[#34C759] bg-[#34C759]/10 px-2 py-0.5 rounded-md border border-[#34C759]/20">
+              <span className="text-[10px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-md border border-success/20">
                 {banner.discountText}
               </span>
             )}
@@ -79,7 +80,7 @@ export const MapAdBanner: React.FC<MapAdBannerProps> = ({
               e.stopPropagation();
               onCloseBanner(banner.id);
             }}
-            className="p-1 rounded-full text-[#9AA0A8] hover:text-white hover:bg-white/10 active:scale-90 transition shrink-0"
+            className="p-1 rounded-full text-muted hover:text-white hover:bg-white/10 active:scale-90 transition shrink-0"
             title="Закрыть рекламу"
             aria-label="Закрыть рекламу"
           >
@@ -91,22 +92,22 @@ export const MapAdBanner: React.FC<MapAdBannerProps> = ({
         <div className="flex items-start gap-3">
           <div 
             className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shrink-0 border border-white/10 shadow-sm"
-            style={{ backgroundColor: `${banner.bannerColor || '#4B8DFF'}20` }}
+            style={{ backgroundColor: `${banner.bannerColor || colors.accent}20` }}
           >
             <span>{banner.icon}</span>
           </div>
 
           <div className="flex-1 min-w-0">
-            <h4 className="text-xs sm:text-sm font-semibold text-white truncate leading-snug group-hover:text-[#4B8DFF] transition">
+            <h4 className="text-xs sm:text-sm font-semibold text-white truncate leading-snug group-hover:text-accent transition">
               {banner.title}
             </h4>
-            <p className="text-[11px] text-[#9AA0A8] line-clamp-2 mt-0.5 leading-tight">
+            <p className="text-[11px] text-muted line-clamp-2 mt-0.5 leading-tight">
               {banner.subtitle}
             </p>
 
             {/* Address */}
-            <div className="flex items-center gap-1 text-[10px] text-[#9AA0A8] mt-1.5 truncate">
-              <MapPin className="w-3 h-3 text-[#4B8DFF] shrink-0" />
+            <div className="flex items-center gap-1 text-[10px] text-muted mt-1.5 truncate">
+              <MapPin className="w-3 h-3 text-accent shrink-0" />
               <span className="truncate">{banner.address}</span>
             </div>
           </div>
@@ -119,22 +120,22 @@ export const MapAdBanner: React.FC<MapAdBannerProps> = ({
             <button
               type="button"
               onClick={(e) => handleCopyPromo(e, banner.promoCode!)}
-              className="text-[11px] font-medium text-[#F0F2F5] hover:text-white bg-[#20242A] hover:bg-[#282D35] px-2.5 py-1 rounded-xl border border-white/10 transition active:scale-95 flex items-center gap-1.5 shrink-0"
+              className="text-[11px] font-medium text-ink hover:text-white bg-surface-700 hover:bg-surface-600 px-2.5 py-1 rounded-xl border border-white/10 transition active:scale-95 flex items-center gap-1.5 shrink-0"
             >
               {copiedPromo === banner.promoCode ? (
                 <>
-                  <Check className="w-3 h-3 text-[#34C759]" />
-                  <span className="text-[#34C759] font-semibold">Скопирован</span>
+                  <Check className="w-3 h-3 text-success" />
+                  <span className="text-success font-semibold">Скопирован</span>
                 </>
               ) : (
                 <>
-                  <Tag className="w-3 h-3 text-[#E5A93C]" />
-                  <span className="font-mono text-[#E5A93C] font-semibold">{banner.promoCode}</span>
+                  <Tag className="w-3 h-3 text-warning" />
+                  <span className="font-mono text-warning font-semibold">{banner.promoCode}</span>
                 </>
               )}
             </button>
           ) : (
-            <span className="text-[10px] text-[#9AA0A8]">Партнёр ROADLIVE</span>
+            <span className="text-[10px] text-muted">Партнёр ROADLIVE</span>
           )}
 
           <div className="flex items-center gap-1.5">
@@ -145,7 +146,7 @@ export const MapAdBanner: React.FC<MapAdBannerProps> = ({
                 e.stopPropagation();
                 onFocusLocation(banner.latitude, banner.longitude);
               }}
-              className="text-xs font-semibold text-[#4B8DFF] hover:text-white bg-[#4B8DFF]/15 hover:bg-[#4B8DFF] px-3 py-1 rounded-xl border border-[#4B8DFF]/30 hover:border-transparent transition active:scale-95 flex items-center gap-1"
+              className="text-xs font-semibold text-accent hover:text-white bg-accent/15 hover:bg-accent px-3 py-1 rounded-xl border border-accent/30 hover:border-transparent transition active:scale-95 flex items-center gap-1"
             >
               <Navigation className="w-3 h-3 fill-current" />
               <span>{banner.actionText || 'На карте'}</span>
@@ -156,7 +157,7 @@ export const MapAdBanner: React.FC<MapAdBannerProps> = ({
               <button
                 type="button"
                 onClick={handleNext}
-                className="text-[10px] text-[#9AA0A8] hover:text-white p-1 rounded-lg hover:bg-white/5 transition"
+                className="text-[10px] text-muted hover:text-white p-1 rounded-lg hover:bg-white/5 transition"
                 title="Следующая реклама"
               >
                 {safeIndex + 1}/{banners.length} →

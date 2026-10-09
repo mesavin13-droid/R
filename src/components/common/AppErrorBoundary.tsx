@@ -26,18 +26,18 @@ export class AppErrorBoundary extends React.Component<
     if (!this.state.error) return this.props.children;
 
     return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#111315] text-center">
-        <div className="w-full max-w-sm p-7 bg-[#181B1F] border border-white/[0.08] rounded-3xl space-y-4">
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-graphite text-center">
+        <div className="w-full max-w-sm p-7 bg-surface-800 border border-white/[0.08] rounded-3xl space-y-4">
           <div className="text-3xl">⚠️</div>
           <h1 className="text-lg font-bold text-white">Что-то пошло не так</h1>
-          <p className="text-xs text-[#9AA0A8] leading-relaxed">
+          <p className="text-xs text-muted leading-relaxed">
             Приложение не смогло отобразить экран. Перезагрузите его — данные
             и ваш профиль сохранятся.
           </p>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="w-full py-3 rounded-2xl bg-[#24A1DE] text-white text-xs font-bold"
+            className="w-full py-3 rounded-2xl bg-telegram text-white text-xs font-bold"
           >
             Перезагрузить
           </button>

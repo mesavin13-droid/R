@@ -9,6 +9,7 @@ import { GeocodingService } from '../../services/geocodingService';
 import { EventService } from '../../services/eventService';
 import { UserService } from '../../services/userService';
 import { get3DAdSvg } from '../ads/adVisuals';
+import { colors } from '../../theme/tokens';
 import { FloatingMapAdSticker } from '../ads/FloatingMapAdSticker';
 import { getRoadLivePinSvg } from './markerVisuals';
 
@@ -262,8 +263,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
     const userHtml = `
       <div class="relative flex items-center justify-center">
-        <div class="absolute w-8 h-8 rounded-full bg-[#4B8DFF]/25 animate-ping"></div>
-        <div class="relative w-4 h-4 rounded-full bg-[#4B8DFF] border-2 border-[#181B1F] shadow-[0_0_12px_rgba(75,141,255,0.7)] flex items-center justify-center">
+        <div class="absolute w-8 h-8 rounded-full bg-accent/25 animate-ping"></div>
+        <div class="relative w-4 h-4 rounded-full bg-accent border-2 border-surface-800 shadow-[0_0_12px_rgba(75,141,255,0.7)] flex items-center justify-center">
           <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
         </div>
       </div>
@@ -320,9 +321,9 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       const clusterIconLayout = ymaps.templateLayoutFactory.createClass(
         `<div class="relative flex items-center justify-center select-none" style="width: 44px; height: 44px; margin-top: -22px; margin-left: -22px;">
           <!-- Glowing neon ring -->
-          <div class="absolute inset-0 rounded-full bg-[#4B8DFF]/15 border-2 border-[#4B8DFF]/40 animate-pulse shadow-[0_0_15px_rgba(75,141,255,0.4)]"></div>
+          <div class="absolute inset-0 rounded-full bg-accent/15 border-2 border-accent/40 animate-pulse shadow-[0_0_15px_rgba(75,141,255,0.4)]"></div>
           <!-- Premium dark glass badge -->
-          <div class="relative w-8.5 h-8.5 rounded-full bg-[#181B1F]/90 backdrop-blur-md border border-white/15 flex items-center justify-center text-white font-bold text-xs shadow-md">
+          <div class="relative w-8.5 h-8.5 rounded-full bg-surface-800/90 backdrop-blur-md border border-white/15 flex items-center justify-center text-white font-bold text-xs shadow-md">
             $[properties.geoObjects.length]
           </div>
         </div>`
@@ -342,32 +343,32 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       // Render Events
       events.forEach((ev) => {
-        let badgeColor = '#4B8DFF';
+        let badgeColor: string = colors.accent;
         let badgeIcon = '🚗';
 
         if (ev.type === 'crossing') {
-          badgeColor = ev.subType === 'closed' ? '#FF453A' : '#34C759';
+          badgeColor = ev.subType === 'closed' ? colors.danger : colors.success;
           badgeIcon = '🚧';
         } else if (ev.type === 'accident') {
-          badgeColor = ev.subType === 'road_blocked' ? '#FF453A' : '#FF9F0A';
+          badgeColor = ev.subType === 'road_blocked' ? colors.danger : colors.warningStrong;
           badgeIcon = '🚗';
         } else if (ev.type === 'patrol') {
-          badgeColor = '#30B0C7';
+          badgeColor = colors.info2;
           badgeIcon = '👮';
         } else if (ev.type === 'fuel') {
-          badgeColor = '#AF52DE';
+          badgeColor = colors.purple;
           badgeIcon = '⛽';
         } else if (ev.type === 'road') {
-          badgeColor = '#FF9F0A';
+          badgeColor = colors.warningStrong;
           badgeIcon = '🛣️';
         } else if (ev.type === 'traffic_light') {
-          badgeColor = '#FFD60A';
+          badgeColor = colors.amber;
           badgeIcon = '🚦';
         } else if (ev.type === 'hazard') {
-          badgeColor = '#FF453A';
+          badgeColor = colors.danger;
           badgeIcon = '⚠️';
         } else if (ev.type === 'assistance') {
-          badgeColor = '#FF3B30';
+          badgeColor = colors.danger;
           badgeIcon = '🆘';
         }
 
@@ -409,10 +410,10 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       stations.forEach((st) => {
         const queueColor =
           st.queueStatus === 'none'
-            ? '#34C759'
+            ? colors.success
             : st.queueStatus === 'small'
-            ? '#FF9F0A'
-            : '#FF453A';
+            ? colors.warningStrong
+            : colors.danger;
 
         const stationHtml = getRoadLivePinSvg('station', 'station', queueColor, 0, false);
 
@@ -439,7 +440,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       // Render Questions
       questions.forEach((q) => {
-        const questionHtml = getRoadLivePinSvg('question', 'question', '#AF52DE', 0, false);
+        const questionHtml = getRoadLivePinSvg('question', 'question', colors.purple, 0, false);
 
         const layout = ymaps.templateLayoutFactory.createClass(
           `<div class="yandex-custom-marker-wrapper">${questionHtml}</div>`
@@ -468,7 +469,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       // Render EXACT 2GIS-STYLE SPONSORED LOGO PINS on Yandex Maps
       sponsoredBanners.forEach((ad) => {
-        const adColor = ad.bannerColor || '#4B8DFF';
+        const adColor = ad.bannerColor || colors.accent;
         const adSvg = get3DAdSvg(ad.id, ad.icon, adColor, ad.customLogoUrl);
 
         const adMarkerHtml = `
@@ -545,7 +546,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
   return (
     <div 
-      className="relative w-full h-full overflow-hidden bg-[#111315]"
+      className="relative w-full h-full overflow-hidden bg-graphite"
       role="region"
       aria-label="Интерактивная карта дорожных событий ROADLIVE"
     >
@@ -573,17 +574,17 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center -translate-y-7">
             <div className="flex flex-col items-center animate-in zoom-in-95 duration-200">
               {/* Floating Address Tag over Pin */}
-              <div className="px-3.5 py-1.5 rounded-full bg-[#181B1F]/95 backdrop-blur-xl border border-[#4B8DFF]/60 shadow-[0_8px_28px_rgba(0,0,0,0.75)] text-white text-xs font-semibold flex items-center gap-2 mb-1">
-                <span className="w-2 h-2 rounded-full bg-[#4B8DFF] animate-ping" />
+              <div className="px-3.5 py-1.5 rounded-full bg-surface-800/95 backdrop-blur-xl border border-accent/60 shadow-[0_8px_28px_rgba(0,0,0,0.75)] text-white text-xs font-semibold flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
                 <span className="truncate max-w-[200px]">{isGeocoding ? 'Поиск адреса...' : pickerAddress}</span>
               </div>
 
               {/* Pin Graphics */}
               <div className="relative transform hover:scale-105 transition-transform">
                 <svg width="44" height="54" viewBox="0 0 44 54" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)]">
-                  <path d="M22 0C9.85 0 0 9.85 0 22C0 38.5 22 54 22 54C22 54 44 38.5 44 22C44 9.85 34.15 0 22 0Z" fill="#181B1F"/>
-                  <path d="M22 2C11.05 2 2 11.05 2 22C2 36.8 22 51.5 22 51.5C22 51.5 42 36.8 42 22C42 11.05 32.95 2 22 2Z" fill="#20242A" stroke="#4B8DFF" strokeWidth="2.5"/>
-                  <circle cx="22" cy="22" r="10" fill="#4B8DFF"/>
+                  <path d="M22 0C9.85 0 0 9.85 0 22C0 38.5 22 54 22 54C22 54 44 38.5 44 22C44 9.85 34.15 0 22 0Z" fill={colors.surface800}/>
+                  <path d="M22 2C11.05 2 2 11.05 2 22C2 36.8 22 51.5 22 51.5C22 51.5 42 36.8 42 22C42 11.05 32.95 2 22 2Z" fill={colors.surface700} stroke={colors.accent} strokeWidth="2.5"/>
+                  <circle cx="22" cy="22" r="10" fill={colors.accent}/>
                   <circle cx="22" cy="22" r="4.5" fill="white"/>
                 </svg>
               </div>
@@ -598,14 +599,14 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             <div className="graphite-sheet-depth rounded-2xl p-3 sm:p-3.5 border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.7)] space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-[#4B8DFF]/20 text-[#4B8DFF] flex items-center justify-center shrink-0 mt-0.5 border border-[#4B8DFF]/30">
+                  <div className="w-8 h-8 rounded-xl bg-accent/20 text-accent flex items-center justify-center shrink-0 mt-0.5 border border-accent/30">
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div className="truncate">
                     <p className="text-xs font-semibold text-white truncate leading-snug">
                       {pickerAddress}
                     </p>
-                    <p className="text-[11px] text-[#9AA0A8] truncate mt-0.5">
+                    <p className="text-[11px] text-muted truncate mt-0.5">
                       Перемещайте карту для точного выбора точки
                     </p>
                   </div>
@@ -614,7 +615,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
                 {userCoords && (
                   <button
                     onClick={handleSnapToUserInPicker}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-[#4B8DFF] shrink-0 active:scale-95 transition flex items-center gap-1 text-xs font-medium"
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-accent shrink-0 active:scale-95 transition flex items-center gap-1 text-xs font-medium"
                     title="Вернуть к моему положению"
                   >
                     <Navigation className="w-3.5 h-3.5" />
@@ -626,18 +627,18 @@ export const RoadMap: React.FC<RoadMapProps> = ({
               {/* 1000m Verification Status Banner */}
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
                 {isWithin1000m ? (
-                  <span className="inline-flex items-center gap-1.5 text-[#34C759] font-medium text-[11px]">
+                  <span className="inline-flex items-center gap-1.5 text-success font-medium text-[11px]">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>В радиусе {distanceFromUserMeters < 1000 ? `${distanceFromUserMeters} м` : '1 км'} (достоверно)</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-[#E5A93C] font-medium text-[11px]">
+                  <span className="inline-flex items-center gap-1.5 text-warning font-medium text-[11px]">
                     <ShieldAlert className="w-3.5 h-3.5" />
                     <span>Вне зоны 1000 м ({(distanceFromUserMeters / 1000).toFixed(1)} км — дистанционное)</span>
                   </span>
                 )}
 
-                <span className="text-[10px] text-[#9AA0A8] font-mono">
+                <span className="text-[10px] text-muted font-mono">
                   {pickerCoords.lat.toFixed(4)}, {pickerCoords.lng.toFixed(4)}
                 </span>
               </div>
@@ -648,15 +649,15 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           <div className="absolute left-3 right-3 bottom-8 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-md z-40 pointer-events-auto flex items-center gap-2.5">
             <button
               onClick={onCancelPinPicker}
-              className="flex-1 py-3.5 px-4 rounded-2xl bg-[#181B1F]/95 backdrop-blur-xl border border-white/10 text-white font-medium text-xs sm:text-sm hover:bg-white/10 active:scale-95 transition shadow-lg text-center flex items-center justify-center gap-1.5"
+              className="flex-1 py-3.5 px-4 rounded-2xl bg-surface-800/95 backdrop-blur-xl border border-white/10 text-white font-medium text-xs sm:text-sm hover:bg-white/10 active:scale-95 transition shadow-lg text-center flex items-center justify-center gap-1.5"
             >
-              <X className="w-4 h-4 text-[#9AA0A8]" />
+              <X className="w-4 h-4 text-muted" />
               <span>Отмена</span>
             </button>
 
             <button
               onClick={() => onConfirmPinLocation && onConfirmPinLocation(pickerCoords, pickerAddress)}
-              className="flex-[2] py-3.5 px-4 rounded-2xl bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white font-semibold text-xs sm:text-sm shadow-[0_8px_30px_rgba(75,141,255,0.4)] active:scale-95 transition text-center flex items-center justify-center gap-2"
+              className="flex-[2] py-3.5 px-4 rounded-2xl bg-accent hover:bg-accent-strong text-white font-semibold text-xs sm:text-sm shadow-[0_8px_30px_rgba(75,141,255,0.4)] active:scale-95 transition text-center flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4 stroke-[3]" />
               <span>Выбрать эту точку</span>
@@ -667,22 +668,22 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       {/* --- ACTIVE SOS STATUS CARD --- */}
       {!isPinPickerMode && myActiveSos && (
-        <div className="absolute top-[220px] right-3 sm:right-5 z-20 w-[200px] sm:w-[210px] bg-[#181B1F]/95 backdrop-blur-xl border border-red-500/40 p-3 rounded-2xl shadow-[0_12px_36px_rgba(255,59,48,0.35)] animate-in slide-in-from-right-3 duration-300 pointer-events-auto">
+        <div className="absolute top-[220px] right-3 sm:right-5 z-20 w-[200px] sm:w-[210px] bg-surface-800/95 backdrop-blur-xl border border-red-500/40 p-3 rounded-2xl shadow-[0_12px_36px_rgba(255,59,48,0.35)] animate-in slide-in-from-right-3 duration-300 pointer-events-auto">
           <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-white/10">
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
-            <span className="text-[9px] font-extrabold text-[#FF3B30] uppercase tracking-wider">
+            <span className="text-[9px] font-extrabold text-danger uppercase tracking-wider">
               SOS активен
             </span>
           </div>
 
           <p className="text-[11px] font-bold text-white leading-tight">{myActiveSos.title}</p>
           {myActiveSos.address && (
-            <p className="text-[9px] text-[#9AA0A8] mt-1 leading-tight">📍 {myActiveSos.address}</p>
+            <p className="text-[9px] text-muted mt-1 leading-tight">📍 {myActiveSos.address}</p>
           )}
-          <p className="text-[9px] text-[#9AA0A8] mt-1.5 leading-tight">
+          <p className="text-[9px] text-muted mt-1.5 leading-tight">
             Водители рядом оповещены через Telegram.
           </p>
 
@@ -697,7 +698,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             onClick={() => {
               if (onSelectEvent) onSelectEvent(myActiveSos);
             }}
-            className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-[#FF3B30]/20 text-[#FF3B30] text-[9px] font-extrabold border border-[#FF3B30]/30 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider mt-2"
+            className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-danger/20 text-danger text-[9px] font-extrabold border border-danger/30 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider mt-2"
           >
             Открыть вызов
           </button>
@@ -715,7 +716,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             <button
               type="button"
               onClick={handleZoomIn}
-              className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-[#F0F2F5] hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
+              className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-ink hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
               title="Приблизить карту"
               aria-label="Увеличить масштаб карты"
             >
@@ -724,7 +725,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             <button
               type="button"
               onClick={handleZoomOut}
-              className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-[#F0F2F5] hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
+              className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-ink hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
               title="Отдалить карту"
               aria-label="Уменьшить масштаб карты"
             >
@@ -736,7 +737,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           <button
             type="button"
             onClick={handleRecenterMap}
-            className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl graphite-glass text-[#4B8DFF] hover:bg-white/10 active:scale-90 transition border border-[#4B8DFF]/50 shadow-[0_12px_32px_rgba(0,0,0,0.5)] cursor-pointer"
+            className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl graphite-glass text-accent hover:bg-white/10 active:scale-90 transition border border-accent/50 shadow-[0_12px_32px_rgba(0,0,0,0.5)] cursor-pointer"
             title="Моё местоположение"
             aria-label="Переместить карту к моему текущему местоположению"
           >
@@ -757,7 +758,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             <button
               type="button"
               onClick={onOpenQuickSos}
-              className="pointer-events-auto flex items-center justify-center gap-1.5 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-2xl bg-[#FF3B30]/90 hover:bg-[#E03126] text-white font-bold text-xs sm:text-sm border border-red-400/50 shadow-[0_0_20px_rgba(255,59,48,0.5)] active:scale-95 transition cursor-pointer animate-pulse shrink-0"
+              className="pointer-events-auto flex items-center justify-center gap-1.5 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-2xl bg-danger/90 hover:bg-danger-strong text-white font-bold text-xs sm:text-sm border border-red-400/50 shadow-[0_0_20px_rgba(255,59,48,0.5)] active:scale-95 transition cursor-pointer animate-pulse shrink-0"
               title="Быстрый вызов помощи на дороге (SOS)"
               aria-label="Экстренный вызов помощи на дороге SOS"
             >
@@ -771,10 +772,10 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             <button
               type="button"
               onClick={onOpenChat}
-              className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-[#1E232B] text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-[#38BDF8]/50 active:scale-95 transition-all duration-200 cursor-pointer"
+              className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-surface-750 text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-info/50 active:scale-95 transition-all duration-200 cursor-pointer"
               aria-label="Открыть прямой дорожный автоэфир и чат"
             >
-              <MessageSquare className="w-4 h-4 text-[#38BDF8] shrink-0 stroke-[2.2]" />
+              <MessageSquare className="w-4 h-4 text-info shrink-0 stroke-[2.2]" />
               <span>Эфир</span>
             </button>
           )}
@@ -783,10 +784,10 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           <button
             type="button"
             onClick={onOpenAskQuestion}
-            className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-[#1E232B] text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-[#38BDF8]/50 active:scale-95 transition-all duration-200 cursor-pointer"
+            className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-surface-750 text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-info/50 active:scale-95 transition-all duration-200 cursor-pointer"
             aria-label="Задать вопрос другим водителям в этой локации"
           >
-            <HelpCircle className="w-4 h-4 text-[#38BDF8] shrink-0 stroke-[2.2]" />
+            <HelpCircle className="w-4 h-4 text-info shrink-0 stroke-[2.2]" />
             <span>Спросить</span>
           </button>
 
@@ -794,10 +795,10 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           <button
             type="button"
             onClick={onOpenCreateEvent}
-            className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-[#1E232B] text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-[#38BDF8]/50 active:scale-95 transition-all duration-200 cursor-pointer"
+            className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-surface-750 text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-info/50 active:scale-95 transition-all duration-200 cursor-pointer"
             aria-label="Сообщить о событии, ДТП, переезде или контроле на дороге"
           >
-            <Plus className="w-4 h-4 text-[#38BDF8] shrink-0 stroke-[2.5]" />
+            <Plus className="w-4 h-4 text-info shrink-0 stroke-[2.5]" />
             <span>Сообщить</span>
           </button>
         </div>

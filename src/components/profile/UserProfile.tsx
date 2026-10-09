@@ -198,16 +198,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#111315] overflow-hidden pb-16 select-none">
+    <div className="h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Profile Header */}
-      <div className="p-4 sm:p-5 bg-[#181B1F]/80 backdrop-blur-2xl border-b border-white/[0.08]">
+      <div className="p-4 sm:p-5 bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center gap-4 max-w-2xl mx-auto">
           <div className="relative">
             <HolidayDecorator size="lg" />
-            <div className="w-16 h-16 rounded-2xl bg-[#20242A] border border-white/10 text-white flex items-center justify-center text-2xl font-bold shadow-md">
+            <div className="w-16 h-16 rounded-2xl bg-surface-700 border border-white/10 text-white flex items-center justify-center text-2xl font-bold shadow-md">
               {currentUser.fullName[0]}
             </div>
-            <div className="absolute -bottom-1 -right-1 bg-[#181B1F] border border-[#4B8DFF]/40 text-[#4B8DFF] text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
+            <div className="absolute -bottom-1 -right-1 bg-surface-800 border border-accent/40 text-accent text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
               <Star className="w-2.5 h-2.5 fill-current" />
               <span>{currentUser.rating.toFixed(1)}</span>
             </div>
@@ -218,11 +218,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               {currentUser.fullName}
             </h1>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-medium text-[#4B8DFF] bg-[#4B8DFF]/10 px-2.5 py-0.5 rounded-lg border border-[#4B8DFF]/20">
+              <span className="text-xs font-medium text-accent bg-accent/10 px-2.5 py-0.5 rounded-lg border border-accent/20">
                 {currentUser.level}
               </span>
               {isAdminAuthorized && (
-                <span className="text-xs font-medium text-[#E5A93C] bg-[#E5A93C]/10 px-2.5 py-0.5 rounded-lg border border-[#E5A93C]/20">
+                <span className="text-xs font-medium text-warning bg-warning/10 px-2.5 py-0.5 rounded-lg border border-warning/20">
                   Шеф-Модератор
                 </span>
               )}
@@ -232,28 +232,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {/* 3 Stats Glass Cards */}
         <div className="grid grid-cols-3 gap-2 mt-4 max-w-2xl mx-auto text-center">
-          <div className="p-3 bg-[#111315] rounded-xl border border-white/[0.06]">
+          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
             <p className="text-lg sm:text-xl font-bold text-white">
               {currentUser.helpfulConfirmationsCount || 247}
             </p>
-            <p className="text-[10px] text-[#9AA0A8] font-normal uppercase tracking-wider mt-0.5">подтверждений</p>
+            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">подтверждений</p>
           </div>
-          <div className="p-3 bg-[#111315] rounded-xl border border-white/[0.06]">
+          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
             <p className="text-lg sm:text-xl font-bold text-white">
               {currentUser.eventsCount || 82}
             </p>
-            <p className="text-[10px] text-[#9AA0A8] font-normal uppercase tracking-wider mt-0.5">сообщений</p>
+            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">сообщений</p>
           </div>
-          <div className="p-3 bg-[#111315] rounded-xl border border-white/[0.06]">
+          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
             <p className="text-lg sm:text-xl font-bold text-white">
               {currentUser.answersCount || 31}
             </p>
-            <p className="text-[10px] text-[#9AA0A8] font-normal uppercase tracking-wider mt-0.5">ответов</p>
+            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">ответов</p>
           </div>
         </div>
 
         {/* Segmented Bar */}
-        <div className="flex items-center p-1 bg-[#111315] rounded-xl max-w-2xl mx-auto mt-4 border border-white/[0.06] overflow-x-auto no-scrollbar">
+        <div className="flex items-center p-1 bg-graphite rounded-xl max-w-2xl mx-auto mt-4 border border-white/[0.06] overflow-x-auto no-scrollbar">
           {[
             { id: 'stats', label: 'Настройки' },
             { id: 'events', label: `События (${localEvents.length})` },
@@ -266,8 +266,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all select-none ${
                 activeTab === tab.id
-                  ? 'bg-[#20242A] text-white border border-white/10 shadow-xs'
-                  : 'text-[#9AA0A8] hover:text-white'
+                  ? 'bg-surface-700 text-white border border-white/10 shadow-xs'
+                  : 'text-muted hover:text-white'
               }`}
             >
               {tab.label}
@@ -283,22 +283,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {/* Quick About Service Banner */}
             <div 
               onClick={() => setActiveTab('about')}
-              className="p-4 bg-gradient-to-br from-[#181B1F] to-[#14171B] rounded-2xl border border-white/10 hover:border-[#4B8DFF]/50 transition cursor-pointer flex items-center justify-between gap-3 group"
+              className="p-4 bg-gradient-to-br from-surface-800 to-graphite-900 rounded-2xl border border-white/10 hover:border-accent/50 transition cursor-pointer flex items-center justify-between gap-3 group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#4B8DFF]/15 text-[#4B8DFF] border border-[#4B8DFF]/25 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-accent/15 text-accent border border-accent/25 flex items-center justify-center shrink-0">
                   <Info className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white group-hover:text-[#4B8DFF] transition">
+                  <p className="text-sm font-semibold text-white group-hover:text-accent transition">
                     О сервисе ROADLIVE
                   </p>
-                  <p className="text-xs text-[#9AA0A8]">
+                  <p className="text-xs text-muted">
                     Как работает карта, радиус 1000 м и подтверждения
                   </p>
                 </div>
               </div>
-              <span className="text-xs text-[#4B8DFF] font-medium">Подробнее →</span>
+              <span className="text-xs text-accent font-medium">Подробнее →</span>
             </div>
 
             {/* Admin Dashboard Entry (Only for admin role) */}
@@ -308,35 +308,35 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   onClose(); // Close the profile sheet first for clean transition
                   onOpenAdmin(); // Open the admin dashboard
                 }}
-                className="p-4 bg-gradient-to-r from-[#E5A93C]/10 to-[#181B1F] hover:from-[#E5A93C]/15 rounded-2xl border border-[#E5A93C]/30 hover:border-[#E5A93C]/60 transition cursor-pointer flex items-center justify-between gap-3 group shadow-[0_4px_20px_rgba(229,169,60,0.05)]"
+                className="p-4 bg-gradient-to-r from-warning/10 to-surface-800 hover:from-warning/15 rounded-2xl border border-warning/30 hover:border-warning/60 transition cursor-pointer flex items-center justify-between gap-3 group shadow-[0_4px_20px_rgba(229,169,60,0.05)]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#E5A93C]/20 text-[#E5A93C] border border-[#E5A93C]/35 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-warning/20 text-warning border border-warning/35 flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-5 h-5 animate-pulse" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white group-hover:text-[#E5A93C] transition">
+                    <p className="text-sm font-bold text-white group-hover:text-warning transition">
                       Панель управления ROADLIVE
                     </p>
-                    <p className="text-xs text-[#9AA0A8]">
+                    <p className="text-xs text-muted">
                       Управление модерацией, рекламой 2ГИС и праздниками
                     </p>
                   </div>
                 </div>
-                <span className="text-xs text-[#E5A93C] font-semibold uppercase tracking-wider">Открыть →</span>
+                <span className="text-xs text-warning font-semibold uppercase tracking-wider">Открыть →</span>
               </div>
             )}
 
             {/* System notifications & VAPID */}
-            <div className="p-4 sm:p-5 bg-[#181B1F] rounded-2xl border border-white/[0.08] space-y-4">
-              <h2 className="text-xs font-medium uppercase tracking-wider text-[#9AA0A8]">
+            <div className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-4">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-muted">
                 Системные уведомления и PWA
               </h2>
 
               <div className="space-y-2 py-1">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-[#20242A] border border-white/10 text-[#4B8DFF] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center">
                       <Bell className="w-4 h-4" />
                     </div>
                     <div>
@@ -345,14 +345,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         <span
                           className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                             isPushActive
-                              ? 'bg-[#34C759]/15 text-[#34C759] border border-[#34C759]/30'
-                              : 'bg-white/5 text-[#9AA0A8]'
+                              ? 'bg-success/15 text-success border border-success/30'
+                              : 'bg-white/5 text-muted'
                           }`}
                         >
                           {isPushActive ? 'Включено' : 'Выключено'}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#9AA0A8]">
+                      <p className="text-[11px] text-muted">
                         Оповещения о перекрытиях и авариях
                       </p>
                     </div>
@@ -362,8 +362,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     disabled={isProcessingPush}
                     className={`px-3.5 py-1.5 text-xs font-medium rounded-xl transition active:scale-95 ${
                       isPushActive
-                        ? 'bg-white/5 text-[#9AA0A8] hover:text-white border border-white/10'
-                        : 'bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white shadow-xs'
+                        ? 'bg-white/5 text-muted hover:text-white border border-white/10'
+                        : 'bg-accent hover:bg-accent-strong text-white shadow-xs'
                     }`}
                   >
                     {isPushActive ? 'Отключить' : 'Включить'}
@@ -375,7 +375,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <button
                       onClick={handleSendTestPush}
                       disabled={isProcessingPush}
-                      className="text-xs text-[#4B8DFF] hover:underline flex items-center gap-1.5 font-medium"
+                      className="text-xs text-accent hover:underline flex items-center gap-1.5 font-medium"
                     >
                       <RefreshCw className="w-3 h-3" />
                       <span>Отправить тестовый Push</span>
@@ -392,15 +392,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
 
             {/* PWA App Install Block */}
-            <div className="p-4 sm:p-5 bg-[#181B1F] rounded-2xl border border-white/[0.08] space-y-3">
+            <div className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-[#20242A] border border-white/10 text-[#4B8DFF] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center">
                     <Smartphone className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-white">Автономное приложение (PWA)</p>
-                    <p className="text-[11px] text-[#9AA0A8]">
+                    <p className="text-[11px] text-muted">
                       Установка на рабочий стол смартфона
                     </p>
                   </div>
@@ -414,72 +414,72 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Dedicated "О сервисе" Tab */}
         {activeTab === 'about' && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-[#181B1F] border border-white/10 space-y-3">
-              <div className="flex items-center gap-2 text-[#4B8DFF] font-semibold text-sm">
+            <div className="p-4 rounded-2xl bg-surface-800 border border-white/10 space-y-3">
+              <div className="flex items-center gap-2 text-accent font-semibold text-sm">
                 <Zap className="w-4 h-4 fill-current" />
                 <span>О проекте ROADLIVE</span>
               </div>
-              <p className="text-xs text-[#9AA0A8] leading-relaxed">
+              <p className="text-xs text-muted leading-relaxed">
                 <strong className="text-white">ROADLIVE</strong> — это живая карта и водительская сеть реального времени, созданная для того, чтобы автомобилисты помогали друг другу без задержек и недостоверных данных.
               </p>
             </div>
 
             <div className="space-y-2.5">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-[#9AA0A8]">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
                 Ключевые принципы работы
               </h2>
 
-              <div className="p-3.5 rounded-2xl bg-[#181B1F] border border-white/[0.06] flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#4B8DFF]/15 text-[#4B8DFF] border border-[#4B8DFF]/25 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="p-3.5 rounded-2xl bg-surface-800 border border-white/[0.06] flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-accent/15 text-accent border border-accent/25 flex items-center justify-center shrink-0 mt-0.5">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-white">Выбор точки прямо на карте</p>
-                  <p className="text-xs text-[#9AA0A8]">
+                  <p className="text-xs text-muted">
                     Устанавливайте метку прицелом на карте — адрес определяется мгновенно, без необходимости вводить его руками.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-[#181B1F] border border-white/[0.06] flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#34C759]/15 text-[#34C759] border border-[#34C759]/25 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="p-3.5 rounded-2xl bg-surface-800 border border-white/[0.06] flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-success/15 text-success border border-success/25 flex items-center justify-center shrink-0 mt-0.5">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-white">Радиус достоверности — 1000 м</p>
-                  <p className="text-xs text-[#9AA0A8]">
+                  <p className="text-xs text-muted">
                     Отметки и подтверждения в пределах 1000 метров от вашего GPS получают статус проверенных. Отметки на большем расстоянии помечаются как дистанционные с предупреждением для водителей.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-[#181B1F] border border-white/[0.06] flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#AF52DE]/15 text-[#AF52DE] border border-[#AF52DE]/25 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="p-3.5 rounded-2xl bg-surface-800 border border-white/[0.06] flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-purple/15 text-purple border border-purple/25 flex items-center justify-center shrink-0 mt-0.5">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-white">Кнопка «Подтверждаю»</p>
-                  <p className="text-xs text-[#9AA0A8]">
+                  <p className="text-xs text-muted">
                     Нажатие кнопки подтверждения продлевает срок жизни отметки на карте и повышает ваш авторитет в сообществе.
                   </p>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-[#181B1F] border border-white/[0.06] flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#30B0C7]/15 text-[#30B0C7] border border-[#30B0C7]/25 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="p-3.5 rounded-2xl bg-surface-800 border border-white/[0.06] flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-info-2/15 text-info-2 border border-info-2/25 flex items-center justify-center shrink-0 mt-0.5">
                   <Radio className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-white">Живой Эфир и Вопросы</p>
-                  <p className="text-xs text-[#9AA0A8]">
+                  <p className="text-xs text-muted">
                     Общайтесь в чате с попутчиками и задавайте вопросы о дорогах в реальном времени.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#181B1F] border border-white/10 flex items-center justify-between text-xs">
-              <span className="text-[#9AA0A8]">Версия ROADLIVE:</span>
+            <div className="p-4 rounded-2xl bg-surface-800 border border-white/10 flex items-center justify-between text-xs">
+              <span className="text-muted">Версия ROADLIVE:</span>
               <span className="font-mono text-white font-semibold">v2.6.0 (2026 Release)</span>
             </div>
           </div>
@@ -487,33 +487,33 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {activeTab === 'events' && (
           <div className="space-y-2.5">
-            <p className="text-[10px] text-[#9AA0A8] italic text-center mb-1">
+            <p className="text-[10px] text-muted italic text-center mb-1">
               ← Проведите по карточке влево для удаления
             </p>
             {localEvents.length === 0 ? (
-              <p className="text-xs text-[#5F656D] italic text-center py-8">
+              <p className="text-xs text-faint italic text-center py-8">
                 Вы ещё не публиковали дорожных событий
               </p>
             ) : (
               localEvents.map((ev) => (
                 <SwipeableListItem key={ev.id} onDelete={() => handleDeleteEvent(ev.id)}>
-                  <div className="p-4 bg-[#181B1F] rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3 shadow-md">
+                  <div className="p-4 bg-surface-800 rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3 shadow-md">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] bg-[#4B8DFF]/15 text-[#4B8DFF] px-2 py-0.5 rounded border border-[#4B8DFF]/20 font-semibold uppercase">
+                        <span className="text-[10px] bg-accent/15 text-accent px-2 py-0.5 rounded border border-accent/20 font-semibold uppercase">
                           {ev.type === 'assistance' ? 'SOS' : ev.type}
                         </span>
-                        <span className="text-[10px] text-[#9AA0A8]">
+                        <span className="text-[10px] text-muted">
                           {new Date(ev.createdAt).toLocaleDateString('ru-RU')}
                         </span>
                       </div>
                       <h3 className="text-sm font-semibold text-white leading-snug">{ev.title}</h3>
-                      <p className="text-xs text-[#9AA0A8] mt-1 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-[#4B8DFF] shrink-0" />
+                      <p className="text-xs text-muted mt-1 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-accent shrink-0" />
                         <span className="truncate">{ev.address}</span>
                       </p>
                     </div>
-                    <span className="text-[10px] text-[#9AA0A8] bg-white/5 px-2 py-1 rounded-md shrink-0 border border-white/5 select-none">
+                    <span className="text-[10px] text-muted bg-white/5 px-2 py-1 rounded-md shrink-0 border border-white/5 select-none">
                       ← Свайп
                     </span>
                   </div>
@@ -525,33 +525,33 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {activeTab === 'questions' && (
           <div className="space-y-2.5">
-            <p className="text-[10px] text-[#9AA0A8] italic text-center mb-1">
+            <p className="text-[10px] text-muted italic text-center mb-1">
               ← Проведите по карточке влево для удаления
             </p>
             {localQuestions.length === 0 ? (
-              <p className="text-xs text-[#5F656D] italic text-center py-8">
+              <p className="text-xs text-faint italic text-center py-8">
                 Вы ещё не задавали вопросов на карте
               </p>
             ) : (
               localQuestions.map((q) => (
                 <SwipeableListItem key={q.id} onDelete={() => handleDeleteQuestion(q.id)}>
-                  <div className="p-4 bg-[#181B1F] rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3 shadow-md">
+                  <div className="p-4 bg-surface-800 rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3 shadow-md">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[10px] bg-purple-500/15 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 font-semibold uppercase">
                           Вопрос
                         </span>
-                        <span className="text-[10px] text-[#9AA0A8]">
+                        <span className="text-[10px] text-muted">
                           {new Date(q.createdAt).toLocaleDateString('ru-RU')}
                         </span>
                       </div>
                       <h3 className="text-sm font-semibold text-white leading-snug">{q.question}</h3>
-                      <p className="text-xs text-[#9AA0A8] mt-1 flex items-center gap-1">
+                      <p className="text-xs text-muted mt-1 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-purple-400 shrink-0" />
                         <span className="truncate">{q.address}</span>
                       </p>
                     </div>
-                    <span className="text-[10px] text-[#9AA0A8] bg-white/5 px-2 py-1 rounded-md shrink-0 border border-white/5 select-none">
+                    <span className="text-[10px] text-muted bg-white/5 px-2 py-1 rounded-md shrink-0 border border-white/5 select-none">
                       ← Свайп
                     </span>
                   </div>
@@ -563,34 +563,34 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         {activeTab === 'answers' && (
           <div className="space-y-2.5">
-            <p className="text-[10px] text-[#9AA0A8] italic text-center mb-1">
+            <p className="text-[10px] text-muted italic text-center mb-1">
               ← Проведите по карточке влево для удаления
             </p>
             {localAnswers.length === 0 ? (
-              <p className="text-xs text-[#5F656D] italic text-center py-8">
+              <p className="text-xs text-faint italic text-center py-8">
                 Вы ещё не отвечали на вопросы водителей
               </p>
             ) : (
               localAnswers.map((item) => (
                 <SwipeableListItem key={item.answer.id} onDelete={() => handleDeleteAnswer(item.questionId, item.answer.id)}>
-                  <div className="p-4 bg-[#181B1F] rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3 shadow-md">
+                  <div className="p-4 bg-surface-800 rounded-2xl border border-white/[0.06] flex items-center justify-between gap-3 shadow-md">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold uppercase">
                           Ответ
                         </span>
-                        <span className="text-[10px] text-[#9AA0A8]">
+                        <span className="text-[10px] text-muted">
                           {new Date(item.answer.createdAt).toLocaleDateString('ru-RU')}
                         </span>
                       </div>
-                      <p className="text-xs text-[#9AA0A8] mb-1.5 leading-relaxed bg-[#111315] p-2 rounded-lg border border-white/5 truncate max-w-full">
+                      <p className="text-xs text-muted mb-1.5 leading-relaxed bg-graphite p-2 rounded-lg border border-white/5 truncate max-w-full">
                         К вопросу: «{item.questionText}»
                       </p>
                       <p className="text-sm font-medium text-white leading-relaxed">
                         {item.answer.content}
                       </p>
                     </div>
-                    <span className="text-[10px] text-[#9AA0A8] bg-white/5 px-2 py-1 rounded-md shrink-0 border border-white/5 select-none">
+                    <span className="text-[10px] text-muted bg-white/5 px-2 py-1 rounded-md shrink-0 border border-white/5 select-none">
                       ← Свайп
                     </span>
                   </div>

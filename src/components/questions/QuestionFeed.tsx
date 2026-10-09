@@ -92,24 +92,24 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#111315] overflow-hidden pb-16 select-none">
+    <div className="h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Top Header */}
-      <div className="p-4 sm:p-5 bg-[#181B1F]/80 backdrop-blur-2xl border-b border-white/[0.08]">
+      <div className="p-4 sm:p-5 bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center justify-between gap-3 mb-3.5 max-w-2xl mx-auto">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#20242A] border border-white/10 text-[#4B8DFF] flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center font-bold">
               <HelpCircle className="w-4 h-4" />
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-tight">
                 Вопросы водителей
               </h1>
-              <p className="text-xs text-[#9AA0A8]">Обстановка на дорогах из первых уст</p>
+              <p className="text-xs text-muted">Обстановка на дорогах из первых уст</p>
             </div>
           </div>
           <button
             onClick={onOpenAskModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white rounded-xl text-xs font-medium transition active:scale-95 shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-accent hover:bg-accent-strong text-white rounded-xl text-xs font-medium transition active:scale-95 shadow-xs"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Спросить</span>
@@ -117,7 +117,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
         </div>
 
         {/* Filter Segmented Control */}
-        <div className="flex items-center p-1 bg-[#111315] rounded-xl max-w-2xl mx-auto border border-white/[0.06] overflow-x-auto no-scrollbar">
+        <div className="flex items-center p-1 bg-graphite rounded-xl max-w-2xl mx-auto border border-white/[0.06] overflow-x-auto no-scrollbar">
           {[
             { id: 'all', label: 'Все' },
             { id: 'new', label: 'Новые' },
@@ -130,8 +130,8 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
               onClick={() => setFilter(item.id as any)}
               className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-all select-none ${
                 filter === item.id
-                  ? 'bg-[#20242A] text-white border border-white/10 shadow-xs'
-                  : 'text-[#9AA0A8] hover:text-white'
+                  ? 'bg-surface-700 text-white border border-white/10 shadow-xs'
+                  : 'text-muted hover:text-white'
               }`}
             >
               {item.label}
@@ -144,18 +144,18 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-2xl mx-auto w-full">
         {filteredQuestions.length === 0 ? (
           <div className="text-center py-16 px-4">
-            <div className="w-10 h-10 rounded-2xl bg-[#20242A] border border-white/10 text-[#4B8DFF] mx-auto flex items-center justify-center mb-3">
+            <div className="w-10 h-10 rounded-2xl bg-surface-700 border border-white/10 text-accent mx-auto flex items-center justify-center mb-3">
               <HelpCircle className="w-5 h-5" />
             </div>
             <p className="text-sm font-semibold text-white">Вопросов пока нет</p>
-            <p className="text-xs text-[#9AA0A8] mt-1 mb-4">
+            <p className="text-xs text-muted mt-1 mb-4">
               {filter === 'my'
                 ? 'Вы еще не задавали вопросов. Нажмите «Спросить», чтобы создать вопрос.'
                 : 'Спросите у других водителей, что происходит на нужном переезде или улице'}
             </p>
             <button
               onClick={onOpenAskModal}
-              className="px-4 py-2 bg-[#4B8DFF] text-white text-xs font-medium rounded-xl"
+              className="px-4 py-2 bg-accent text-white text-xs font-medium rounded-xl"
             >
               Задать вопрос
             </button>
@@ -187,7 +187,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
               >
                 {/* Background Delete Action Drawer (Telegram-style Swipe Reveal) */}
                 {isOwner && (
-                  <div className="absolute inset-0 bg-[#FF3B30] flex items-center justify-end pr-6 z-0">
+                  <div className="absolute inset-0 bg-danger flex items-center justify-end pr-6 z-0">
                     <button
                       type="button"
                       onClick={() => handleDelete(q.id)}
@@ -201,14 +201,14 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
 
                 {/* Foreground Card Content with Slide Transform */}
                 <div
-                  className={`relative z-10 bg-[#181B1F] p-4 transition-transform duration-200 ${
+                  className={`relative z-10 bg-surface-800 p-4 transition-transform duration-200 ${
                     isSwiped ? '-translate-x-24' : 'translate-x-0'
                   }`}
                 >
                   {/* Meta Header */}
-                  <div className="flex items-center justify-between text-xs text-[#9AA0A8] mb-2">
+                  <div className="flex items-center justify-between text-xs text-muted mb-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-[#4B8DFF] bg-[#4B8DFF]/10 px-2 py-0.5 rounded-lg border border-[#4B8DFF]/20">
+                      <span className="font-medium text-accent bg-accent/10 px-2 py-0.5 rounded-lg border border-accent/20">
                         {q.category}
                       </span>
                       <span>· {getTimeAgo(q.createdAt)}</span>
@@ -218,7 +218,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
                       <button
                         type="button"
                         onClick={() => onFocusMap(q.latitude, q.longitude)}
-                        className="flex items-center gap-1 text-[11px] text-[#4B8DFF] hover:underline"
+                        className="flex items-center gap-1 text-[11px] text-accent hover:underline"
                         title="Показать на карте"
                       >
                         <Navigation className="w-3 h-3" />
@@ -228,7 +228,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDelete(q.id)}
-                          className="text-[#FF3B30] hover:text-red-400 text-xs px-1"
+                          className="text-danger hover:text-red-400 text-xs px-1"
                           title="Удалить вопрос"
                         >
                           ✕
@@ -242,22 +242,22 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
                   {q.question}
                 </h3>
 
-                <div className="flex items-center gap-1 text-xs text-[#9AA0A8] mb-3">
-                  <MapPin className="w-3.5 h-3.5 text-[#5F656D] shrink-0" />
+                <div className="flex items-center gap-1 text-xs text-muted mb-3">
+                  <MapPin className="w-3.5 h-3.5 text-faint shrink-0" />
                   <span className="truncate">{q.address}</span>
                 </div>
 
                 {/* Answers Count & Toggle */}
                 <div className="pt-2.5 border-t border-white/[0.06] flex items-center justify-between">
-                  <div className="text-xs text-[#9AA0A8]">
+                  <div className="text-xs text-muted">
                     Автор: <span className="text-white font-medium">{q.authorName}</span>
                   </div>
 
                   <button
                     onClick={() => setActiveQuestionId(isExpanded ? null : q.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#20242A] hover:bg-white/10 rounded-xl transition border border-white/[0.08] active:scale-95"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-surface-700 hover:bg-white/10 rounded-xl transition border border-white/[0.08] active:scale-95"
                   >
-                    <MessageCircle className="w-3.5 h-3.5 text-[#4B8DFF]" />
+                    <MessageCircle className="w-3.5 h-3.5 text-accent" />
                     <span>
                       {q.answersCount > 0
                         ? `${q.answersCount} ${q.answersCount === 1 ? 'ответ' : 'ответа'}`
@@ -274,26 +274,26 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
                         q.answers.map((ans) => (
                           <div
                             key={ans.id}
-                            className="p-3 bg-[#111315] rounded-xl border border-white/[0.05] text-xs space-y-1"
+                            className="p-3 bg-graphite rounded-xl border border-white/[0.05] text-xs space-y-1"
                           >
-                            <div className="flex items-center justify-between text-[11px] text-[#9AA0A8]">
+                            <div className="flex items-center justify-between text-[11px] text-muted">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-medium text-white">{ans.authorName}</span>
                                 {ans.isVerified && (
-                                  <span className="flex items-center gap-0.5 text-[#34C759] text-[10px]">
+                                  <span className="flex items-center gap-0.5 text-success text-[10px]">
                                     <CheckCircle className="w-2.5 h-2.5" /> Проверено
                                   </span>
                                 )}
                               </div>
                               <span>{getTimeAgo(ans.createdAt)}</span>
                             </div>
-                            <p className="text-[#F0F2F5] leading-relaxed">
+                            <p className="text-ink leading-relaxed">
                               {ans.content}
                             </p>
                             <div className="flex justify-end pt-1">
                               <button
                                 onClick={() => handleHelpful(q.id, ans.id)}
-                                className="flex items-center gap-1 text-[11px] text-[#4B8DFF] hover:underline"
+                                className="flex items-center gap-1 text-[11px] text-accent hover:underline"
                               >
                                 <ThumbsUp className="w-3 h-3" />
                                 <span>Полезно ({ans.helpfulCount})</span>
@@ -302,7 +302,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
                           </div>
                         ))
                       ) : (
-                        <p className="text-xs text-[#5F656D] italic py-1">
+                        <p className="text-xs text-faint italic py-1">
                           Пока нет ответов. Напишите первым!
                         </p>
                       )}
@@ -318,12 +318,12 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
                         placeholder="Напишите ответ..."
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
-                        className="flex-1 text-xs bg-[#111315] border border-white/[0.08] focus:border-[#4B8DFF]/60 rounded-xl px-3.5 py-2 outline-none text-white placeholder:text-[#5F656D]"
+                        className="flex-1 text-xs bg-graphite border border-white/[0.08] focus:border-accent/60 rounded-xl px-3.5 py-2 outline-none text-white placeholder:text-faint"
                       />
                       <button
                         type="submit"
                         disabled={!replyText.trim() || isReplying}
-                        className="p-2 bg-[#4B8DFF] hover:bg-[#3C7AE6] disabled:opacity-30 text-white rounded-xl transition active:scale-95 shadow-xs"
+                        className="p-2 bg-accent hover:bg-accent-strong disabled:opacity-30 text-white rounded-xl transition active:scale-95 shadow-xs"
                       >
                         <Send className="w-3.5 h-3.5" />
                       </button>

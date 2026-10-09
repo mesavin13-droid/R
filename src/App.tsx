@@ -257,17 +257,17 @@ export default function App() {
 
   if (!isTelegramWebApp) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#111315] text-center select-none">
-        <div className="w-full max-w-sm p-8 bg-[#181B1F]/60 backdrop-blur-3xl border border-white/[0.06] rounded-[32px] shadow-[0_24px_64px_rgba(0,0,0,0.8)] space-y-6 flex flex-col items-center animate-in zoom-in-95 duration-300">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-graphite text-center select-none">
+        <div className="w-full max-w-sm p-8 bg-surface-800/60 backdrop-blur-3xl border border-white/[0.06] rounded-[32px] shadow-[0_24px_64px_rgba(0,0,0,0.8)] space-y-6 flex flex-col items-center animate-in zoom-in-95 duration-300">
           {/* Icon with pulsing rings */}
-          <div className="relative w-20 h-20 rounded-full bg-[#24A1DE]/10 flex items-center justify-center border border-[#24A1DE]/20">
-            <div className="absolute inset-0 rounded-full border border-[#24A1DE]/30 animate-ping opacity-75" />
-            <span className="text-4xl text-[#24A1DE]">✈️</span>
+          <div className="relative w-20 h-20 rounded-full bg-telegram/10 flex items-center justify-center border border-telegram/20">
+            <div className="absolute inset-0 rounded-full border border-telegram/30 animate-ping opacity-75" />
+            <span className="text-4xl text-telegram">✈️</span>
           </div>
 
           <div className="space-y-2">
             <h1 className="text-xl font-black text-white tracking-tight uppercase">ROADLIVE</h1>
-            <p className="text-xs text-[#9AA0A8] leading-relaxed">
+            <p className="text-xs text-muted leading-relaxed">
               Приложение спроектировано исключительно для работы внутри мессенджера Telegram в качестве Mini App.
             </p>
           </div>
@@ -284,7 +284,7 @@ export default function App() {
           </div>
 
           <div className="pt-2">
-            <span className="text-[10px] text-[#555A60] uppercase tracking-widest font-bold">
+            <span className="text-[10px] text-faintest uppercase tracking-widest font-bold">
               Only Telegram WebApp Mode
             </span>
           </div>
@@ -302,11 +302,11 @@ export default function App() {
 
   if (isTelegramWebApp && !isTelegramAuthenticated) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#111315] text-center">
-        <div className="w-full max-w-sm p-7 bg-[#181B1F] border border-white/[0.08] rounded-3xl space-y-4">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-graphite text-center">
+        <div className="w-full max-w-sm p-7 bg-surface-800 border border-white/[0.08] rounded-3xl space-y-4">
           <div className="text-3xl">🔐</div>
           <h1 className="text-lg font-bold text-white">Не удалось войти</h1>
-          <p className="text-xs text-[#9AA0A8] leading-relaxed">
+          <p className="text-xs text-muted leading-relaxed">
             {telegramAuthError}
           </p>
           <button
@@ -323,7 +323,7 @@ export default function App() {
                 setTelegramAuthError(error?.message || 'Не удалось подтвердить Telegram-сеанс');
               }
             }}
-            className="w-full py-3 rounded-2xl bg-[#24A1DE] text-white text-xs font-bold"
+            className="w-full py-3 rounded-2xl bg-telegram text-white text-xs font-bold"
           >
             Повторить
           </button>
@@ -345,7 +345,7 @@ export default function App() {
   }
 
   return (
-    <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#111315] flex flex-col font-sans select-none text-[#F0F2F5]">
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-graphite flex flex-col font-sans select-none text-ink">
       {/* 1.2s Automotive Splash Screen */}
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
 
@@ -365,15 +365,15 @@ export default function App() {
             }
             setCriticalBanner(null);
           }}
-          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-[#181B1F]/95 backdrop-blur-2xl text-white px-4 py-2.5 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] border border-white/10 flex items-center justify-between gap-3 max-w-md w-[92%] sm:w-auto cursor-pointer hover:border-white/20 transition-all animate-in slide-in-from-top duration-300"
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-surface-800/95 backdrop-blur-2xl text-white px-4 py-2.5 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] border border-white/10 flex items-center justify-between gap-3 max-w-md w-[92%] sm:w-auto cursor-pointer hover:border-white/20 transition-all animate-in slide-in-from-top duration-300"
         >
           <div className="flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-[#FF453A] animate-ping shrink-0" />
+            <span className="w-2 h-2 rounded-full bg-danger animate-ping shrink-0" />
             <div>
               <p className="text-xs font-semibold leading-tight tracking-tight">
                 {criticalBanner.title}
               </p>
-              <p className="text-[11px] text-[#9AA0A8] line-clamp-1 mt-0.5">
+              <p className="text-[11px] text-muted line-clamp-1 mt-0.5">
                 {criticalBanner.message}
               </p>
             </div>
@@ -383,7 +383,7 @@ export default function App() {
               e.stopPropagation();
               setCriticalBanner(null);
             }}
-            className="p-1 rounded-full text-[#9AA0A8] hover:text-white"
+            className="p-1 rounded-full text-muted hover:text-white"
           >
             ✕
           </button>
@@ -502,13 +502,13 @@ export default function App() {
         )}
 
         {activeTab === 'stations' && (
-          <div className="h-full flex flex-col bg-[#111315] overflow-hidden pb-16 select-none">
-            <div className="p-4 sm:p-5 bg-[#181B1F]/80 backdrop-blur-2xl border-b border-white/[0.08]">
+          <div className="h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+            <div className="p-4 sm:p-5 bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
               <div className="max-w-2xl mx-auto">
                 <h1 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-tight">
                   АЗС и очереди на заправках
                 </h1>
-                <p className="text-xs text-[#9AA0A8]">
+                <p className="text-xs text-muted">
                   Цены на топливо и статус очередей в реальном времени
                 </p>
               </div>
@@ -518,22 +518,22 @@ export default function App() {
                 <div
                   key={st.id}
                   onClick={() => setSelectedStation(st)}
-                  className="p-4 sm:p-5 bg-[#181B1F] rounded-2xl border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer flex items-center justify-between active:scale-[0.98]"
+                  className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer flex items-center justify-between active:scale-[0.98]"
                 >
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm sm:text-base font-semibold text-white">{st.name}</span>
-                      <span className="text-[10px] bg-[#20242A] text-[#9AA0A8] px-2 py-0.5 rounded-md font-medium">
+                      <span className="text-[10px] bg-surface-700 text-muted px-2 py-0.5 rounded-md font-medium">
                         {st.brand}
                       </span>
                     </div>
-                    <p className="text-xs text-[#9AA0A8] mt-1">{st.address}</p>
+                    <p className="text-xs text-muted mt-1">{st.address}</p>
                     <div className="flex gap-2.5 mt-2.5 text-xs">
                       {st.fuelTypes.ai95 && (
-                        <span className="text-[#9AA0A8]">95: <strong className="text-white">{st.fuelTypes.ai95.toFixed(2)} ₽</strong></span>
+                        <span className="text-muted">95: <strong className="text-white">{st.fuelTypes.ai95.toFixed(2)} ₽</strong></span>
                       )}
                       {st.fuelTypes.ai92 && (
-                        <span className="text-[#9AA0A8]">92: <strong className="text-white">{st.fuelTypes.ai92.toFixed(2)} ₽</strong></span>
+                        <span className="text-muted">92: <strong className="text-white">{st.fuelTypes.ai92.toFixed(2)} ₽</strong></span>
                       )}
                     </div>
                   </div>
@@ -542,10 +542,10 @@ export default function App() {
                     <span
                       className={`inline-block px-3 py-1 rounded-xl text-xs font-medium border ${
                         st.queueStatus === 'none'
-                          ? 'bg-[#34C759]/10 text-[#34C759] border-[#34C759]/20'
+                          ? 'bg-success/10 text-success border-success/20'
                           : st.queueStatus === 'small'
-                          ? 'bg-[#E5A93C]/10 text-[#E5A93C] border-[#E5A93C]/20'
-                          : 'bg-[#FF453A]/10 text-[#FF453A] border-[#FF453A]/20'
+                          ? 'bg-warning/10 text-warning border-warning/20'
+                          : 'bg-danger/10 text-danger border-danger/20'
                       }`}
                     >
                       {st.queueStatus === 'none'

@@ -94,18 +94,18 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#20242A] border border-white/10 text-[#4B8DFF] flex items-center justify-center font-bold">
+            <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center font-bold">
               <HelpCircle className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white tracking-tight">Задать вопрос водителям</h2>
-              <div className="flex items-center gap-1 text-[11px] text-[#9AA0A8]">
-                <MapPin className="w-3 h-3 text-[#4B8DFF]" />
+              <div className="flex items-center gap-1 text-[11px] text-muted">
+                <MapPin className="w-3 h-3 text-accent" />
                 <span className="truncate max-w-[220px] text-white">{address}</span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-full bg-white/5 text-[#9AA0A8] hover:text-white transition">
+          <button onClick={onClose} className="p-1.5 rounded-full bg-white/5 text-muted hover:text-white transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -113,13 +113,13 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
           {/* Location Pin Selection Deck */}
-          <div className="bg-[#181B1F] p-3 rounded-2xl border border-white/[0.08] flex items-center justify-between gap-3">
+          <div className="bg-surface-800 p-3 rounded-2xl border border-white/[0.08] flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-[#38BDF8]/15 border border-[#38BDF8]/30 text-[#38BDF8] flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-info/15 border border-info/30 text-info flex items-center justify-center shrink-0">
                 <MapPin className="w-4 h-4" />
               </div>
               <div className="truncate">
-                <p className="text-[11px] font-medium text-[#9AA0A8]">Метка на карте:</p>
+                <p className="text-[11px] font-medium text-muted">Метка на карте:</p>
                 <p className="text-xs font-semibold text-white truncate">{address}</p>
               </div>
             </div>
@@ -128,7 +128,7 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
               <button
                 type="button"
                 onClick={onReopenPinPicker}
-                className="px-3 py-1.5 rounded-xl bg-[#20242A] hover:bg-white/10 text-[#38BDF8] border border-[#38BDF8]/40 text-xs font-semibold transition active:scale-95 shrink-0 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-surface-700 hover:bg-white/10 text-info border border-info/40 text-xs font-semibold transition active:scale-95 shrink-0 cursor-pointer"
               >
                 Изменить точку
               </button>
@@ -136,7 +136,7 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#9AA0A8] mb-2">
+            <label className="block text-xs font-medium text-muted mb-2">
               Категория
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -147,8 +147,8 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
                   onClick={() => setCategory(cat)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-all ${
                     category === cat
-                      ? 'bg-[#20242A] text-white border border-[#4B8DFF]/60 shadow-xs'
-                      : 'bg-[#181B1F] text-[#9AA0A8] border border-white/[0.06] hover:text-white'
+                      ? 'bg-surface-700 text-white border border-accent/60 shadow-xs'
+                      : 'bg-surface-800 text-muted border border-white/[0.06] hover:text-white'
                   }`}
                 >
                   {cat}
@@ -158,7 +158,7 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+            <label className="block text-xs font-medium text-muted mb-1">
               Ваш вопрос
             </label>
             <textarea
@@ -166,7 +166,7 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               placeholder="Например: Переезд сейчас открыт? Есть ли очередь на АЗС?"
-              className="w-full text-sm p-3.5 bg-[#181B1F] border border-white/[0.08] focus:border-[#4B8DFF]/60 rounded-xl outline-none resize-none text-white placeholder:text-[#5F656D]"
+              className="w-full text-sm p-3.5 bg-surface-800 border border-white/[0.08] focus:border-accent/60 rounded-xl outline-none resize-none text-white placeholder:text-faint"
               required
             />
           </div>
@@ -175,7 +175,7 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting || !questionText.trim()}
-              className="w-full py-3 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white font-semibold text-sm rounded-xl transition active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-accent hover:bg-accent-strong text-white font-semibold text-sm rounded-xl transition active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2"
             >
               <Send className="w-4 h-4" />
               <span>{isSubmitting ? 'Публикация...' : 'Опубликовать'}</span>

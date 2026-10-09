@@ -244,11 +244,11 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
         {publishedNotice ? (
           <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-[#4B8DFF]/20 text-[#4B8DFF] flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-accent/20 text-accent flex items-center justify-center">
               <Check className="w-6 h-6 stroke-[3]" />
             </div>
             <p className="text-base font-semibold text-white">Опубликовано</p>
-            <p className="text-xs text-[#9AA0A8]">
+            <p className="text-xs text-muted">
               {isWithin1000m
                 ? 'Метка подтверждена вашим присутствием (до 1000 м)'
                 : 'Метка опубликована с пометкой дистанционного сообщения'}
@@ -262,17 +262,17 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                 {step > 1 && (
                   <button
                     onClick={() => setStep(1)}
-                    className="p-1.5 text-[#9AA0A8] hover:text-white rounded-full transition active:scale-95"
+                    className="p-1.5 text-muted hover:text-white rounded-full transition active:scale-95"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                 )}
                 <div>
-                  <h2 className="text-base sm:text-lg font-semibold text-[#F0F2F5]">
+                  <h2 className="text-base sm:text-lg font-semibold text-ink">
                     {step === 1 ? 'Сообщить о событии' : 'Детали события'}
                   </h2>
-                  <div className="flex items-center gap-1.5 text-[11px] text-[#9AA0A8] mt-0.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#4B8DFF] shrink-0" />
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted mt-0.5">
+                    <MapPin className="w-3.5 h-3.5 text-accent shrink-0" />
                     <span className="truncate max-w-[200px] sm:max-w-[280px] text-white font-medium">
                       {address}
                     </span>
@@ -281,23 +281,23 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-full bg-white/5 text-[#9AA0A8] hover:text-white transition active:scale-90"
+                className="p-1.5 rounded-full bg-white/5 text-muted hover:text-white transition active:scale-90"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Selected Location Strip with Map Adjustment Button */}
-            <div className="px-4 sm:px-5 py-3 bg-[#14171B] border-b border-white/[0.06] space-y-2">
+            <div className="px-4 sm:px-5 py-3 bg-graphite-900 border-b border-white/[0.06] space-y-2">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   {isWithin1000m ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#34C759]/15 text-[#34C759] border border-[#34C759]/30 text-xs font-medium">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-success/15 text-success border border-success/30 text-xs font-medium">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       <span>В радиусе {distanceFromUserMeters < 1000 ? `${distanceFromUserMeters} м` : '1 км'} (достоверно)</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E5A93C]/15 text-[#E5A93C] border border-[#E5A93C]/30 text-xs font-medium">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-warning/15 text-warning border border-warning/30 text-xs font-medium">
                       <ShieldAlert className="w-3.5 h-3.5" />
                       <span>Вне радиуса 1000 м ({(distanceFromUserMeters / 1000).toFixed(1)} км)</span>
                     </span>
@@ -309,7 +309,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                     <button
                       type="button"
                       onClick={onReopenPinPicker}
-                      className="text-xs text-[#4B8DFF] hover:text-white font-medium px-2.5 py-1.5 rounded-xl bg-[#4B8DFF]/10 hover:bg-[#4B8DFF]/20 border border-[#4B8DFF]/30 transition active:scale-95 flex items-center gap-1.5"
+                      className="text-xs text-accent hover:text-white font-medium px-2.5 py-1.5 rounded-xl bg-accent/10 hover:bg-accent/20 border border-accent/30 transition active:scale-95 flex items-center gap-1.5"
                     >
                       <MapIcon className="w-3.5 h-3.5" />
                       <span>Указать на карте</span>
@@ -320,7 +320,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                     <button
                       type="button"
                       onClick={handleSnapToUser}
-                      className="text-xs text-white bg-[#4B8DFF] hover:bg-[#3C7AE6] px-2.5 py-1.5 rounded-xl font-medium transition active:scale-95 flex items-center gap-1"
+                      className="text-xs text-white bg-accent hover:bg-accent-strong px-2.5 py-1.5 rounded-xl font-medium transition active:scale-95 flex items-center gap-1"
                     >
                       <Navigation className="w-3 h-3" />
                       <span>Ко мне</span>
@@ -331,13 +331,13 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
               {/* >1000m Distance Warning Notice */}
               {!isWithin1000m && (
-                <div className="p-3 rounded-2xl bg-[#E5A93C]/10 border border-[#E5A93C]/30 text-xs text-[#E5A93C] leading-relaxed flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#E5A93C]" />
+                <div className="p-3 rounded-2xl bg-warning/10 border border-warning/30 text-xs text-warning leading-relaxed flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-warning" />
                   <div className="space-y-1">
                     <p className="font-semibold text-white">
                       Информация не может считаться гарантированно достоверной
                     </p>
-                    <p className="text-[#9AA0A8]">
+                    <p className="text-muted">
                       Вы находитесь в <strong>{(distanceFromUserMeters / 1000).toFixed(1)} км</strong> от выбранной точки (порог достоверности — 1000 м). Метка будет отмечена для других водителей как дистанционная.
                     </p>
                   </div>
@@ -347,19 +347,19 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
             {/* Duplicate Warning */}
             {duplicateWarning && (
-              <div className="p-3.5 bg-[#181B1F] border-b border-white/10 text-xs">
+              <div className="p-3.5 bg-surface-800 border-b border-white/10 text-xs">
                 <p className="font-medium text-white flex items-center gap-1.5 mb-1">
-                  <AlertCircle className="w-4 h-4 text-[#E5A93C]" />
+                  <AlertCircle className="w-4 h-4 text-warning" />
                   Рядом уже есть похожее сообщение:
                 </p>
-                <p className="text-[#9AA0A8]">«{duplicateWarning.title}»</p>
+                <p className="text-muted">«{duplicateWarning.title}»</p>
                 <div className="flex gap-2 mt-2.5">
                   <button
                     onClick={() => {
                       onEventCreated(duplicateWarning);
                       onClose();
                     }}
-                    className="px-3.5 py-1.5 bg-[#4B8DFF] text-white rounded-xl font-medium"
+                    className="px-3.5 py-1.5 bg-accent text-white rounded-xl font-medium"
                   >
                     Открыть существующее
                   </button>
@@ -368,7 +368,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                       setDuplicateWarning(null);
                       submitEvent(selectedType!, subType, title, description);
                     }}
-                    className="px-3.5 py-1.5 bg-white/5 text-[#9AA0A8] border border-white/10 rounded-xl"
+                    className="px-3.5 py-1.5 bg-white/5 text-muted border border-white/10 rounded-xl"
                   >
                     Опубликовать новое
                   </button>
@@ -380,7 +380,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
             <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1">
               {step === 1 && (
                 <div className="space-y-3">
-                  <p className="text-xs text-[#9AA0A8]">
+                  <p className="text-xs text-muted">
                     Выберите тип события для моментальной публикации в 1 тап:
                   </p>
 
@@ -390,8 +390,8 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                       return (
                         <div
                           key={cat.type}
-                          className={`p-3.5 rounded-2xl bg-[#181B1F] transition border ${
-                            isSelected ? 'border-[#4B8DFF]' : 'border-white/[0.06] hover:border-white/15'
+                          className={`p-3.5 rounded-2xl bg-surface-800 transition border ${
+                            isSelected ? 'border-accent' : 'border-white/[0.06] hover:border-white/15'
                           }`}
                         >
                           <div className="flex items-center gap-2 mb-2.5">
@@ -405,7 +405,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                                 key={sub.id}
                                 type="button"
                                 onClick={() => handleQuickPreset(cat.type, sub.id, sub.defaultTitle)}
-                                className="px-3 py-1.5 text-xs font-medium bg-[#20242A] text-[#F0F2F5] hover:border-[#4B8DFF]/60 hover:text-white rounded-xl transition active:scale-95 border border-white/[0.08]"
+                                className="px-3 py-1.5 text-xs font-medium bg-surface-700 text-ink hover:border-accent/60 hover:text-white rounded-xl transition active:scale-95 border border-white/[0.08]"
                               >
                                 {sub.label}
                               </button>
@@ -418,7 +418,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                                 setTitle(cat.subTypes[0].defaultTitle);
                                 setStep(2);
                               }}
-                              className="px-2 py-1.5 text-xs text-[#4B8DFF] hover:underline"
+                              className="px-2 py-1.5 text-xs text-accent hover:underline"
                             >
                               Подробнее...
                             </button>
@@ -433,34 +433,34 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
               {step === 2 && (
                 <form onSubmit={handleManualSubmit} className="space-y-3.5">
                   <div>
-                    <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                    <label className="block text-xs font-medium text-muted mb-1">
                       Заголовок события
                     </label>
                     <input
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full text-sm p-3 bg-[#181B1F] rounded-xl border border-white/[0.08] focus:border-[#4B8DFF]/60 outline-none text-white font-medium"
+                      className="w-full text-sm p-3 bg-surface-800 rounded-xl border border-white/[0.08] focus:border-accent/60 outline-none text-white font-medium"
                       placeholder="Например: Ремонт дороги, закрыта правая полоса"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                    <label className="block text-xs font-medium text-muted mb-1">
                       Точный адрес (определен по карте)
                     </label>
                     <input
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      className="w-full text-sm p-3 bg-[#181B1F] rounded-xl border border-white/[0.08] focus:border-[#4B8DFF]/60 outline-none text-white"
+                      className="w-full text-sm p-3 bg-surface-800 rounded-xl border border-white/[0.08] focus:border-accent/60 outline-none text-white"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                    <label className="block text-xs font-medium text-muted mb-1">
                       Направление движения (необязательно)
                     </label>
                     <input
@@ -468,12 +468,12 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                       value={direction}
                       onChange={(e) => setDirection(e.target.value)}
                       placeholder="в сторону центра / из города"
-                      className="w-full text-sm p-3 bg-[#181B1F] rounded-xl border border-white/[0.08] focus:border-[#4B8DFF]/60 outline-none text-white"
+                      className="w-full text-sm p-3 bg-surface-800 rounded-xl border border-white/[0.08] focus:border-accent/60 outline-none text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-[#9AA0A8] mb-1">
+                    <label className="block text-xs font-medium text-muted mb-1">
                       Подробности для водителей
                     </label>
                     <textarea
@@ -481,7 +481,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Сняли асфальт, ямы глубиной 10 см, объезжайте через соседнюю улицу..."
-                      className="w-full text-sm p-3 bg-[#181B1F] rounded-xl border border-white/[0.08] focus:border-[#4B8DFF]/60 outline-none text-white resize-none"
+                      className="w-full text-sm p-3 bg-surface-800 rounded-xl border border-white/[0.08] focus:border-accent/60 outline-none text-white resize-none"
                     />
                   </div>
 
@@ -489,7 +489,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3.5 bg-[#4B8DFF] hover:bg-[#3C7AE6] text-white font-semibold text-sm rounded-xl transition active:scale-95 disabled:opacity-40 shadow-xs"
+                      className="w-full py-3.5 bg-accent hover:bg-accent-strong text-white font-semibold text-sm rounded-xl transition active:scale-95 disabled:opacity-40 shadow-xs"
                     >
                       {isSubmitting
                         ? 'Публикация...'
