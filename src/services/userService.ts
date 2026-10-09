@@ -46,7 +46,7 @@ export class UserService {
         role,
         level: 'Новичок',
         rating: 5.0,
-        helpfulConfirmationsCount: 15,
+        helpfulConfirmationsCount: 0,
         eventsCount: 0,
         questionsCount: 0,
         answersCount: 0,
