@@ -15,7 +15,6 @@ interface UserProfileModalProps {
   currentUser: UserProfile;
   events: RoadEvent[];
   questions: DriverQuestion[];
-  onSelectUser: (user: UserProfile) => void;
   onClose: () => void;
   onOpenAdmin: () => void;
   isAdminAuthorized?: boolean;
@@ -107,13 +106,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   currentUser,
   events,
   questions,
-  onSelectUser,
   onClose,
   onOpenAdmin,
   onSettingsChange,
   isAdminAuthorized = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<'stats' | 'events' | 'questions' | 'answers' | 'accounts' | 'about'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'events' | 'questions' | 'answers' | 'about'>('stats');
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [isPushActive, setIsPushActive] = useState(false);
   const [isProcessingPush, setIsProcessingPush] = useState(false);
@@ -121,7 +119,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     localStorage.getItem('roadlive_hide_old_events') === 'true'
   );
 
-  const allTestUsers = UserService.getAllUsers();
   const [localEvents, setLocalEvents] = useState<RoadEvent[]>([]);
   const [localQuestions, setLocalQuestions] = useState<DriverQuestion[]>([]);
   const [localAnswers, setLocalAnswers] = useState<{ questionId: string; questionText: string; answer: any }[]>([]);
@@ -200,12 +197,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     }
   };
 
-  const handleSwitchAccount = (u: UserProfile) => {
-    if (!(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true')) return;
-    UserService.setCurrentUser(u.id);
-    onSelectUser(u);
-  };
-
   return (
     <div className="h-full flex flex-col bg-[#111315] overflow-hidden pb-16 select-none">
       {/* Profile Header */}
@@ -269,7 +260,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             { id: 'questions', label: `Вопросы (${localQuestions.length})` },
             { id: 'answers', label: `Ответы (${localAnswers.length})` },
             { id: 'about', label: 'О сервисе' },
-            { id: 'accounts', label: 'Профили' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -490,7 +480,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
             <div className="p-4 rounded-2xl bg-[#181B1F] border border-white/10 flex items-center justify-between text-xs">
               <span className="text-[#9AA0A8]">Версия ROADLIVE:</span>
-              <span className="font-mono text-white font-semibold">v2.4.0 (2026 Release)</span>
+              <span className="font-mono text-white font-semibold">v2.6.0 (2026 Release)</span>
             </div>
           </div>
         )}
@@ -607,49 +597,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </SwipeableListItem>
               ))
             )}
-          </div>
-        )}
-
-        {activeTab === 'accounts' && (
-          <div className="space-y-2">
-            <p className="text-xs text-[#9AA0A8] mb-1">
-              Переключение между тестовыми профилями:
-            </p>
-
-            {allTestUsers.map((u) => {
-              const isSelected = u.id === currentUser.id;
-              return (
-                <button
-                  key={u.id}
-                  onClick={() => handleSwitchAccount(u)}
-                  className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all ${
-                    isSelected
-                      ? 'bg-[#181B1F] border-[#4B8DFF]/60'
-                      : 'bg-[#181B1F] border-white/[0.06] hover:border-white/20'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-white">
-                        {u.fullName}
-                      </span>
-                      <span className="text-[10px] text-[#9AA0A8] bg-[#20242A] px-2 py-0.5 rounded-md font-normal">
-                        {u.role === 'admin' ? 'Админ' : 'Водитель'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#9AA0A8] mt-0.5">
-                      {u.email} · ★ {u.rating} · {u.level}
-                    </p>
-                  </div>
-
-                  {isSelected && (
-                    <span className="text-xs text-[#4B8DFF] flex items-center gap-1">
-                      <Check className="w-4 h-4" />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
           </div>
         )}
       </div>

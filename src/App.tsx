@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { EventType, RoadEvent, FuelStation, DriverQuestion, RoutePlan, UserProfile } from './types';
 import { EventService } from './services/eventService';
 import { StationService } from './services/stationService';
 import { QuestionService } from './services/questionService';
 import { UserService } from './services/userService';
 import { TelegramService } from './services/telegramService';
+import { ChannelSubscriptionStatus } from './services/telegramService';
 import { useGeolocation } from './hooks/useGeolocation';
 import { localRealtime } from './lib/supabase';
 
@@ -24,6 +25,7 @@ import { StationSheet } from './components/stations/StationSheet';
 import { UserProfileModal } from './components/profile/UserProfile';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AboutServiceModal } from './components/common/AboutServiceModal';
+import { SubscriptionGate } from './components/gate/SubscriptionGate';
 import { OnboardingTutorial } from './components/common/OnboardingTutorial';
 import { SponsoredDetailModal } from './components/ads/SponsoredDetailModal';
 import { AdService } from './services/adService';
@@ -31,18 +33,21 @@ import { SponsoredBanner } from './types';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [isTelegramWebApp, setIsTelegramWebApp] = useState(false);
+  const [splashFinished, setSplashFinished] = useState(false);
+  const [isTelegramWebApp, setIsTelegramWebApp] = useState(() => TelegramService.isTelegramClient());
   const [isTelegramAuthenticated, setIsTelegramAuthenticated] = useState(false);
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
+  const [staffRole, setStaffRole] = useState<'driver' | 'moderator' | 'admin' | 'owner'>('driver');
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
-  const [isSimulated, setIsSimulated] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<ChannelSubscriptionStatus | null>(null);
+  const [subscriptionChecking, setSubscriptionChecking] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('map');
   const [selectedCategory, setSelectedCategory] = useState<EventType | 'all' | 'question' | 'station'>('all');
   const [events, setEvents] = useState<RoadEvent[]>([]);
   const [stations, setStations] = useState<FuelStation[]>([]);
   const [questions, setQuestions] = useState<DriverQuestion[]>([]);
   const [activeRoute, setActiveRoute] = useState<RoutePlan | null>(null);
-  const [sponsoredBanners, setSponsoredBanners] = useState<SponsoredBanner[]>(AdService.getBanners());
+  const [sponsoredBanners, setSponsoredBanners] = useState<SponsoredBanner[]>([]);
   const [selectedSponsoredPlace, setSelectedSponsoredPlace] = useState<SponsoredBanner | null>(null);
 
   // Pin Picker & Modals
@@ -75,6 +80,11 @@ export default function App() {
       return EventService.getEvents();
     });
     setEvents(loadedEvents);
+    // Stations now live in Supabase, so the list is only available after the
+    // network read resolves. Read them after the await, not before.
+    await StationService.initialize().catch((error) => {
+      console.warn('Could not load stations:', error);
+    });
     setStations(StationService.getStations());
     const loadedQuestions = await QuestionService.getQuestionsAsync().catch((error) => { console.warn('Could not load questions:', error); return QuestionService.getQuestions(); });
     setQuestions(loadedQuestions);
@@ -83,7 +93,7 @@ export default function App() {
   // Telegram Auto-authorization. Never trust initDataUnsafe for identity.
   useEffect(() => {
     let cancelled = false;
-    const isTg = TelegramService.isTelegramWebApp();
+    const isTg = TelegramService.isTelegramClient();
     TelegramService.ready();
 
     if (!isTg) return () => {
@@ -99,6 +109,7 @@ export default function App() {
         const synced = UserService.syncTelegramUser(auth.user, auth.isAdmin ? 'admin' : 'driver');
         setCurrentUser(synced);
         setIsAdminAuthorized(Boolean(auth.isAdmin));
+        setStaffRole(auth.role ?? (auth.isAdmin ? 'admin' : 'driver'));
         setIsTelegramAuthenticated(true);
       })
       .catch((error: any) => {
@@ -113,30 +124,71 @@ export default function App() {
     };
   }, []);
 
-  const handleSimulateTelegram = () => {
-    setIsTelegramWebApp(true);
-    setIsSimulated(true);
-    setTelegramAuthError(null);
-    setIsTelegramAuthenticated(true);
-    // Simulate real Telegram User profile
-    const mockTgUser = {
-      id: 7771399,
-      first_name: "me.savin13",
-      last_name: "Telegram User",
-      username: "me_savin13"
-    };
-    const synced = UserService.syncTelegramUser(mockTgUser);
-    setCurrentUser(synced);
-    localStorage.setItem('roadlive_tutorial_completed', 'true');
-  };
+  // After a successful login, ask the server whether the mandatory channel
+  // subscription is satisfied. The server verifies it through the Bot API.
+  const checkSubscriptionGate = useCallback(async () => {
+    setSubscriptionChecking(true);
+    try {
+      const status = await TelegramService.checkChannelSubscription();
+      setSubscriptionStatus(status);
+    } catch {
+      setSubscriptionStatus(null);
+    } finally {
+      setSubscriptionChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isTelegramAuthenticated) return;
+    checkSubscriptionGate();
+  }, [isTelegramAuthenticated, checkSubscriptionGate]);
+
+  const handleSplashComplete = useCallback(() => {
+    setSplashFinished(true);
+    setShowSplash(false);
+  }, []);
+
+  const loadSponsoredBanners = useCallback(async () => {
+    // Ads are non-critical, so a failed load retries once instead of surfacing
+    // an error banner the user cannot act on.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await AdService.loadPublic();
+        setSponsoredBanners(AdService.getBanners());
+        return;
+      } catch (error) {
+        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+    setSponsoredBanners([]);
+  }, []);
+
+  useEffect(() => {
+    loadSponsoredBanners();
+  }, [loadSponsoredBanners]);
+
+  // One impression per banner per session, so the owner sees reach rather than
+  // a number inflated by carousel re-renders.
+  const countedImpressions = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    sponsoredBanners.forEach((ad) => {
+      if (countedImpressions.current.has(ad.id)) return;
+      countedImpressions.current.add(ad.id);
+      void AdService.registerImpression(ad.id).catch(() => {});
+    });
+  }, [sponsoredBanners]);
+
+  const handleSponsoredClick = useCallback((ad: SponsoredBanner) => {
+    void AdService.registerClick(ad.id).catch(() => {});
+  }, []);
 
   useEffect(() => {
     reloadData();
     TelegramService.ready();
 
-    // Show onboarding if not completed yet and not simulated/Telegram mode
+    // Show onboarding on the first run outside of Telegram
     const onboardingDone = localStorage.getItem('roadlive_tutorial_completed');
-    if (!onboardingDone && !TelegramService.isTelegramWebApp()) {
+    if (!onboardingDone && !TelegramService.isTelegramClient()) {
       setShowOnboarding(true);
     }
 
@@ -221,14 +273,6 @@ export default function App() {
           </div>
 
           <div className="w-full space-y-2.5 pt-4">
-            {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_AUTH === 'true') && (
-              <button
-                onClick={handleSimulateTelegram}
-                className="w-full py-3.5 bg-[#24A1DE] hover:bg-[#208fcf] active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-[0_4px_20px_rgba(36,161,222,0.3)] tracking-wider uppercase cursor-pointer"
-              >
-                Демо-вход через Telegram 🚀
-              </button>
-            )}
             <a
               href="https://t.me"
               target="_blank"
@@ -249,43 +293,61 @@ export default function App() {
     );
   }
 
+  if (isTelegramWebApp && !isTelegramAuthenticated && !telegramAuthError) {
+    // The account is created on the server from Telegram data during this same
+    // call, so the welcome animation covers the whole handshake instead of a
+    // spinner card. It also keeps running until authentication resolves.
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
+
   if (isTelegramWebApp && !isTelegramAuthenticated) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#111315] text-center">
         <div className="w-full max-w-sm p-7 bg-[#181B1F] border border-white/[0.08] rounded-3xl space-y-4">
           <div className="text-3xl">🔐</div>
-          <h1 className="text-lg font-bold text-white">Проверяем Telegram</h1>
+          <h1 className="text-lg font-bold text-white">Не удалось войти</h1>
           <p className="text-xs text-[#9AA0A8] leading-relaxed">
-            {telegramAuthError || 'Подтверждаем ваш Telegram-сеанс…'}
+            {telegramAuthError}
           </p>
-          {telegramAuthError && (
-            <button
-              onClick={async () => {
-                setTelegramAuthError(null);
-                try {
-                  const auth = await TelegramService.authenticate();
-                  const synced = UserService.syncTelegramUser(auth.user, auth.isAdmin ? 'admin' : 'driver');
-                  setCurrentUser(synced);
-                  setIsAdminAuthorized(Boolean(auth.isAdmin));
-                  setIsTelegramAuthenticated(true);
-                } catch (error: any) {
-                  setTelegramAuthError(error?.message || 'Не удалось подтвердить Telegram-сеанс');
-                }
-              }}
-              className="w-full py-3 rounded-2xl bg-[#24A1DE] text-white text-xs font-bold"
-            >
-              Повторить
-            </button>
-          )}
+          <button
+            onClick={async () => {
+              setTelegramAuthError(null);
+              try {
+                const auth = await TelegramService.authenticate();
+                const synced = UserService.syncTelegramUser(auth.user, auth.role ?? (auth.isAdmin ? 'admin' : 'driver'));
+                setCurrentUser(synced);
+                setIsAdminAuthorized(Boolean(auth.isAdmin));
+                setStaffRole(auth.role ?? (auth.isAdmin ? 'admin' : 'driver'));
+                setIsTelegramAuthenticated(true);
+              } catch (error: any) {
+                setTelegramAuthError(error?.message || 'Не удалось подтвердить Telegram-сеанс');
+              }
+            }}
+            className="w-full py-3 rounded-2xl bg-[#24A1DE] text-white text-xs font-bold"
+          >
+            Повторить
+          </button>
         </div>
       </div>
+    );
+  }
+
+  // Mandatory channel gate: the whole app is replaced by the subscription
+  // screen until the server confirms the user is a channel member.
+  if (isTelegramAuthenticated && subscriptionStatus?.enabled && !subscriptionStatus.subscribed) {
+    return (
+      <SubscriptionGate
+        status={subscriptionStatus}
+        checking={subscriptionChecking}
+        onCheck={checkSubscriptionGate}
+      />
     );
   }
 
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#111315] flex flex-col font-sans select-none text-[#F0F2F5]">
       {/* 1.2s Automotive Splash Screen */}
-      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
 
       {/* Critical Road Incident Toast Banner (Dark Glass Capsule) */}
       {criticalBanner && (
@@ -504,7 +566,6 @@ export default function App() {
             currentUser={currentUser}
             events={events}
             questions={questions}
-            onSelectUser={(u) => setCurrentUser(u)}
             onClose={() => setActiveTab('map')}
             onOpenAdmin={() => setIsAdminOpen(true)}
             onSettingsChange={reloadData}
@@ -583,6 +644,7 @@ export default function App() {
         <AdminDashboard
           onClose={() => setIsAdminOpen(false)}
           onRefreshData={reloadData}
+          role={staffRole}
         />
       )}
 
@@ -614,6 +676,7 @@ export default function App() {
         banner={selectedSponsoredPlace}
         onClose={() => setSelectedSponsoredPlace(null)}
         onNavigateToLocation={(lat, lng) => {
+          if (selectedSponsoredPlace) handleSponsoredClick(selectedSponsoredPlace);
           setTargetLocation({ lat, lng });
           setActiveTab('map');
         }}

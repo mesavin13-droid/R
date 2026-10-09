@@ -98,10 +98,6 @@ export const DriverChat: React.FC<DriverChatProps> = ({
                 <h1 className="text-base sm:text-lg font-semibold text-white tracking-tight leading-tight">
                   {activeChannel.name}
                 </h1>
-                <span className="flex items-center gap-1 text-[10px] font-medium text-[#34C759] bg-[#34C759]/10 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span>
-                  {activeChannel.onlineCount} в эфире
-                </span>
               </div>
               <p className="text-xs text-[#9AA0A8] truncate mt-0.5">{activeChannel.description}</p>
             </div>

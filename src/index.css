@@ -13,7 +13,27 @@
     --accent-blue-soft: rgba(75, 141, 255, 0.15);
     --text-primary: #F0F2F5;
     --text-secondary: #9AA0A8;
-    --text-muted: #5F656D;
+    --text-muted: #717881;
+  }
+
+  /* Accessible focus ring for keyboard/assistive-navigation users.
+     Touch-first Telegram clients never see it, so it does not add visual noise. */
+  :focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Respect users who opted out of motion: kill marquee, pulses and springs. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   html, body {
@@ -219,9 +239,7 @@
 [class*="ymaps-2-1"][class*="-copyrights-pane"] {
   font-size: 8px !important;
   color: #5F656D !important;
-  background: rgba(17, 19, 21, 0.85) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(17, 19, 21, 0.95) !important;
   padding: 1px 6px !important;
   border-radius: 6px 0 0 0 !important;
   margin: 0 !important;

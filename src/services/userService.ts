@@ -1,8 +1,23 @@
 import { UserProfile } from '../types';
-import { INITIAL_USERS } from '../data/seedData';
 
 const CURRENT_USER_KEY = 'roadlive_current_user_id';
-const ALL_USERS_KEY = 'roadlive_users_v1';
+const ALL_USERS_KEY = 'roadlive_users_v2';
+
+const GUEST_USER: UserProfile = {
+  id: 'guest',
+  email: '',
+  fullName: 'Водитель',
+  role: 'driver',
+  level: 'Новичок',
+  rating: 5,
+  helpfulConfirmationsCount: 0,
+  eventsCount: 0,
+  questionsCount: 0,
+  answersCount: 0,
+  reportsCount: 0,
+  isBanned: false,
+  createdAt: '1970-01-01T00:00:00.000Z',
+};
 
 export class UserService {
   private static users: UserProfile[] = [];
@@ -12,14 +27,9 @@ export class UserService {
 
     try {
       const stored = localStorage.getItem(ALL_USERS_KEY);
-      if (stored) {
-        this.users = JSON.parse(stored);
-      } else {
-        this.users = [...INITIAL_USERS];
-        this.persist();
-      }
+      this.users = stored ? JSON.parse(stored) : [];
     } catch {
-      this.users = [...INITIAL_USERS];
+      this.users = [];
     }
   }
 
@@ -72,8 +82,7 @@ export class UserService {
   static getCurrentUser(): UserProfile {
     this.initialize();
     const storedId = localStorage.getItem(CURRENT_USER_KEY);
-    const user = this.users.find((u) => u.id === storedId);
-    return user || this.users[0]; // defaults to Dmitry Sokolov (driver1)
+    return this.users.find((u) => u.id === storedId) || GUEST_USER;
   }
 
   static setCurrentUser(userId: string): UserProfile {
@@ -83,15 +92,6 @@ export class UserService {
       localStorage.setItem(CURRENT_USER_KEY, user.id);
       return user;
     }
-    return this.users[0];
-  }
-
-  static toggleUserBan(userId: string): boolean {
-    this.initialize();
-    const user = this.users.find((u) => u.id === userId);
-    if (!user) return false;
-    user.isBanned = !user.isBanned;
-    this.persist();
-    return user.isBanned;
+    return GUEST_USER;
   }
 }

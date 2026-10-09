@@ -1,9 +1,8 @@
 import { DriverQuestion, QuestionAnswer, UserProfile } from '../types';
-import { INITIAL_QUESTIONS } from '../data/seedData';
 import { localRealtime } from '../lib/supabase';
 import { TelegramService } from './telegramService';
 
-const STORAGE_KEY = 'roadlive_questions_v1';
+const STORAGE_KEY = 'roadlive_questions_v2';
 
 function fromServerQuestion(row: any): DriverQuestion {
   return {
@@ -41,13 +40,9 @@ export class QuestionService {
     if (this.questions.length > 0) return;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) this.questions = JSON.parse(stored);
-      else {
-        this.questions = [...INITIAL_QUESTIONS];
-        this.persist();
-      }
+      this.questions = stored ? JSON.parse(stored) : [];
     } catch {
-      this.questions = [...INITIAL_QUESTIONS];
+      this.questions = [];
     }
   }
 
@@ -58,10 +53,9 @@ export class QuestionService {
 
   static async getQuestionsAsync(cityId = 'nsk-city-01'): Promise<DriverQuestion[]> {
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(`/api/questions?cityId=${encodeURIComponent(cityId)}`, {
-        headers: TelegramService.getAuthHeaders(),
+        credentials: 'include',
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !Array.isArray(payload.questions)) {
@@ -96,7 +90,7 @@ export class QuestionService {
         throw new Error('Действие запрещено');
       }
       const response = await fetch(`/api/questions/${encodeURIComponent(questionId)}`, {
-        method: 'DELETE', headers: TelegramService.getAuthHeaders(),
+        method: 'DELETE', credentials: 'include',
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || 'Не удалось удалить вопрос');
@@ -119,7 +113,8 @@ export class QuestionService {
       if (!identity || identity.userId !== user.id) throw new Error('Пользователь не совпадает с Telegram-сессией');
       const response = await fetch('/api/questions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
       });
       const payload = await response.json().catch(() => ({}));
@@ -147,7 +142,8 @@ export class QuestionService {
       if (!identity || identity.userId !== user.id) throw new Error('Пользователь не совпадает с Telegram-сессией');
       const response = await fetch(`/api/questions/${encodeURIComponent(questionId)}/answers`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ content }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -179,7 +175,8 @@ export class QuestionService {
     this.initialize();
     if (TelegramService.isTelegramWebApp()) {
       const response = await fetch(`/api/questions/${encodeURIComponent(questionId)}/helpful`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ answerId }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -202,7 +199,7 @@ export class QuestionService {
       const identity = TelegramService.getCachedAuthoritativeIdentity();
       if (!identity || identity.userId !== userId) throw new Error('Действие запрещено');
       const response = await fetch(`/api/questions/${encodeURIComponent(questionId)}/answers/${encodeURIComponent(answerId)}`, {
-        method: 'DELETE', headers: TelegramService.getAuthHeaders(),
+        method: 'DELETE', credentials: 'include',
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || 'Не удалось удалить ответ');

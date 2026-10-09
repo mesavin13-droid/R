@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Supabase CLI local state (project ref, pooler url)
+supabase/.temp/
+server-dist/
+.vercel

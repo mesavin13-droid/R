@@ -14,6 +14,9 @@ export class YandexMapsService {
    * Load Yandex Maps JS API 2.1 script dynamically
    */
   static loadYandexMaps(apiKey = YANDEX_MAPS_KEY): Promise<any> {
+    if (!apiKey) {
+      return Promise.reject(new Error('Yandex Maps API key is not configured'));
+    }
     if (typeof window === 'undefined') {
       return Promise.reject(new Error('Window is not defined'));
     }

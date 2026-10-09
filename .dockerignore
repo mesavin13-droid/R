@@ -1,0 +1,24 @@
+# Secrets must never enter the build context: the runtime gets them as env vars.
+.env
+.env.*
+!.env.example
+
+# Build output is produced inside the image.
+dist
+server-dist
+node_modules
+
+# Supabase CLI local state (project ref, pooler url)
+supabase/.temp
+
+# Tooling noise
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.log
+npm-debug.log*
+Dockerfile
+.dockerignore
+README.md

@@ -11,6 +11,7 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: null,
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: '/',
@@ -45,16 +46,51 @@ export default defineConfig(() => {
         },
         workbox: {
           importScripts: ['/sw-push.js'],
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          // index.html is intentionally NOT precached: the browser must always
+          // fetch a fresh shell (NetworkFirst below), otherwise the Service
+          // Worker keeps serving the previous build after every deploy.
+          globPatterns: ['**/*.{js,css,ico,png,svg,woff,woff2}'],
+          cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
-              urlPattern: /^https:\/\/.*tile\.openstreetmap\.org\/.*/i,
+              // App shell: always revalidate against the network so new builds
+              // land on the first open; fall back to the last good copy offline.
+              urlPattern: ({ request }) => request.mode === 'navigate',
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'roadlive-pages',
+                networkTimeoutSeconds: 4,
+                expiration: {
+                  maxEntries: 1,
+                  maxAgeSeconds: 60 * 60 * 24,
+                },
+              },
+            },
+            {
+              // Yandex Maps raster tiles: without this every pan re-downloads
+              // the whole viewport and leaves grey gaps on slow networks.
+              urlPattern: /^https:\/\/[^/]+\.maps\.yandex\.(net|ru)\/.*/i,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'osm-tiles-cache',
+                cacheName: 'yandex-map-tiles',
                 expiration: {
-                  maxEntries: 500,
-                  maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+                  maxEntries: 1200,
+                  maxAgeSeconds: 60 * 60 * 24 * 14,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              // Maps JS API and its assets: revalidate so API updates still land.
+              urlPattern: /^https:\/\/(api-maps\.yandex\.ru|yastatic\.net)\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'yandex-maps-assets',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24 * 30,
                 },
                 cacheableResponse: {
                   statuses: [0, 200],

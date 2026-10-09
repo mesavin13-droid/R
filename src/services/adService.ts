@@ -1,9 +1,6 @@
 import { SponsoredBanner, CustomAdIcon } from '../types';
 
-const STORAGE_KEY = 'roadlive_closed_ad_banners';
-const ADS_STORAGE_KEY = 'roadlive_sponsored_ads_list';
-const CUSTOM_ICONS_STORAGE_KEY = 'roadlive_custom_svg_icons';
-const AD_CONFIG_STORAGE_KEY = 'roadlive_ad_display_config';
+const CLOSED_BANNERS_KEY = 'roadlive_closed_ad_banners';
 
 export interface AdDisplayConfig {
   intervalSeconds: number;
@@ -12,8 +9,8 @@ export interface AdDisplayConfig {
 }
 
 export const DEFAULT_AD_CONFIG: AdDisplayConfig = {
-  intervalSeconds: 900, // 15 minutes default
-  autoDismissSeconds: 30, // 30 seconds auto-dismiss
+  intervalSeconds: 900,
+  autoDismissSeconds: 30,
   enabled: true,
 };
 
@@ -35,173 +32,93 @@ export const PRESET_AD_ICONS = [
   { id: 'icon_star', icon: '⭐', label: 'Премиум / Эксклюзив' },
 ];
 
-const INITIAL_CUSTOM_ICONS: CustomAdIcon[] = [
-  {
-    id: 'svg_2gis_navigator',
-    name: '2ГИС Стиль',
-    category: 'Навигатор',
-    svgContent: `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#24C35E"/><path d="M14 28C14 20.268 20.268 14 28 14V22C24.686 22 22 24.686 22 28H14Z" fill="white"/><circle cx="29" cy="29" r="6" fill="white"/></svg>`,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'svg_gazprom_flame',
-    name: 'Пламя АЗС / Топливо',
-    category: 'АЗС',
-    svgContent: `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#0078D7"/><path d="M24 10C24 10 16 20 16 27C16 31.418 19.582 35 24 35C28.418 35 32 31.418 32 27C32 20 24 10 24 10Z" fill="#FFA500"/><path d="M24 18C24 18 19 24 19 28C19 30.761 21.239 33 24 33C26.761 33 29 30.761 29 28C29 24 24 18 24 18Z" fill="#FFD700"/></svg>`,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'svg_speed_wheel',
-    name: 'Спортивный Диск / Шиномонтаж',
-    category: 'Шиномонтаж',
-    svgContent: `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="24" cy="24" r="22" fill="#1C2026"/><circle cx="24" cy="24" r="17" stroke="#FF9F0A" stroke-width="4"/><circle cx="24" cy="24" r="7" fill="#FF9F0A"/><path d="M24 7V17M24 31V41M7 24H17M31 24H41" stroke="#FF9F0A" stroke-width="3" stroke-linecap="round"/></svg>`,
-    createdAt: new Date().toISOString(),
-  },
-];
+/**
+ * Campaigns and icons are server data now. The caches below only keep the last
+ * server response in memory so that synchronous selectors used by the map do not
+ * have to become async; nothing is ever persisted to localStorage.
+ */
+let adsCache: SponsoredBanner[] = [];
+let iconsCache: CustomAdIcon[] = [];
+let configCache: AdDisplayConfig = { ...DEFAULT_AD_CONFIG };
 
-const INITIAL_SPONSORED_BANNERS: SponsoredBanner[] = [
-  {
-    id: 'ad_shina_24',
-    title: 'Шиномонтаж 24/7 «PitStop PRO»',
-    subtitle: 'Правка дисков, балансировка и ремонт проколов за 15 мин',
-    categoryBadge: 'Автосервис',
-    icon: '🛞',
-    customIconId: 'svg_speed_wheel',
-    bannerColor: '#FF9F0A',
-    address: 'ул. Станционная, 32/1 (возле переезда)',
-    latitude: 55.0089,
-    longitude: 82.9372,
-    phone: '+7 (383) 299-44-22',
-    promoCode: 'ROADLIVE20',
-    discountText: 'Скидка 20%',
-    actionText: 'Маршрут',
-    details: 'Круглосуточный экспресс-шиномонтаж для легковых и внедорожников. Чай, кофе и тёплая зона ожидания для водителей. Работаем без очередей по живой очереди и записи.',
-    isActive: true,
-  },
-  {
-    id: 'ad_coffee_prime',
-    title: 'Кофе на АЗС «Прайм» в подарок',
-    subtitle: 'Зерновой капучино при заправке от 30 л по промокоду',
-    categoryBadge: 'Акция на АЗС',
-    icon: '☕',
-    customIconId: 'svg_gazprom_flame',
-    bannerColor: '#0078D7',
-    address: 'ул. Большевистская, 125',
-    latitude: 55.0124,
-    longitude: 82.9485,
-    phone: '+7 (800) 555-35-35',
-    promoCode: 'ROADCOFFEE',
-    discountText: 'Бесплатный кофе',
-    actionText: 'Заехать',
-    details: 'Премиальный свежеобжаренный кофе 100% арабика и свежая выпечка. Бесконтактная заправка через приложение или на кассе.',
-    isActive: true,
-  },
-  {
-    id: 'ad_tow_truck',
-    title: 'Служба эвакуации и техпомощи',
-    subtitle: 'Приезд от 12 минут · Прикурка 12V/24V, буксировка, вскрытие',
-    categoryBadge: 'Помощь на дороге',
-    icon: '🚨',
-    bannerColor: '#4B8DFF',
-    address: 'Дежурство по всем районам города',
-    latitude: 55.0255,
-    longitude: 82.9150,
-    phone: '+7 (383) 380-00-11',
-    promoCode: 'AUTOHELP',
-    discountText: 'Скидка 500 ₽',
-    actionText: 'Вызвать',
-    details: 'Быстрая техпомощь на дороге: запуск двигателя бустером, подвоз бензина/дизеля, вытягивание из кювета и эвакуатор любой сложности 24/7.',
-    isActive: true,
-  },
-  {
-    id: 'ad_car_wash',
-    title: 'Робот-мойка без очередей «AquaSpeed»',
-    subtitle: 'Бесконтактная экспресс-мойка с сушкой за 4 минуты — от 250 ₽',
-    categoryBadge: 'Автомойка',
-    icon: '🚿',
-    bannerColor: '#30B0C7',
-    address: 'ул. Немировича-Данченко, 142/2',
-    latitude: 54.9892,
-    longitude: 82.9110,
-    phone: '+7 (913) 777-12-34',
-    promoCode: 'SPEEDWASH',
-    discountText: 'Пена + Воск в подарок',
-    actionText: 'Показать',
-    details: 'Ультразвуковая и роботизированная мойка днища и кузова без щеток и царапин. Оплата картой, QR и СБП прямо из окна авто.',
-    isActive: true,
-  },
-];
+async function apiRequest<T>(url: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, { credentials: 'include', ...init });
+  } catch {
+    throw new Error('Сервер недоступен. Проверьте соединение.');
+  }
+  const raw = await response.text();
+  let payload: any = null;
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    /* the server answered with something that is not JSON */
+  }
+  if (!response.ok) throw new Error(payload?.error || `Ошибка сервера (${response.status})`);
+  return payload as T;
+}
+
+function applyPayload(payload: any): void {
+  if (Array.isArray(payload?.ads)) adsCache = payload.ads;
+  if (Array.isArray(payload?.icons)) iconsCache = payload.icons;
+  if (payload?.config) configCache = { ...DEFAULT_AD_CONFIG, ...payload.config };
+}
 
 export const AdService = {
-  // --- CONFIGURATION & TIMING ---
-  getConfig(): AdDisplayConfig {
-    try {
-      const data = localStorage.getItem(AD_CONFIG_STORAGE_KEY);
-      if (data) {
-        return { ...DEFAULT_AD_CONFIG, ...JSON.parse(data) };
-      }
-    } catch (e) {
-      console.error('Error reading ad config:', e);
-    }
-    return DEFAULT_AD_CONFIG;
+  // --- LOADING ---
+  /** Public payload: active campaigns that are inside their schedule window. */
+  async loadPublic(): Promise<void> {
+    applyPayload(await apiRequest<any>('/api/ads'));
   },
 
-  saveConfig(config: Partial<AdDisplayConfig>): void {
-    const current = this.getConfig();
-    const updated = { ...current, ...config };
-    try {
-      localStorage.setItem(AD_CONFIG_STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error('Error saving ad config:', e);
-    }
+  /** Owner payload: every campaign including paused ones, with delivery counters. */
+  async loadForOwner(): Promise<void> {
+    applyPayload(await apiRequest<any>('/api/admin/ads'));
+  },
+
+  // --- CONFIGURATION ---
+  getConfig(): AdDisplayConfig {
+    return configCache;
+  },
+
+  async saveConfig(config: Partial<AdDisplayConfig>): Promise<AdDisplayConfig> {
+    const merged = { ...configCache, ...config };
+    const payload = await apiRequest<any>('/api/admin/ad-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(merged),
+    });
+    configCache = { ...configCache, ...(payload?.config || merged) };
+    return configCache;
   },
 
   // --- CUSTOM SVG ICONS MANAGEMENT ---
   getCustomIcons(): CustomAdIcon[] {
-    try {
-      const data = localStorage.getItem(CUSTOM_ICONS_STORAGE_KEY);
-      if (data) {
-        return JSON.parse(data);
-      }
-    } catch (e) {
-      console.error('Error reading custom icons:', e);
-    }
-    return INITIAL_CUSTOM_ICONS;
+    return iconsCache;
   },
 
-  saveCustomIcons(icons: CustomAdIcon[]): void {
-    try {
-      localStorage.setItem(CUSTOM_ICONS_STORAGE_KEY, JSON.stringify(icons));
-    } catch (e) {
-      console.error('Error saving custom icons:', e);
-    }
+  async addCustomIcon(name: string, svgContent: string, category: string = 'Пользовательские'): Promise<CustomAdIcon[]> {
+    const payload = await apiRequest<any>('/api/admin/ad-icons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, svgContent, category }),
+    });
+    if (payload?.icon) iconsCache = [payload.icon, ...iconsCache];
+    return iconsCache;
   },
 
-  addCustomIcon(name: string, svgContent: string, category: string = 'Пользовательские'): CustomAdIcon {
-    const cleanSvg = this.sanitizeSvg(svgContent);
-    const newIcon: CustomAdIcon = {
-      id: `svg_icon_${Date.now()}`,
-      name: name.trim() || `Иконка #${Date.now().toString().slice(-4)}`,
-      category,
-      svgContent: cleanSvg,
-      createdAt: new Date().toISOString(),
-    };
-    const current = this.getCustomIcons();
-    const updated = [newIcon, ...current];
-    this.saveCustomIcons(updated);
-    return newIcon;
-  },
-
-  deleteCustomIcon(id: string): void {
-    const current = this.getCustomIcons();
-    const updated = current.filter((item) => item.id !== id);
-    this.saveCustomIcons(updated);
+  async deleteCustomIcon(id: string): Promise<CustomAdIcon[]> {
+    await apiRequest<any>(`/api/admin/ad-icons/${id}`, { method: 'DELETE' });
+    iconsCache = iconsCache.filter((item) => item.id !== id);
+    return iconsCache;
   },
 
   getCustomIconById(id: string): CustomAdIcon | undefined {
-    return this.getCustomIcons().find((item) => item.id === id);
+    return iconsCache.find((item) => item.id === id);
   },
 
+  /** Client-side preview helper only. The server sanitises the markup again on write. */
   sanitizeSvg(raw: string): string {
     let clean = raw.trim();
     if (!clean.includes('<svg') || !clean.includes('</svg>')) {
@@ -231,21 +148,12 @@ export const AdService = {
 
   // --- ADS CAMPAIGNS MANAGEMENT ---
   getAllAds(): SponsoredBanner[] {
-    try {
-      const data = localStorage.getItem(ADS_STORAGE_KEY);
-      if (data) {
-        return JSON.parse(data);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return INITIAL_SPONSORED_BANNERS;
+    return adsCache;
   },
 
   getBanners(): SponsoredBanner[] {
-    const all = this.getAllAds();
     const closedIds = this.getClosedBannerIds();
-    return all
+    return adsCache
       .filter((b) => b.isActive !== false && !closedIds.includes(b.id))
       .map((ad) => {
         const visual = this.resolveAdVisualSource(ad);
@@ -256,47 +164,61 @@ export const AdService = {
       });
   },
 
-  saveAds(ads: SponsoredBanner[]): void {
-    try {
-      localStorage.setItem(ADS_STORAGE_KEY, JSON.stringify(ads));
-    } catch (e) {
-      console.error(e);
-    }
+  async addAd(ad: Partial<SponsoredBanner>): Promise<SponsoredBanner[]> {
+    const payload = await apiRequest<any>('/api/admin/ads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ad),
+    });
+    if (payload?.ad) adsCache = [payload.ad, ...adsCache];
+    return adsCache;
   },
 
-  addAd(ad: Omit<SponsoredBanner, 'id'> & { id?: string }): SponsoredBanner {
-    const all = this.getAllAds();
-    const newAd: SponsoredBanner = {
-      ...ad,
-      id: ad.id || `ad_${Date.now()}`,
-      isActive: ad.isActive !== undefined ? ad.isActive : true,
-    };
-    const updated = [newAd, ...all];
-    this.saveAds(updated);
-    return newAd;
+  async updateAd(id: string, updates: Partial<SponsoredBanner>): Promise<SponsoredBanner[]> {
+    const payload = await apiRequest<any>(`/api/admin/ads/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (payload?.ad) adsCache = adsCache.map((ad) => (ad.id === id ? payload.ad : ad));
+    return adsCache;
   },
 
-  updateAd(id: string, updates: Partial<SponsoredBanner>): void {
-    const all = this.getAllAds();
-    const updated = all.map((ad) => (ad.id === id ? { ...ad, ...updates } : ad));
-    this.saveAds(updated);
+  async deleteAd(id: string): Promise<SponsoredBanner[]> {
+    await apiRequest<any>(`/api/admin/ads/${id}`, { method: 'DELETE' });
+    adsCache = adsCache.filter((ad) => ad.id !== id);
+    return adsCache;
   },
 
-  deleteAd(id: string): void {
-    const all = this.getAllAds();
-    const updated = all.filter((ad) => ad.id !== id);
-    this.saveAds(updated);
+  async toggleAdActive(id: string): Promise<SponsoredBanner[]> {
+    const target = adsCache.find((ad) => ad.id === id);
+    if (!target) return adsCache;
+    return this.updateAd(id, { isActive: !target.isActive });
   },
 
-  toggleAdActive(id: string): void {
-    const all = this.getAllAds();
-    const updated = all.map((ad) => (ad.id === id ? { ...ad, isActive: !ad.isActive } : ad));
-    this.saveAds(updated);
+  // --- DELIVERY STATISTICS ---
+  async registerImpression(id: string): Promise<void> {
+    await apiRequest<any>(`/api/ads/${id}/stat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'impression' }),
+    });
   },
 
+  async registerClick(id: string): Promise<void> {
+    await apiRequest<any>(`/api/ads/${id}/stat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'click' }),
+    });
+  },
+
+  // --- PER-SESSION DISMISSAL ---
+  // Dismissal is intentionally device-local: it answers "I already closed this
+  // banner in this session", not "this user has seen the campaign".
   getClosedBannerIds(): string[] {
     try {
-      const data = sessionStorage.getItem(STORAGE_KEY);
+      const data = sessionStorage.getItem(CLOSED_BANNERS_KEY);
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
@@ -306,16 +228,15 @@ export const AdService = {
   closeBanner(id: string): void {
     const current = this.getClosedBannerIds();
     if (!current.includes(id)) {
-      const updated = [...current, id];
       try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error(e);
+        sessionStorage.setItem(CLOSED_BANNERS_KEY, JSON.stringify([...current, id]));
+      } catch {
+        /* private browsing can block sessionStorage */
       }
     }
   },
 
   resetClosedBanners(): void {
-    sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(CLOSED_BANNERS_KEY);
   },
 };

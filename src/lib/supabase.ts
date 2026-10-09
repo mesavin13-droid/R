@@ -15,7 +15,7 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// Local Realtime Event Bus for offline / demo mode
+// Local Realtime Event Bus used when the Supabase client is unavailable
 type RealtimeCallback = (payload: any) => void;
 class LocalRealtimeBus {
   private listeners: Map<string, Set<RealtimeCallback>> = new Map();

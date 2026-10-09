@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>ROADLIVE — сброс обновления</title>
+  <style>
+    body { background: #111315; color: #F0F2F5; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { text-align: center; padding: 24px; max-width: 320px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: #4B8DFF; margin: 0 auto 16px; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.1); } }
+    p { margin: 4px 0; font-size: 13px; color: #9AA0A8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="dot"></div>
+    <p id="st">Сброс кэша приложения…</p>
+    <p id="done" style="display:none">Готово. Перезагружаю…</p>
+  </div>
+  <script>
+    (function () {
+      var st = document.getElementById('st');
+      var done = document.getElementById('done');
+      var ok = true;
+      function finish() {
+        done.style.display = 'block';
+        st.style.display = 'none';
+        setTimeout(function () { window.location.href = '/'; }, 900);
+      }
+      Promise.resolve()
+        .then(function () {
+          if (!('serviceWorker' in navigator)) return;
+          return navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          });
+        })
+        .then(function () {
+          if (!('caches' in window)) return;
+          return caches.keys().then(function (names) {
+            return Promise.all(names.map(function (n) { return caches.delete(n); }));
+          });
+        })
+        .then(finish)
+        .catch(function (err) {
+          ok = false;
+          st.textContent = 'Ошибка сброса: ' + (err && err.message ? err.message : 'неизвестная');
+          setTimeout(function () { }, 100);
+        });
+    })();
+  </script>
+</body>
+</html>

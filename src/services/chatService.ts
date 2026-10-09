@@ -1,13 +1,13 @@
 import { ChatChannel, ChatMessage, UserProfile } from '../types';
-import { CHAT_CHANNELS, INITIAL_CHAT_MESSAGES } from '../data/chatData';
+import { CHAT_CHANNELS } from '../data/chatData';
 import { localRealtime } from '../lib/supabase';
 import { TelegramService } from './telegramService';
 
-const CHAT_STORAGE_KEY_PREFIX = 'roadlive_chat_messages_v2';
+const CHAT_STORAGE_KEY_PREFIX = 'roadlive_chat_messages_v3';
 
 function getChatStorageKey(): string {
   const identity = TelegramService.getCachedAuthoritativeIdentity();
-  return identity?.userId ? `${CHAT_STORAGE_KEY_PREFIX}:${identity.userId}` : `${CHAT_STORAGE_KEY_PREFIX}:demo`;
+  return identity?.userId ? `${CHAT_STORAGE_KEY_PREFIX}:${identity.userId}` : `${CHAT_STORAGE_KEY_PREFIX}:anon`;
 }
 
 export class ChatService {
@@ -17,20 +17,16 @@ export class ChatService {
   private static channelListeners: Array<(channelId: string) => void> = [];
   private static isConnecting = false;
   private static reconnectTimer: any = null;
+  private static reconnectAttempts = 0;
 
   static initialize(): void {
     if (this.messages.length > 0) return;
 
     try {
       const stored = localStorage.getItem(getChatStorageKey());
-      if (stored) {
-        this.messages = JSON.parse(stored);
-      } else {
-        this.messages = [...INITIAL_CHAT_MESSAGES];
-        this.persist();
-      }
+      this.messages = stored ? JSON.parse(stored) : [];
     } catch {
-      this.messages = [...INITIAL_CHAT_MESSAGES];
+      this.messages = [];
     }
 
     this.connectWebSocket();
@@ -48,10 +44,10 @@ export class ChatService {
     return CHAT_CHANNELS;
   }
   static async refreshFromServer(channelId?: string): Promise<void> {
-    if (!TelegramService.isTelegramWebApp() || !TelegramService.getSessionToken()) return;
+    if (!TelegramService.isTelegramWebApp() || !TelegramService.getCachedAuthoritativeIdentity()) return;
     try {
       const url = channelId ? '/api/chat/messages?channelId=' + encodeURIComponent(channelId) : '/api/chat/messages';
-      const response = await fetch(url, { headers: TelegramService.getAuthHeaders() });
+      const response = await fetch(url, { credentials: 'include' });
       if (!response.ok) return;
       const rows = await response.json();
       if (!Array.isArray(rows)) return;
@@ -71,14 +67,14 @@ export class ChatService {
     return this.messages.filter((m) => m.channelId === channelId);
   }
 
-  static connectWebSocket(): void {
+  static async connectWebSocket(): Promise<void> {
     if (typeof window === 'undefined') return;
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
       return;
     }
     if (this.isConnecting) return;
 
-    const sessionToken = TelegramService.getSessionToken();
+    const sessionToken = await TelegramService.getWsToken();
     if (!sessionToken) return;
 
     this.isConnecting = true;
@@ -90,6 +86,7 @@ export class ChatService {
 
       ws.onopen = () => {
         this.isConnecting = false;
+        this.reconnectAttempts = 0;
         ws.send(JSON.stringify({ type: 'AUTH', token: sessionToken }));
         console.log('[Chat WS] Connected to live driver radio');
       };
@@ -110,11 +107,12 @@ export class ChatService {
       ws.onclose = () => {
         this.isConnecting = false;
         this.socket = null;
-        // Auto-reconnect after 3 seconds
+        this.reconnectAttempts = Math.min(this.reconnectAttempts + 1, 6);
+        const delay = Math.min(3000 * 2 ** (this.reconnectAttempts - 1), 60_000);
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = setTimeout(() => {
           this.connectWebSocket();
-        }, 3000);
+        }, delay);
       };
 
       ws.onerror = () => {
@@ -191,7 +189,8 @@ export class ChatService {
       try {
         await fetch('/api/chat/messages', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ message: newMsg }),
         });
       } catch (err) {
@@ -220,7 +219,8 @@ export class ChatService {
       try {
         await fetch('/api/chat/reaction', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ messageId, emoji }),
         });
       } catch {}

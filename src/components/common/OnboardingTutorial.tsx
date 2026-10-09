@@ -10,8 +10,8 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Smooth entry
-    const timer = setTimeout(() => setIsVisible(true), 1200);
+    // Smooth entry after the splash screen settles
+    const timer = setTimeout(() => setIsVisible(true), 700);
     return () => clearTimeout(timer);
   }, []);
 
@@ -55,7 +55,12 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
   const step = steps[currentStep];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-300 select-none">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Обучение работе с ROADLIVE"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-300 select-none"
+    >
       <div className="relative w-full max-w-sm bg-[#181B1F]/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex flex-col text-[#F0F2F5] transition-all duration-300 scale-100">
         
         {/* Progress header */}

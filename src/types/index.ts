@@ -13,7 +13,7 @@ export type EventStatus = 'active' | 'expiring' | 'expired' | 'resolved' | 'hidd
 
 export type UserLevel = 'Новичок' | 'Водитель' | 'Активный водитель' | 'Наблюдатель' | 'Эксперт района';
 
-export type UserRole = 'driver' | 'moderator' | 'admin';
+export type UserRole = 'driver' | 'moderator' | 'admin' | 'owner';
 
 export interface UserProfile {
   id: string;
@@ -218,7 +218,6 @@ export interface ChatChannel {
   name: string;
   description: string;
   icon: string;
-  onlineCount: number;
 }
 
 export interface CustomAdIcon {
@@ -247,5 +246,10 @@ export interface SponsoredBanner {
   actionText: string;
   details: string;
   isActive?: boolean;
+  impressions?: number;
+  clicks?: number;
+  priority?: number;
+  startsAt?: string;
+  endsAt?: string;
 }
 

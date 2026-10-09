@@ -1,4 +1,4 @@
-type UserRole = 'driver' | 'admin';
+type UserRole = 'driver' | 'moderator' | 'admin' | 'owner';
 
 export interface TelegramUser {
   id: number;
@@ -10,19 +10,33 @@ export interface TelegramUser {
 
 interface TelegramAuthResponse {
   authenticated: boolean;
-  sessionToken: string;
   user: TelegramUser;
   role: UserRole;
   isAdmin: boolean;
+  isOwner: boolean;
 }
-
-const SESSION_KEY = 'roadlive_telegram_session_v1';
 
 interface VerifiedIdentity {
   userId: string;
   role: UserRole;
   isAdmin: boolean;
+  isOwner: boolean;
   expiresAt: number;
+}
+
+export interface ChannelSubscriptionStatus {
+  enabled: boolean;
+  subscribed: boolean;
+  staffBypass?: boolean;
+  status?: string | null;
+  error?: string | null;
+  channel?: { username?: string; link: string } | null;
+}
+
+const STAFF_ROLES: UserRole[] = ['moderator', 'admin', 'owner'];
+
+function readRole(value: unknown): UserRole {
+  return STAFF_ROLES.includes(value as UserRole) ? (value as UserRole) : 'driver';
 }
 
 let verifiedIdentity: VerifiedIdentity | null = null;
@@ -30,6 +44,11 @@ let verifiedIdentity: VerifiedIdentity | null = null;
 export class TelegramService {
   static isTelegramWebApp(): boolean {
     return typeof window !== 'undefined' && Boolean((window as any).Telegram?.WebApp?.initData);
+  }
+
+  /** True inside any Telegram client, even before initData is readable. */
+  static isTelegramClient(): boolean {
+    return typeof window !== 'undefined' && Boolean((window as any).Telegram?.WebApp);
   }
 
   static getInitData(): string | null {
@@ -40,7 +59,7 @@ export class TelegramService {
 
   /**
    * Authenticate the Mini App on the server.
-   * The server validates Telegram's initData signature before returning a short-lived session.
+   * The server validates Telegram's initData signature and sets an HttpOnly session cookie.
    */
   static async authenticate(): Promise<TelegramAuthResponse> {
     const initData = this.getInitData();
@@ -51,37 +70,33 @@ export class TelegramService {
     const response = await fetch('/api/telegram/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ initData }),
     });
 
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data?.authenticated || !data?.sessionToken || !data?.user) {
+    if (!response.ok || !data?.authenticated || !data?.user) {
       throw new Error(data?.error || 'Telegram authentication failed');
     }
 
-    sessionStorage.setItem(SESSION_KEY, data.sessionToken);
     verifiedIdentity = {
       userId: `tg-${data.user.id}`,
-      role: data.role === 'admin' ? 'admin' : 'driver',
+      role: readRole(data.role),
       isAdmin: Boolean(data.isAdmin),
+      isOwner: Boolean(data.isOwner) || data.role === 'owner',
       expiresAt: Number(data.expiresAt || 0),
     };
     return data as TelegramAuthResponse;
   }
 
-  static getSessionToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return sessionStorage.getItem(SESSION_KEY);
-  }
-
   static clearSession(): void {
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(SESSION_KEY);
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     }
     verifiedIdentity = null;
   }
 
-  static getCachedAuthoritativeIdentity(): { userId: string; role: UserRole; isAdmin: boolean } | null {
+  static getCachedAuthoritativeIdentity(): { userId: string; role: UserRole; isAdmin: boolean; isOwner: boolean } | null {
     if (!verifiedIdentity) return null;
     if (!verifiedIdentity.expiresAt || verifiedIdentity.expiresAt <= Math.floor(Date.now() / 1000)) {
       verifiedIdentity = null;
@@ -91,34 +106,63 @@ export class TelegramService {
       userId: verifiedIdentity.userId,
       role: verifiedIdentity.role,
       isAdmin: verifiedIdentity.isAdmin,
+      isOwner: verifiedIdentity.isOwner,
     };
   }
 
-  static async getAuthoritativeIdentity(): Promise<{ userId: string; role: UserRole; isAdmin: boolean } | null> {
-    const token = this.getSessionToken();
-    if (!token) return null;
+  static async getAuthoritativeIdentity(): Promise<{ userId: string; role: UserRole; isAdmin: boolean; isOwner: boolean } | null> {
     const response = await fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
     });
     if (!response.ok) return null;
     const data = await response.json().catch(() => null);
     if (!data?.authenticated || typeof data.userId !== 'string') return null;
     verifiedIdentity = {
       userId: data.userId,
-      role: data.role === 'admin' ? 'admin' : 'driver',
+      role: readRole(data.role),
       isAdmin: Boolean(data.isAdmin),
+      isOwner: Boolean(data.isOwner) || data.role === 'owner',
       expiresAt: Number(data.expiresAt || Math.floor(Date.now() / 1000) + 300),
     };
     return {
       userId: verifiedIdentity.userId,
       role: verifiedIdentity.role,
       isAdmin: verifiedIdentity.isAdmin,
+      isOwner: verifiedIdentity.isOwner,
     };
   }
 
   static getAuthHeaders(): Record<string, string> {
-    const token = this.getSessionToken();
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return {};
+  }
+
+  /**
+   * Server-verified status of the mandatory channel subscription gate.
+   * The server calls Telegram getChatMember itself; the client only renders
+   * what the server says. Returns the live response (already typed below).
+   */
+  static async checkChannelSubscription(): Promise<ChannelSubscriptionStatus> {
+    const response = await fetch('/api/telegram/subscription', {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error('Не удалось проверить подписку на канал');
+    }
+    const data = await response.json().catch(() => null);
+    if (!data || typeof data.enabled !== 'boolean') {
+      throw new Error('Некорректный ответ сервера');
+    }
+    return data as ChannelSubscriptionStatus;
+  }
+
+  static async getWsToken(): Promise<string | null> {
+    const response = await fetch('/api/auth/ws-token', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!response.ok) return null;
+    const data = await response.json().catch(() => null);
+    return data?.wsToken || null;
   }
 
   static getTelegramUser(): TelegramUser | null {

@@ -1,0 +1,9 @@
+# Vercel uploads: keep secrets and heavy build output out of the bundle.
+# dist/ is uploaded because the Express SPA fallback reads index.html from it.
+node_modules
+.vercel
+.env
+.env.*
+*.local
+.github
+supabase

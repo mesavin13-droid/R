@@ -1,11 +1,10 @@
 import { EventComment, EventConfirmation, EventType, RoadEvent, UserProfile } from '../types';
-import { INITIAL_EVENTS } from '../data/seedData';
 import { localRealtime } from '../lib/supabase';
 import { NotificationService } from './notificationService';
 import { TelegramService } from './telegramService';
 
-const STORAGE_KEY = 'roadlive_events_v1';
-const ARCHIVE_KEY = 'roadlive_archived_events_v1';
+const STORAGE_KEY = 'roadlive_events_v2';
+const ARCHIVE_KEY = 'roadlive_archived_events_v2';
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 export class EventService {
@@ -70,14 +69,9 @@ export class EventService {
 
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        this.events = JSON.parse(stored);
-      } else {
-        this.events = [...INITIAL_EVENTS];
-        this.persist();
-      }
+      this.events = stored ? JSON.parse(stored) : [];
     } catch {
-      this.events = [...INITIAL_EVENTS];
+      this.events = [];
     }
 
     // Refresh aging and perform automatic 24h client & Supabase archiving
@@ -150,11 +144,10 @@ export class EventService {
 
   static async getEventsAsync(cityId = 'nsk-city-01', bbox?: [number, number, number, number]): Promise<RoadEvent[]> {
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const params = new URLSearchParams({ cityId });
       const response = await fetch(`/api/events?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !Array.isArray(payload?.events)) {
@@ -279,15 +272,12 @@ export class EventService {
     // In Telegram mode, persistence is server-authoritative. The browser never
     // inserts road events directly into Supabase or treats localStorage as truth.
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
 
       const response = await fetch('/api/events', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data),
       });
       const payload = await response.json().catch(() => ({}));
@@ -391,8 +381,7 @@ export class EventService {
     this.assertMutationIdentity(user.id);
 
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
 
       let distanceMeters: number | undefined;
       let isNearby = true;
@@ -409,10 +398,8 @@ export class EventService {
 
       const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/confirmation`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'confirm', isNearby, distanceMeters }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -531,14 +518,11 @@ export class EventService {
     this.assertMutationIdentity(user.id);
 
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/comments`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ content: content.trim().slice(0, 1000) }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -590,11 +574,10 @@ export class EventService {
     const identity = TelegramService.getCachedAuthoritativeIdentity();
     if (TelegramService.isTelegramWebApp()) {
       if (!identity || !identity.isAdmin) throw new Error('Недостаточно прав администратора');
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
       fetch(`/api/admin/events/${encodeURIComponent(eventId)}/moderate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action }),
       }).catch((err) => console.warn('[Events] Server moderation failed:', err));
     }
@@ -705,11 +688,10 @@ export class EventService {
     this.initialize();
     this.assertMutationIdentity(userId);
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       fetch(`/api/events/${encodeURIComponent(eventId)}/delete`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       }).catch((err) => console.warn('[Events] Server delete failed:', err));
     }
     const index = this.events.findIndex((e) => e.id === eventId && e.userId === userId);
@@ -729,11 +711,10 @@ export class EventService {
     this.initialize();
     this.assertMutationIdentity(user.id);
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       fetch(`/api/events/${encodeURIComponent(eventId)}/assistance`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       }).catch((err) => console.warn('[Events] Server assistance failed:', err));
     }
     const event = this.events.find((e) => e.id === eventId);
@@ -767,11 +748,10 @@ export class EventService {
     this.initialize();
     this.assertMutationIdentity(userId);
     if (TelegramService.isTelegramWebApp()) {
-      const token = TelegramService.getSessionToken();
-      if (!token) throw new Error('Сессия Telegram отсутствует');
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       fetch(`/api/events/${encodeURIComponent(eventId)}/resolved`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       }).catch((err) => console.warn('[Events] Server resolve failed:', err));
     }
     const event = this.events.find((e) => e.id === eventId);

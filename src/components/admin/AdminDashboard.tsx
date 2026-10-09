@@ -1,32 +1,75 @@
-import React, { useState, useRef } from 'react';
-import { RoadEvent, UserProfile, FuelStation, SponsoredBanner, CustomAdIcon } from '../../types';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { RoadEvent, FuelStation, SponsoredBanner, CustomAdIcon } from '../../types';
 import { 
   ShieldAlert, Trash2, X, BellRing, Sparkles, Plus, 
   MapPin, Phone, Tag, Upload, Image as ImageIcon, Check, RotateCcw, 
-  Eye, EyeOff, Code, Layers, FileCode
+  Eye, EyeOff, Code, Layers, FileCode, Lock, Send
 } from 'lucide-react';
 import { EventService } from '../../services/eventService';
-import { UserService } from '../../services/userService';
 import { StationService } from '../../services/stationService';
 import { NotificationService } from '../../services/notificationService';
 import { AdService, PRESET_AD_ICONS } from '../../services/adService';
 import { get3DAdSvg } from '../ads/adVisuals';
 
+interface StaffMember {
+  telegram_id: number;
+  role: 'moderator' | 'admin';
+  granted_by_username?: string | null;
+  created_at?: string;
+}
+
+/** Server projection for the admin users tab. Ids are real profile UUIDs, not tg-* ids. */
+interface AdminUser {
+  id: string;
+  fullName: string;
+  role: 'driver' | 'moderator' | 'admin' | 'owner';
+  isBanned: boolean;
+  bannedAt: string | null;
+  bannedBy: number | null;
+  bannedByUsername: string | null;
+  banReason: string | null;
+  rating: number | null;
+  level: string | null;
+  avatarUrl: string | null;
+  createdAt: string;
+  telegramId: number | null;
+  username: string | null;
+  isOwner: boolean;
+}
+
+interface AdminStation {
+  id: string;
+  cityId: string;
+  name: string;
+  brand: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  fuelTypes: FuelStation['fuelTypes'];
+  queueStatus: 'none' | 'small' | 'large' | null;
+  lastReportedAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 interface AdminDashboardProps {
   onClose: () => void;
   onRefreshData: () => void;
+  /** Effective staff role from the server. Ads and staff management are owner-only. */
+  role?: 'driver' | 'moderator' | 'admin' | 'owner';
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onClose,
   onRefreshData,
+  role = 'admin',
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'ads_management' | 'users' | 'stations'>('overview');
+  const isOwner = role === 'owner';
+  const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'ads_management' | 'users' | 'stations' | 'staff' | 'channel'>('overview');
   const [adsSubTab, setAdsSubTab] = useState<'campaigns' | 'svg_icons'>('campaigns');
 
   const [events, setEvents] = useState<RoadEvent[]>(EventService.getAllEventsForAdmin());
-  const [users, setUsers] = useState<UserProfile[]>(UserService.getAllUsers());
-  const [stations, setStations] = useState<FuelStation[]>(StationService.getStations());
   const [ads, setAds] = useState<SponsoredBanner[]>(AdService.getAllAds());
   const [customIcons, setCustomIcons] = useState<CustomAdIcon[]>(AdService.getCustomIcons());
   const [adIntervalSeconds, setAdIntervalSeconds] = useState<number>(AdService.getConfig().intervalSeconds || 900);
@@ -34,12 +77,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adEnabled, setAdEnabled] = useState<boolean>(AdService.getConfig().enabled !== false);
   const [pushFeedback, setPushFeedback] = useState<string | null>(null);
 
+  // Staff management (owner only)
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [staffTelegramId, setStaffTelegramId] = useState('');
+  const [staffRole, setStaffRole] = useState<'moderator' | 'admin'>('moderator');
+  const [staffBusy, setStaffBusy] = useState(false);
+  const [staffMessage, setStaffMessage] = useState<string | null>(null);
+
+  // Mandatory channel subscription (owner only)
+  const [channelLink, setChannelLink] = useState('');
+  const [channelChatId, setChannelChatId] = useState('');
+  const [channelSaved, setChannelSaved] = useState<{ chatId: string; username?: string; link: string } | null>(null);
+  const [channelProbe, setChannelProbe] = useState<{ accessible: boolean; detail?: string } | null>(null);
+  const [channelBusy, setChannelBusy] = useState(false);
+  const [channelMessage, setChannelMessage] = useState<string | null>(null);
+
   // Form for new station
-  const [newStationName, setNewStationName] = useState('');
-  const [newStationBrand, setNewStationBrand] = useState('Газпромнефть');
+  const [newStationName, setNewStationName] = useState('');  const [newStationBrand, setNewStationBrand] = useState('Газпромнефть');
   const [newStationAddress, setNewStationAddress] = useState('');
   const [newStationLat] = useState('55.0200');
   const [newStationLng] = useState('82.9300');
+
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminStations, setAdminStations] = useState<AdminStation[]>([]);
+  const [usersMessage, setUsersMessage] = useState<string | null>(null);
+  const [stationsMessage, setStationsMessage] = useState<string | null>(null);
+  const [usersBusy, setUsersBusy] = useState(false);
+  const [stationsBusy, setStationsBusy] = useState(false);
 
   // Form for new / edited Ad Campaign
   const [adTitle, setAdTitle] = useState('');
@@ -73,36 +137,303 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onRefreshData();
   };
 
-  const handleToggleUserBan = (userId: string) => {
-    UserService.toggleUserBan(userId);
-    setUsers(UserService.getAllUsers());
+  // --- Staff management (owner only). The server re-checks the owner role. ---
+  const loadStaff = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/staff', { credentials: 'include' });
+      if (!response.ok) return;
+      const data = await response.json().catch(() => null);
+      setStaff(Array.isArray(data?.staff) ? data.staff : []);
+    } catch {
+      /* keep the previous list on network errors */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOwner && activeTab === 'staff') void loadStaff();
+  }, [isOwner, activeTab, loadStaff]);
+
+  // --- Mandatory channel subscription (owner only) ---
+  const loadChannel = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/channel-subscription', { credentials: 'include' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) return;
+      const config = data?.config ?? null;
+      setChannelSaved(config);
+      setChannelLink(config?.link || '');
+      setChannelChatId(config?.chatId || '');
+      setChannelProbe(data?.probe ?? null);
+    } catch {
+      /* keep the previous state on network errors */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOwner && activeTab === 'channel') void loadChannel();
+  }, [isOwner, activeTab, loadChannel]);
+
+  const saveChannel = async () => {
+    setChannelBusy(true);
+    setChannelMessage(null);
+    try {
+      const response = await fetch('/api/admin/channel-subscription', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ link: channelLink, chatId: channelChatId }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setChannelMessage(data?.error || 'Не удалось сохранить канал');
+        return;
+      }
+      setChannelSaved(data?.config ?? null);
+      setChannelProbe(data?.probe ?? null);
+      setChannelMessage('Канал подписки сохранён');
+    } catch {
+      setChannelMessage('Нет связи с сервером');
+    } finally {
+      setChannelBusy(false);
+    }
   };
 
-  const handleAddStation = (e: React.FormEvent) => {
+  const disableChannel = async () => {
+    setChannelBusy(true);
+    setChannelMessage(null);
+    try {
+      const response = await fetch('/api/admin/channel-subscription', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        setChannelMessage('Не удалось отключить подписку');
+        return;
+      }
+      setChannelSaved(null);
+      setChannelProbe(null);
+      setChannelMessage('Обязательная подписка отключена');
+    } catch {
+      setChannelMessage('Нет связи с сервером');
+    } finally {
+      setChannelBusy(false);
+    }
+  };
+
+  const setBotMenuButton = async () => {
+    setChannelBusy(true);
+    setChannelMessage(null);
+    try {
+      const response = await fetch('/api/admin/bot/menu-button', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      const data = await response.json().catch(() => null);
+      setChannelMessage(response.ok ? 'Кнопка меню бота и команды установлены' : (data?.error || 'Не удалось настроить бота'));
+    } catch {
+      setChannelMessage('Нет связи с сервером');
+    } finally {
+      setChannelBusy(false);
+    }
+  };
+
+  // --- Users and stations: server-authoritative ---
+  // These used to be read from and written to localStorage, so a ban applied in one
+  // browser was invisible everywhere else. The list now comes from the API.
+  const loadUsers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/users', { credentials: 'include' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setUsersMessage(data?.error || 'Не удалось загрузить пользователей');
+        return;
+      }
+      setUsersMessage(null);
+      setAdminUsers(Array.isArray(data?.users) ? data.users : []);
+    } catch {
+      setUsersMessage('Нет связи с сервером');
+    }
+  }, []);
+
+  const loadStations = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/stations', { credentials: 'include' });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStationsMessage(data?.error || 'Не удалось загрузить АЗС');
+        return;
+      }
+      setStationsMessage(null);
+      setAdminStations(Array.isArray(data?.stations) ? data.stations : []);
+    } catch {
+      setStationsMessage('Нет связи с сервером');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'users') void loadUsers();
+    if (activeTab === 'stations') void loadStations();
+  }, [activeTab, loadUsers, loadStations]);
+
+  // --- Ads (owner only) ---
+  // Campaigns live on the server, so the panel loads them from the owner endpoint
+  // instead of reading a browser sandbox.
+  const [adsBusy, setAdsBusy] = useState(false);
+  const [adsMessage, setAdsMessage] = useState<string | null>(null);
+
+  const loadAds = useCallback(async () => {
+    try {
+      await AdService.loadForOwner();
+      setAds(AdService.getAllAds());
+      setCustomIcons(AdService.getCustomIcons());
+      const config = AdService.getConfig();
+      setAdIntervalSeconds(config.intervalSeconds);
+      setAdAutoDismissSeconds(config.autoDismissSeconds);
+      setAdEnabled(config.enabled);
+    } catch (error: any) {
+      setAdsMessage(error?.message || 'Не удалось загрузить рекламу');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOwner && activeTab === 'ads_management') void loadAds();
+  }, [isOwner, activeTab, loadAds]);
+
+  /** Runs an owner-only ads mutation and reports failures instead of losing them. */
+  const runAdsMutation = async (action: () => Promise<unknown>, successMessage?: string) => {
+    setAdsBusy(true);
+    setAdsMessage(null);
+    try {
+      await action();
+      setAds(AdService.getAllAds());
+      setCustomIcons(AdService.getCustomIcons());
+      if (successMessage) {
+        setPushFeedback(successMessage);
+        setTimeout(() => setPushFeedback(null), 3500);
+      }
+    } catch (error: any) {
+      setAdsMessage(error?.message || 'Операция не выполнена');
+    } finally {
+      setAdsBusy(false);
+      onRefreshData();
+    }
+  };
+
+  const handleAddStaff = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setStaffBusy(true);
+    setStaffMessage(null);
+    try {
+      const response = await fetch('/api/admin/staff', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telegramId: staffTelegramId, role: staffRole }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStaffMessage(data?.error || 'Не удалось выдать права');
+        return;
+      }
+      setStaffTelegramId('');
+      setStaffMessage('Права выданы');
+      await loadStaff();
+    } finally {
+      setStaffBusy(false);
+    }
+  };
+
+  const handleRemoveStaff = async (telegramId: number) => {
+    setStaffBusy(true);
+    setStaffMessage(null);
+    try {
+      const response = await fetch(`/api/admin/staff/${telegramId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStaffMessage(data?.error || 'Не удалось снять права');
+        return;
+      }
+      setStaffMessage('Права сняты');
+      await loadStaff();
+    } finally {
+      setStaffBusy(false);
+    }
+  };
+
+  const handleToggleUserBan = async (user: AdminUser) => {
+    setUsersBusy(true);
+    setUsersMessage(null);
+    try {
+      const nextBanned = !user.isBanned;
+      const response = await fetch(`/api/admin/users/${user.id}/ban`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ banned: nextBanned, reason: nextBanned ? 'Нарушение правил' : null }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setUsersMessage(data?.error || 'Не удалось изменить статус');
+        return;
+      }
+      setUsersMessage(nextBanned ? 'Пользователь заблокирован' : 'Блок снят');
+      await loadUsers();
+    } catch {
+      setUsersMessage('Нет связи с сервером');
+    } finally {
+      setUsersBusy(false);
+    }
+  };
+
+  const handleAddStation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStationName || !newStationAddress) return;
 
-    StationService.addStation({
-      cityId: 'nsk-city-01',
-      name: newStationName,
-      brand: newStationBrand,
-      latitude: parseFloat(newStationLat),
-      longitude: parseFloat(newStationLng),
-      address: newStationAddress,
-      fuelTypes: { ai92: 62.40, ai95: 65.90, dt: 71.90 },
-      queueStatus: 'none',
-    });
-
-    setStations(StationService.getStations());
-    setNewStationName('');
-    setNewStationAddress('');
-    onRefreshData();
+    setStationsBusy(true);
+    setStationsMessage(null);
+    try {
+      await StationService.addStation({
+        cityId: 'nsk-city-01',
+        name: newStationName,
+        brand: newStationBrand,
+        latitude: parseFloat(newStationLat),
+        longitude: parseFloat(newStationLng),
+        address: newStationAddress,
+        fuelTypes: { ai92: 62.40, ai95: 65.90, dt: 71.90 },
+        queueStatus: 'none',
+      });
+      setStationsMessage('АЗС добавлена');
+      setNewStationName('');
+      setNewStationAddress('');
+      await loadStations();
+      onRefreshData();
+    } catch (error: any) {
+      setStationsMessage(error?.message || 'Не удалось добавить АЗС');
+    } finally {
+      setStationsBusy(false);
+    }
   };
 
-  const handleDeleteStation = (id: string) => {
-    StationService.deleteStation(id);
-    setStations(StationService.getStations());
-    onRefreshData();
+  const handleDeleteStation = async (id: string) => {
+    setStationsBusy(true);
+    setStationsMessage(null);
+    try {
+      // The server deactivates the station rather than deleting the row, so existing
+      // queue reports and the audit trail survive.
+      await StationService.deleteStation(id);
+      setStationsMessage('АЗС скрыта с карты');
+      await loadStations();
+      onRefreshData();
+    } catch (error: any) {
+      setStationsMessage(error?.message || 'Не удалось скрыть АЗС');
+    } finally {
+      setStationsBusy(false);
+    }
   };
 
   // Direct Image/Logo File Upload
@@ -141,54 +472,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     reader.readAsText(file);
   };
 
-  // Save new custom SVG Icon to AdService
-  const handleSaveCustomSvgIcon = (e: React.FormEvent) => {
+  // Save new custom SVG Icon to the server catalogue
+  const handleSaveCustomSvgIcon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!svgRawCode.trim()) return;
 
-    const created = AdService.addCustomIcon(svgName || 'Новая SVG Иконка', svgRawCode, svgCategory);
-    setCustomIcons(AdService.getCustomIcons());
+    const name = svgName || 'Новая SVG Иконка';
+    await runAdsMutation(
+      () => AdService.addCustomIcon(name, svgRawCode, svgCategory),
+      `SVG иконка «${name}» успешно добавлена в каталог!`,
+    );
     setSvgName('');
     setSvgRawCode('');
     setIsUploadingSvg(false);
-    setPushFeedback(`SVG иконка «${created.name}» успешно добавлена в каталог!`);
-    setTimeout(() => setPushFeedback(null), 3500);
   };
 
-  const handleDeleteCustomSvgIcon = (id: string) => {
-    AdService.deleteCustomIcon(id);
-    setCustomIcons(AdService.getCustomIcons());
+  const handleDeleteCustomSvgIcon = async (id: string) => {
+    await runAdsMutation(() => AdService.deleteCustomIcon(id));
     if (selectedCustomIconId === id) {
       setSelectedCustomIconId(null);
     }
-    onRefreshData();
   };
 
-  // Create or Update Ad Campaign
-  const handleCreateAd = (e: React.FormEvent) => {
+  // Create a new ad campaign
+  const handleCreateAd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adTitle || !adAddress) return;
 
-    AdService.addAd({
-      title: adTitle,
-      subtitle: adSubtitle || 'Спецпредложение для водителей ROADLIVE',
-      categoryBadge: adCategory,
-      icon: adIcon,
-      customIconId: selectedCustomIconId || undefined,
-      customLogoUrl: adCustomLogoUrl || undefined,
-      bannerColor: adBannerColor,
-      address: adAddress,
-      latitude: parseFloat(adLat) || 55.0089,
-      longitude: parseFloat(adLng) || 82.9372,
-      phone: adPhone,
-      promoCode: adPromoCode,
-      discountText: adDiscountText,
-      actionText: adActionText || 'Маршрут',
-      details: adDetails,
-      isActive: true,
-    });
+    await runAdsMutation(
+      () => AdService.addAd({
+        title: adTitle,
+        subtitle: adSubtitle || 'Спецпредложение для водителей ROADLIVE',
+        categoryBadge: adCategory,
+        icon: adIcon,
+        customIconId: selectedCustomIconId || undefined,
+        customLogoUrl: adCustomLogoUrl || undefined,
+        bannerColor: adBannerColor,
+        address: adAddress,
+        latitude: parseFloat(adLat) || 55.0089,
+        longitude: parseFloat(adLng) || 82.9372,
+        phone: adPhone,
+        promoCode: adPromoCode,
+        discountText: adDiscountText,
+        actionText: adActionText || 'Маршрут',
+        details: adDetails,
+        isActive: true,
+      }),
+      `Рекламная метка «${adTitle}» успешно добавлена на карту!`,
+    );
 
-    setAds(AdService.getAllAds());
     setIsCreatingAd(false);
     // Reset Form
     setAdTitle('');
@@ -196,21 +528,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setAdAddress('');
     setAdCustomLogoUrl('');
     setSelectedCustomIconId(null);
-    onRefreshData();
-    setPushFeedback(`Рекламная метка «${adTitle}» успешно добавлена на карту!`);
-    setTimeout(() => setPushFeedback(null), 3500);
   };
 
   const handleDeleteAd = (id: string) => {
-    AdService.deleteAd(id);
-    setAds(AdService.getAllAds());
-    onRefreshData();
+    void runAdsMutation(() => AdService.deleteAd(id));
   };
 
   const handleToggleAdActive = (id: string) => {
-    AdService.toggleAdActive(id);
-    setAds(AdService.getAllAds());
-    onRefreshData();
+    void runAdsMutation(() => AdService.toggleAdActive(id));
   };
 
   const handleResetClosedAds = () => {
@@ -222,14 +547,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleSaveAdTiming = (newInterval: number, newAutoDismiss: number, newEnabled: boolean) => {
-    AdService.saveConfig({ intervalSeconds: newInterval, autoDismissSeconds: newAutoDismiss, enabled: newEnabled });
-    setAdIntervalSeconds(newInterval);
-    setAdAutoDismissSeconds(newAutoDismiss);
-    setAdEnabled(newEnabled);
-    const intervalMin = (newInterval / 60).toFixed(1);
-    setPushFeedback(`Настройки сохранены: показ раз в ${newInterval >= 60 ? `${intervalMin} мин` : `${newInterval}с`}, автоскрытие через ${newAutoDismiss}с.`);
-    setTimeout(() => setPushFeedback(null), 3500);
-    onRefreshData();
+    void runAdsMutation(
+      () => AdService.saveConfig({ intervalSeconds: newInterval, autoDismissSeconds: newAutoDismiss, enabled: newEnabled }),
+      `Настройки сохранены: показ раз в ${newInterval >= 60 ? `${(newInterval / 60).toFixed(1)} мин` : `${newInterval}с`}, автоскрытие через ${newAutoDismiss}с.`,
+    );
   };
 
   // Preview logo / SVG resolver for the creation form
@@ -298,10 +619,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="flex items-center p-1 bg-[#111315] rounded-xl max-w-4xl mx-auto border border-white/[0.06] overflow-x-auto no-scrollbar">
           {[
             { id: 'overview', label: 'Сводка' },
-            { id: 'ads_management', label: `Управление рекламой (${ads.length})` },
+            ...(isOwner ? [{ id: 'ads_management', label: `Управление рекламой (${ads.length})` }] : []),
             { id: 'events', label: `События (${events.length})` },
-            { id: 'users', label: `Водители (${users.length})` },
-            { id: 'stations', label: `АЗС (${stations.length})` },
+...(role === 'admin' || isOwner ? [{ id: 'users', label: `Водители (${adminUsers.length})` }] : []),
+    ...(role === 'admin' || isOwner ? [{ id: 'stations', label: `АЗС (${adminStations.length})` }] : []),
+            ...(isOwner ? [{ id: 'staff', label: 'Сотрудники' }] : []),
+            ...(isOwner ? [{ id: 'channel', label: 'Подписка' }] : []),
           ].map((tab) => (
             <button
               key={tab.id}
@@ -443,6 +766,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* --- DEDICATED ADS MANAGEMENT SECTION --- */}
         {activeTab === 'ads_management' && (
           <div className="space-y-6 animate-in fade-in duration-200">
+            {adsMessage && (
+              <div className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-xl text-xs">
+                <span>{adsMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => void loadAds()}
+                  disabled={adsBusy}
+                  className="shrink-0 px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 transition disabled:opacity-50"
+                >
+                  Повторить
+                </button>
+              </div>
+            )}
+
             {/* Header + Sub-navigation tabs */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
               <div>
@@ -1222,6 +1559,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <span>{ad.phone}</span>
                                 </span>
                               )}
+                              <span
+                                className="flex items-center gap-1 tabular-nums text-[#9AA0A8]"
+                                title="Показы и переходы из кампании"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>{(ad.impressions || 0).toLocaleString('ru-RU')}</span>
+                                <span className="text-white/20">/</span>
+                                <span className="text-[#4B8DFF]">{(ad.clicks || 0).toLocaleString('ru-RU')}</span>
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1305,25 +1651,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* USERS TAB */}
         {activeTab === 'users' && (
           <div className="space-y-3">
-            <h2 className="text-xs font-medium uppercase tracking-wider text-[#9AA0A8] mb-3">
-              Список зарегистрированных водителей
-            </h2>
-            {users.map((u) => (
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-[#9AA0A8]">
+                Список зарегистрированных водителей
+              </h2>
+              <button
+                onClick={() => void loadUsers()}
+                className="text-[11px] text-[#9AA0A8] hover:text-white transition flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Обновить
+              </button>
+            </div>
+
+            {usersMessage && (
+              <div className="p-2.5 rounded-xl bg-[#FF9F0A]/15 border border-[#FF9F0A]/30 text-[11px] text-white">
+                {usersMessage}
+              </div>
+            )}
+
+            {adminUsers.length === 0 && !usersMessage && (
+              <p className="text-xs text-[#9AA0A8] py-4 text-center">Загрузка пользователей…</p>
+            )}
+
+            {adminUsers.map((u) => (
               <div
                 key={u.id}
-                className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] flex items-center justify-between"
+                className={`bg-[#181B1F] p-4 rounded-2xl border flex items-center justify-between ${
+                  u.isBanned ? 'border-[#FF453A]/40' : 'border-white/[0.06]'
+                }`}
               >
-                <div>
-                  <h4 className="text-xs sm:text-sm font-semibold text-white">{u.fullName} ({u.level})</h4>
-                  <p className="text-[11px] text-[#9AA0A8]">Рейтинг: ⭐ {u.rating} · Подтверждений: {u.helpfulConfirmationsCount}</p>
+                <div className="min-w-0">
+                  <h4 className="text-xs sm:text-sm font-semibold text-white truncate">
+                    {u.fullName}
+                    {u.level ? ` (${u.level})` : ''}
+                    {u.isOwner && <span className="ml-2 text-[10px] text-[#FFD60A]">ВЛАДЕЛЕЦ</span>}
+                  </h4>
+                  <p className="text-[11px] text-[#9AA0A8] truncate">
+                    {u.username ? `@${u.username}` : u.telegramId ? `tg: ${u.telegramId}` : 'не входил'}
+                    {u.rating != null ? ` · Рейтинг: ⭐ ${u.rating}` : ''}
+                  </p>
+                  {u.isBanned && (
+                    <p className="text-[11px] text-[#FF453A] mt-1">
+                      Заблокирован{u.bannedByUsername ? ` @${u.bannedByUsername}` : ''}
+                      {u.banReason ? `: ${u.banReason}` : ''}
+                    </p>
+                  )}
                 </div>
 
                 <button
-                  onClick={() => handleToggleUserBan(u.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition ${
-                    u.isBanned
-                      ? 'bg-[#34C759]/20 text-[#34C759]'
-                      : 'bg-[#FF453A]/20 text-[#FF453A]'
+                  onClick={() => void handleToggleUserBan(u)}
+                  disabled={usersBusy || u.isOwner}
+                  title={u.isOwner ? 'Владельца банить нельзя' : undefined}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                    u.isBanned ? 'bg-[#34C759]/20 text-[#34C759]' : 'bg-[#FF453A]/20 text-[#FF453A]'
                   }`}
                 >
                   {u.isBanned ? 'Разблокировать' : 'Заблокировать'}
@@ -1356,27 +1736,213 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <button
                 type="submit"
-                className="py-2 px-4 bg-[#4B8DFF] text-white text-xs font-medium rounded-xl hover:bg-[#3C7AE6]"
+                disabled={stationsBusy}
+                className="py-2 px-4 bg-[#4B8DFF] text-white text-xs font-medium rounded-xl hover:bg-[#3C7AE6] disabled:opacity-40"
               >
                 Сохранить АЗС
               </button>
             </form>
 
+            {stationsMessage && (
+              <div className="p-2.5 rounded-xl bg-[#FF9F0A]/15 border border-[#FF9F0A]/30 text-[11px] text-white">
+                {stationsMessage}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-white">АЗС на карте</h3>
+              <button
+                onClick={() => void loadStations()}
+                className="text-[11px] text-[#9AA0A8] hover:text-white transition flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Обновить
+              </button>
+            </div>
+
             <div className="space-y-2">
-              {stations.map((st) => (
-                <div key={st.id} className="bg-[#181B1F] p-3.5 rounded-xl border border-white/[0.06] flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-semibold text-white">{st.name} ({st.brand})</h4>
-                    <p className="text-[10px] text-[#9AA0A8]">{st.address}</p>
+              {adminStations.map((st) => (
+                <div key={st.id} className="bg-[#181B1F] p-3.5 rounded-xl border border-white/[0.06] flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-semibold text-white truncate">{st.name} ({st.brand})</h4>
+                    <p className="text-[10px] text-[#9AA0A8] truncate">{st.address}</p>
+                    <p className="text-[10px] text-[#9AA0A8] mt-0.5">
+                      Очередь: {st.queueStatus ?? '—'}
+                      {st.lastReportedAt ? ` · ${new Date(st.lastReportedAt).toLocaleString('ru-RU')}` : ''}
+                    </p>
                   </div>
                   <button
-                    onClick={() => handleDeleteStation(st.id)}
-                    className="p-1 text-[#9AA0A8] hover:text-[#FF453A]"
+                    onClick={() => void handleDeleteStation(st.id)}
+                    disabled={stationsBusy}
+                    title="Скрыть АЗС с карты"
+                    className="p-1 text-[#9AA0A8] hover:text-[#FF453A] shrink-0 disabled:opacity-40"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
+              {adminStations.length === 0 && !stationsMessage && (
+                <p className="text-xs text-[#9AA0A8] py-4 text-center">Загрузка АЗС…</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isOwner && activeTab === 'staff' && (
+          <div className="space-y-4">
+            <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] space-y-3">
+              <div>
+                <h3 className="text-xs font-semibold text-white">Выдать права сотруднику</h3>
+                <p className="text-[11px] text-[#9AA0A8] mt-1">
+                  Введите numeric Telegram id. Роль moderator даёт только модерацию событий,
+                  роль admin — модерацию, водителей и АЗС. Управление рекламой и сотрудниками
+                  остаётся только у владельца.
+                </p>
+              </div>
+              <form onSubmit={handleAddStaff} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2.5 items-end">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Telegram id, например 8766469908"
+                  value={staffTelegramId}
+                  onChange={(e) => setStaffTelegramId(e.target.value.replace(/[^\d]/g, ''))}
+                  className="bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                />
+                <select
+                  value={staffRole}
+                  onChange={(e) => setStaffRole(e.target.value as 'moderator' | 'admin')}
+                  className="bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                >
+                  <option value="moderator">Модератор</option>
+                  <option value="admin">Администратор</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={staffBusy || !staffTelegramId}
+                  className="py-2 px-4 bg-[#4B8DFF] disabled:opacity-50 rounded-xl text-white text-xs font-bold whitespace-nowrap"
+                >
+                  {staffBusy ? 'Сохраняем…' : 'Выдать'}
+                </button>
+              </form>
+              {staffMessage && <p className="text-[11px] text-[#9AA0A8]">{staffMessage}</p>}
+            </div>
+
+            <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] space-y-2">
+              <h3 className="text-xs font-semibold text-white">Текущие сотрудники</h3>
+              <p className="text-[11px] text-[#9AA0A8]">Владелец задаётся переменной окружения сервера и не может быть изменён здесь.</p>
+              {staff.length === 0 && <p className="text-[11px] text-[#9AA0A8]">Пока никого не добавили.</p>}
+              {staff.map((member) => (
+                <div key={member.telegram_id} className="flex items-center justify-between gap-3 bg-[#111315] rounded-xl px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-white truncate">
+                      {member.granted_by_username ? `@${member.granted_by_username}` : ''} {member.telegram_id}
+                    </p>
+                    <p className="text-[10px] text-[#9AA0A8]">
+                      {member.role === 'admin' ? 'Администратор' : 'Модератор'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveStaff(member.telegram_id)}
+                    disabled={staffBusy}
+                    className="p-1 text-[#9AA0A8] hover:text-[#FF453A] disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isOwner && activeTab === 'channel' && (
+          <div className="space-y-4">
+            <div className="bg-[#181B1F] p-4 rounded-2xl border border-white/[0.06] space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#4B8DFF]/15 border border-[#4B8DFF]/25 flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4 text-[#4B8DFF]" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xs font-semibold text-white">Обязательная подписка на канал</h3>
+                  <p className="text-[11px] text-[#9AA0A8] leading-relaxed">
+                    Пока включена, водители не могут открыть карту, пока не подписаны на канал.
+                    Подписка проверяется автоматически через Telegram Bot API ({'{getChatMember}'}).
+                    Бот должен быть администратором канала.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-wider text-[#9AA0A8] font-bold">Ссылка на канал</label>
+                  <input
+                    type="text"
+                    placeholder="https://t.me/roadlive_news"
+                    value={channelLink}
+                    onChange={(e) => setChannelLink(e.target.value.trim())}
+                    className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-[#555A60] focus:border-[#4B8DFF] outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-wider text-[#9AA0A8] font-bold">
+                    ID канала (только для приватных)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="-1001234567890"
+                    value={channelChatId}
+                    onChange={(e) => setChannelChatId(e.target.value.trim())}
+                    className="w-full bg-[#111315] border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-[#555A60] focus:border-[#4B8DFF] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={saveChannel}
+                  disabled={channelBusy || !channelLink}
+                  className="py-2 px-4 bg-[#4B8DFF] disabled:opacity-50 rounded-xl text-white text-xs font-bold"
+                >
+                  {channelBusy ? 'Сохраняем…' : 'Сохранить канал'}
+                </button>
+                {channelSaved && (
+                  <button
+                    onClick={disableChannel}
+                    disabled={channelBusy}
+                    className="py-2 px-4 bg-white/5 hover:bg-[#FF453A]/15 rounded-xl text-xs font-bold text-[#FF8A80] border border-[#FF453A]/25 disabled:opacity-50"
+                  >
+                    Отключить подписку
+                  </button>
+                )}
+              </div>
+
+              {channelMessage && <p className="text-[11px] text-[#9AA0A8]">{channelMessage}</p>}
+
+              {channelSaved && (
+                <div className="space-y-1.5 bg-[#111315] rounded-xl p-3 border border-white/[0.06]">
+                  <p className="text-[11px] text-[#9AA0A8]">
+                    Канал: <span className="text-white font-semibold">{channelSaved.username ? `@${channelSaved.username}` : channelSaved.chatId}</span>
+                  </p>
+                  <p className="text-[11px] text-[#9AA0A8]">
+                    Статус бота:{' '}
+                    {channelProbe === null
+                      ? 'проверка…'
+                      : channelProbe.accessible
+                        ? <span className="text-[#30D158] font-semibold">готов — бот может проверять подписку</span>
+                        : <span className="text-[#FF8A80] font-semibold">бот не администратор канала: {channelProbe.detail || 'недоступен'}</span>}
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={setBotMenuButton}
+                disabled={channelBusy}
+                className="py-2 px-4 bg-gradient-to-r from-[#24A1DE] to-[#4B8DFF] rounded-xl text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Установить кнопку меню бота «Открыть карту»
+              </button>
+              <p className="text-[10px] text-[#555A60]">
+                Добавляет кнопку Mini App в чате с ботом, чтобы пользователи попадали на карту одним нажатием.
+              </p>
             </div>
           </div>
         )}

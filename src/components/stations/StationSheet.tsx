@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FuelStation, UserProfile } from '../../types';
-import { X, MapPin, Check, Users } from 'lucide-react';
+import { X, MapPin, Check, Users, AlertTriangle } from 'lucide-react';
 import { StationService } from '../../services/stationService';
 
 interface StationSheetProps {
@@ -18,6 +18,7 @@ export const StationSheet: React.FC<StationSheetProps> = ({
 }) => {
   const [isReporting, setIsReporting] = useState(false);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
   if (!station) return null;
@@ -38,10 +39,12 @@ export const StationSheet: React.FC<StationSheetProps> = ({
     return `${hours} ч`;
   };
 
-  const handleReportQueue = (status: 'none' | 'small' | 'large') => {
+  const handleReportQueue = async (status: 'none' | 'small' | 'large') => {
     setIsReporting(true);
     try {
-      StationService.reportQueue(station.id, status, currentUser);
+      // The queue is shared state on the server, so the report is a request and the
+      // sheet updates only after it succeeds. A failed report must not look applied.
+      await StationService.reportQueue(station.id, status, currentUser);
       const updated = {
         ...station,
         queueStatus: status,
@@ -51,6 +54,9 @@ export const StationSheet: React.FC<StationSheetProps> = ({
       onStationUpdated(updated);
       setSuccessNotice('Статус очереди обновлён');
       setTimeout(() => setSuccessNotice(null), 2500);
+    } catch (error) {
+      setErrorNotice(error instanceof Error ? error.message : 'Не удалось отправить отчёт');
+      setTimeout(() => setErrorNotice(null), 3000);
     } finally {
       setIsReporting(false);
     }
@@ -141,6 +147,12 @@ export const StationSheet: React.FC<StationSheetProps> = ({
             <div className="p-3 rounded-xl bg-[#4B8DFF]/15 border border-[#4B8DFF]/30 text-xs text-white font-medium flex items-center gap-2">
               <Check className="w-4 h-4 text-[#4B8DFF] shrink-0" />
               <span>{successNotice}</span>
+            </div>
+          )}
+          {errorNotice && (
+            <div className="p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-xs text-white font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span>{errorNotice}</span>
             </div>
           )}
 

@@ -35,7 +35,7 @@ export const AboutServiceModal: React.FC<AboutServiceModalProps> = ({ isOpen, on
                 О сервисе ROADLIVE
               </h2>
               <p className="text-[11px] text-[#9AA0A8]">
-                Версия 2.4.0 · Живая дорожная сеть водителей
+                Версия 2.6.0 · Живая дорожная сеть водителей
               </p>
             </div>
           </div>

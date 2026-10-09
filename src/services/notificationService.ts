@@ -147,10 +147,11 @@ export class NotificationService {
       // 4. Send subscription to Backend
       const response = await fetch('/api/push/subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           subscription,
-          districtId: 'nsk-central',
+          districtId: 'tsentralniy',
         }),
       });
 
@@ -193,7 +194,8 @@ export class NotificationService {
         await sub.unsubscribe();
         await fetch('/api/push/unsubscribe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ endpoint }),
         });
       }
@@ -232,7 +234,8 @@ export class NotificationService {
     try {
       await fetch('/api/push/broadcast-critical', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ eventId: event.id }),
       });
     } catch (err) {
@@ -258,7 +261,8 @@ export class NotificationService {
     try {
       await fetch('/api/push/broadcast-critical', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           event: {
             id: question.id,
@@ -286,7 +290,8 @@ export class NotificationService {
 
       const response = await fetch('/api/push/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...TelegramService.getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           targetEndpoint: sub?.endpoint,
         }),

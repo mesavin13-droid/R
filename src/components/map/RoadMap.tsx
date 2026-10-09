@@ -68,6 +68,15 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   // Performance Hash Tracker to prevent layout thrashing
   const prevDataHashRef = useRef<string>('');
 
+  // Live copy of the picker flag so map event handlers never close over a
+  // stale prop, plus a debounce timer for center tracking.
+  const isPinPickerModeRef = useRef(isPinPickerMode);
+  const pickerSyncTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    isPinPickerModeRef.current = isPinPickerMode;
+  }, [isPinPickerMode]);
+
   // Center Coordinates for Interactive Pin Placement
   const [pickerCoords, setPickerCoords] = useState<{ lat: number; lng: number }>({
     lat: userCoords?.lat || 55.0084,
@@ -77,25 +86,11 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
 
   const currentUser = UserService.getCurrentUser();
-  const [sosSeconds, setSosSeconds] = useState(0);
 
   // Check if current user has an active SOS event
   const myActiveSos = events.find(
     (e) => e.type === 'assistance' && e.userId === currentUser.id && (e.status === 'active' || e.status === 'expiring')
   );
-
-  useEffect(() => {
-    if (!myActiveSos) {
-      setSosSeconds(0);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setSosSeconds((prev) => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [myActiveSos]);
 
   // Reverse geocode debounced when pickerCoords change
   useEffect(() => {
@@ -197,14 +192,24 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         const geoObjectsGroup = new ymaps.GeoObjectCollection();
         map.geoObjects.add(geoObjectsGroup);
 
-        // Center tracking for Pin Placement
+        // Center tracking for pin placement. Outside picker mode the map must
+        // stay untouched: firing a React state update on every drag frame
+        // re-renders the whole map component and starves tile rendering.
         map.events.add('boundschange', () => {
-          const center = map.getCenter();
-          setPickerCoords({ lat: center[0], lng: center[1] });
+          if (!isPinPickerModeRef.current) return;
+          if (pickerSyncTimerRef.current !== null) {
+            window.clearTimeout(pickerSyncTimerRef.current);
+          }
+          pickerSyncTimerRef.current = window.setTimeout(() => {
+            pickerSyncTimerRef.current = null;
+            const center = map.getCenter();
+            setPickerCoords({ lat: center[0], lng: center[1] });
+          }, 250);
         });
 
-        // Click on map to move center
+        // Click on map to move center — pin placement only.
         map.events.add('click', (e: any) => {
+          if (!isPinPickerModeRef.current) return;
           const coords = e.get('coords');
           map.panTo(coords, { flying: true, duration: 400 });
           setPickerCoords({ lat: coords[0], lng: coords[1] });
@@ -219,12 +224,23 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
     return () => {
       isMounted = false;
+      if (pickerSyncTimerRef.current !== null) {
+        window.clearTimeout(pickerSyncTimerRef.current);
+        pickerSyncTimerRef.current = null;
+      }
       if (yandexMapRef.current) {
         yandexMapRef.current.destroy();
         yandexMapRef.current = null;
       }
     };
   }, []);
+
+  // Pick up the current map center the moment pin mode is enabled.
+  useEffect(() => {
+    if (!isPinPickerMode || !yandexMapRef.current) return;
+    const center = yandexMapRef.current.getCenter();
+    setPickerCoords({ lat: center[0], lng: center[1] });
+  }, [isPinPickerMode]);
 
   // Handle Target Location
   useEffect(() => {
@@ -649,73 +665,44 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         </>
       )}
 
-      {/* --- SOS EXPANDING RADAR PROGRESS HUD --- */}
-      {!isPinPickerMode && myActiveSos && (() => {
-        // 1 simulated minute = 5 real seconds. Max is 5 minutes / 5 km.
-        const simulatedMinutes = Math.min(5, Math.floor(sosSeconds / 5) + 1);
-        const simulatedRadius = Math.min(5, simulatedMinutes);
-        const notifiedDriversCount = simulatedRadius === 1 ? 12 : simulatedRadius === 2 ? 28 : simulatedRadius === 3 ? 54 : simulatedRadius === 4 ? 89 : 142;
-
-        return (
-          <div className="absolute top-[260px] right-3 sm:right-5 z-20 w-[180px] sm:w-[200px] bg-[#181B1F]/95 backdrop-blur-xl border border-red-500/40 p-3 rounded-2xl shadow-[0_12px_36px_rgba(255,59,48,0.35)] animate-in slide-in-from-right-3 duration-300 pointer-events-auto">
-            <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-white/10">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-              <span className="text-[9px] font-extrabold text-[#FF3B30] uppercase tracking-wider">
-                SOS РАДАР ОПОВЕЩЕНИЯ
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {/* Live pulsing radar graphic */}
-              <div className="flex items-center justify-center py-1">
-                <div className="relative w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                  <div className="absolute w-7 h-7 rounded-full bg-red-500/20 border border-red-500/30 animate-ping" />
-                  <div className="absolute w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 animate-ping [animation-delay:0.5s]" />
-                  <span className="text-base">📡</span>
-                </div>
-              </div>
-
-              <div className="text-center space-y-0.5">
-                <p className="text-[9px] text-[#9AA0A8] font-medium leading-none">Радиус поиска:</p>
-                <p className="text-xs font-black text-white tracking-tight">
-                  {simulatedRadius} км ({simulatedRadius === 1 ? '1 минута' : simulatedRadius === 5 ? '5 минут' : `${simulatedRadius} минуты`} в эфире)
-                </p>
-              </div>
-
-              <div className="bg-[#111315]/80 p-1.5 rounded-xl border border-white/5 text-center">
-                <p className="text-[8px] text-[#9AA0A8] uppercase tracking-wider font-semibold leading-none mb-0.5">Оповещено:</p>
-                <p className="text-[11px] font-bold text-red-400">
-                  {notifiedDriversCount} {notifiedDriversCount === 12 || notifiedDriversCount === 89 || notifiedDriversCount === 142 ? 'водителей' : 'водителя'}
-                </p>
-              </div>
-
-              {/* Helper response banner if helper едет */}
-              {myActiveSos.helperUserId && (
-                <div className="bg-green-500/15 p-1.5 rounded-xl border border-green-500/20 text-center animate-in zoom-in-95">
-                  <p className="text-[8px] text-green-400 uppercase tracking-wider font-extrabold leading-none mb-0.5">🤝 Помощь едет!</p>
-                  <p className="text-[10px] font-bold text-white mt-0.5">{myActiveSos.helperName}</p>
-                </div>
-              )}
-
-              <button
-                onClick={() => {
-                  const updated = EventService.confirmResolved(myActiveSos.id, currentUser.id);
-                  // Trigger refresh by invoking update
-                  if (onSelectEvent) {
-                    onSelectEvent(updated);
-                  }
-                }}
-                className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-[#FF3B30]/20 text-[#FF3B30] text-[9px] font-extrabold border border-[#FF3B30]/30 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider"
-              >
-                Закрыть вызов
-              </button>
-            </div>
+      {/* --- ACTIVE SOS STATUS CARD --- */}
+      {!isPinPickerMode && myActiveSos && (
+        <div className="absolute top-[220px] right-3 sm:right-5 z-20 w-[200px] sm:w-[210px] bg-[#181B1F]/95 backdrop-blur-xl border border-red-500/40 p-3 rounded-2xl shadow-[0_12px_36px_rgba(255,59,48,0.35)] animate-in slide-in-from-right-3 duration-300 pointer-events-auto">
+          <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-white/10">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            </span>
+            <span className="text-[9px] font-extrabold text-[#FF3B30] uppercase tracking-wider">
+              SOS активен
+            </span>
           </div>
-        );
-      })()}
+
+          <p className="text-[11px] font-bold text-white leading-tight">{myActiveSos.title}</p>
+          {myActiveSos.address && (
+            <p className="text-[9px] text-[#9AA0A8] mt-1 leading-tight">📍 {myActiveSos.address}</p>
+          )}
+          <p className="text-[9px] text-[#9AA0A8] mt-1.5 leading-tight">
+            Водители рядом оповещены через Telegram.
+          </p>
+
+          {myActiveSos.helperUserId && (
+            <div className="bg-green-500/15 p-1.5 rounded-xl border border-green-500/20 text-center mt-2 animate-in zoom-in-95">
+              <p className="text-[8px] text-green-400 uppercase tracking-wider font-extrabold leading-none mb-0.5">🤝 Помощь едет!</p>
+              <p className="text-[10px] font-bold text-white mt-0.5">{myActiveSos.helperName}</p>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              if (onSelectEvent) onSelectEvent(myActiveSos);
+            }}
+            className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-[#FF3B30]/20 text-[#FF3B30] text-[9px] font-extrabold border border-[#FF3B30]/30 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider mt-2"
+          >
+            Открыть вызов
+          </button>
+        </div>
+      )}
 
       {/* Floating Map Controls on Right (Centered Vertically) */}
       {!isPinPickerMode && (
