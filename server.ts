@@ -691,10 +691,15 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), async (req: Request, res: 
 
     const token = encodeSession(session);
     const isProd = process.env.NODE_ENV === 'production';
+    // Telegram Mini Apps run inside a third-party iframe (web.telegram.org →
+    // roadlive.vercel.app). A SameSite=Lax cookie is dropped on cross-site
+    // requests from that iframe, so every authenticated call would 401. In
+    // production we therefore need SameSite=None (which mandates Secure, and
+    // we already serve over HTTPS). Local dev stays on Lax over plain HTTP.
     res.cookie('roadlive_session', token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: TELEGRAM_SESSION_TTL_SECONDS * 1000,
       path: '/',
     });
@@ -719,7 +724,13 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), async (req: Request, res: 
 });
 
 app.post('/api/auth/logout', (_req: Request, res: Response) => {
-  res.clearCookie('roadlive_session', { path: '/' });
+  const isProd = process.env.NODE_ENV === 'production';
+  // Mirror the login cookie attributes so the browser actually clears it.
+  res.clearCookie('roadlive_session', {
+    path: '/',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+  });
   res.json({ success: true });
 });
 

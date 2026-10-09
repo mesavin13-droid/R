@@ -111,25 +111,44 @@ export class TelegramService {
   }
 
   static async getAuthoritativeIdentity(): Promise<{ userId: string; role: UserRole; isAdmin: boolean; isOwner: boolean } | null> {
-    const response = await fetch('/api/auth/me', {
-      credentials: 'include',
-    });
-    if (!response.ok) return null;
-    const data = await response.json().catch(() => null);
-    if (!data?.authenticated || typeof data.userId !== 'string') return null;
-    verifiedIdentity = {
-      userId: data.userId,
-      role: readRole(data.role),
-      isAdmin: Boolean(data.isAdmin),
-      isOwner: Boolean(data.isOwner) || data.role === 'owner',
-      expiresAt: Number(data.expiresAt || Math.floor(Date.now() / 1000) + 300),
+    const readIdentity = async (): Promise<{ userId: string; role: UserRole; isAdmin: boolean; isOwner: boolean } | null> => {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include',
+      });
+      if (!response.ok) return null;
+      const data = await response.json().catch(() => null);
+      if (!data?.authenticated || typeof data.userId !== 'string') return null;
+      verifiedIdentity = {
+        userId: data.userId,
+        role: readRole(data.role),
+        isAdmin: Boolean(data.isAdmin),
+        isOwner: Boolean(data.isOwner) || data.role === 'owner',
+        expiresAt: Number(data.expiresAt || Math.floor(Date.now() / 1000) + 300),
+      };
+      return {
+        userId: verifiedIdentity.userId,
+        role: verifiedIdentity.role,
+        isAdmin: verifiedIdentity.isAdmin,
+        isOwner: verifiedIdentity.isOwner,
+      };
     };
-    return {
-      userId: verifiedIdentity.userId,
-      role: verifiedIdentity.role,
-      isAdmin: verifiedIdentity.isAdmin,
-      isOwner: verifiedIdentity.isOwner,
-    };
+
+    let identity = await readIdentity();
+    if (identity) return identity;
+
+    // The session cookie can be missing or rejected (e.g. it expired, or the
+    // app was reopened before the cross-site cookie was re-sent). Re-run the
+    // initData handshake once to mint a fresh cookie, then retry — this turns a
+    // hard "invalid session" error into a silent self-heal for the driver.
+    if (this.getInitData()) {
+      try {
+        await this.authenticate();
+      } catch {
+        return null;
+      }
+      identity = await readIdentity();
+    }
+    return identity;
   }
 
   static getAuthHeaders(): Record<string, string> {
