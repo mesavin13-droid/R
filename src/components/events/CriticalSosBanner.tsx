@@ -6,25 +6,43 @@ import { EventService } from '../../services/eventService';
 interface CriticalSosBannerProps {
   events: RoadEvent[];
   userCoords: { lat: number; lng: number } | null;
+  /** The signed-in driver (`tg-<id>`). Used to hide their OWN SOS from the banner. */
+  currentUserId?: string;
   onSelectEvent: (ev: RoadEvent) => void;
   onRespondHelp?: (ev: RoadEvent) => void;
 }
 
+/**
+ * The banner is only shown to drivers who can realistically get there:
+ * city-scale help radius around the caller's position.
+ */
+const SOS_BANNER_RADIUS_M = 15000;
+
 export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
   events,
   userCoords,
+  currentUserId,
   onSelectEvent,
   onRespondHelp,
 }) => {
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
-  // Find active SOS/assistance events not dismissed by user
-  const activeSosEvents = events.filter(
-    (ev) =>
-      ev.type === 'assistance' &&
-      (ev.status === 'active' || ev.status === 'expiring') &&
-      !dismissedIds.includes(ev.id)
-  );
+  const distanceTo = (ev: RoadEvent) =>
+    userCoords ? EventService.calculateDistanceMeters(ev.latitude, ev.longitude, userCoords.lat, userCoords.lng) : null;
+
+  // Active SOS not dismissed by the user, not their own call, and within the
+  // help radius (when the driver's position is known) — nearest first.
+  const activeSosEvents = events
+    .filter((ev) => {
+      if (ev.type !== 'assistance') return false;
+      if (ev.status !== 'active' && ev.status !== 'expiring') return false;
+      if (dismissedIds.includes(ev.id)) return false;
+      // Never show a driver their own SOS call.
+      if (currentUserId && ev.userId === currentUserId) return false;
+      const meters = distanceTo(ev);
+      return meters === null || meters <= SOS_BANNER_RADIUS_M;
+    })
+    .sort((a, b) => (distanceTo(a) ?? 0) - (distanceTo(b) ?? 0));
 
   if (activeSosEvents.length === 0) return null;
 
@@ -113,15 +131,20 @@ export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (onRespondHelp) {
+              if (onRespondHelp && !latestSos.helperUserId) {
                 onRespondHelp(latestSos);
               } else {
+                // Someone is already on the way — just open the card.
                 onSelectEvent(latestSos);
               }
             }}
             className="py-1.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-danger font-bold text-[11px] shadow-sm transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
           >
-            <span>🤝 Еду помочь</span>
+            {latestSos.helperUserId ? (
+              <span>🤝 Уже едут</span>
+            ) : (
+              <span>🤝 Еду помочь</span>
+            )}
           </button>
         </div>
       </div>

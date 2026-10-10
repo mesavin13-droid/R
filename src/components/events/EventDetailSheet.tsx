@@ -266,10 +266,14 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
               {/* Case 1: No helper has responded yet */}
               {!event.helperUserId && (
                 <button
-                  onClick={() => {
-                    const updated = EventService.respondToAssistance(event.id, currentUser);
-                    onEventUpdated(updated);
-                    setNotice('🤝 Автор уведомлён: вы выехали на помощь!');
+                  onClick={async () => {
+                    try {
+                      const updated = await EventService.respondToAssistance(event.id, currentUser);
+                      onEventUpdated(updated);
+                      setNotice('🤝 Вы выехали на помощь — автор получил уведомление!');
+                    } catch (err) {
+                      setNotice(err instanceof Error ? err.message : 'Не удалось отправить отклик');
+                    }
                     setTimeout(() => setNotice(null), 4000);
                   }}
                   className="w-full py-2.5 px-3 rounded-xl bg-danger hover:bg-danger-strong text-white text-xs font-bold transition active:scale-95 shadow-md flex items-center justify-center gap-2 cursor-pointer"
@@ -290,14 +294,18 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                     </div>
                   ) : (
                     <button
-                      onClick={() => {
-                        const updated = EventService.confirmResolved(event.id, currentUser.id);
-                        onEventUpdated(updated);
-                        setNotice('✓ Вы подтвердили оказание помощи!');
-                        setTimeout(() => setNotice(null), 4000);
-                        if (updated.status === 'resolved') {
-                          handleAnimatedClose();
+                      onClick={async () => {
+                        try {
+                          const updated = await EventService.confirmResolved(event.id, currentUser.id);
+                          onEventUpdated(updated);
+                          setNotice('✓ Вы подтвердили оказание помощи!');
+                          if (updated.status === 'resolved') {
+                            handleAnimatedClose();
+                          }
+                        } catch (err) {
+                          setNotice(err instanceof Error ? err.message : 'Не удалось подтвердить');
                         }
+                        setTimeout(() => setNotice(null), 4000);
                       }}
                       className="w-full py-2 px-3 rounded-lg bg-success hover:bg-success-bright text-white text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5"
                     >
@@ -315,12 +323,16 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                     🤝 {event.helperName} едет к вам на помощь!
                   </p>
                   <button
-                    onClick={() => {
-                      const updated = EventService.confirmResolved(event.id, currentUser.id);
-                      onEventUpdated(updated);
-                      setNotice('✓ Ситуация успешно закрыта!');
-                      setTimeout(() => setNotice(null), 4000);
-                      handleAnimatedClose();
+                    onClick={async () => {
+                      try {
+                        const updated = await EventService.confirmResolved(event.id, currentUser.id);
+                        onEventUpdated(updated);
+                        setNotice('✓ Ситуация успешно закрыта!');
+                        handleAnimatedClose();
+                      } catch (err) {
+                        setNotice(err instanceof Error ? err.message : 'Не удалось закрыть вызов');
+                        setTimeout(() => setNotice(null), 4000);
+                      }
                     }}
                     className="w-full py-2 px-3 rounded-lg bg-success hover:bg-success-bright text-white text-xs font-semibold transition active:scale-95 flex items-center justify-center gap-1.5"
                   >

@@ -11,9 +11,14 @@ export class EventService {
   private static events: RoadEvent[] = [];
 
   private static fromServerEvent(row: any): RoadEvent {
+    // The client treats drivers as `tg-<telegram_id>` while the DB stores
+    // profile UUIDs; the server enriches rows with `author_tg_id`/`helper_tg_id`
+    // so identity checks (own event, helper, notifications) work client-side.
+    const authorTgId = row.author_tg_id ? String(row.author_tg_id) : '';
+    const helperTgId = row.helper_tg_id ? String(row.helper_tg_id) : '';
     return {
       id: row.id,
-      userId: row.user_id ? String(row.user_id) : 'unknown',
+      userId: authorTgId ? `tg-${authorTgId}` : row.user_id ? String(row.user_id) : 'unknown',
       authorName: row.author_name || 'Водитель',
       authorLevel: row.author_level || 'Новичок',
       cityId: row.city_id,
@@ -35,6 +40,12 @@ export class EventService {
       updatedAt: row.updated_at,
       lastConfirmedAt: row.last_confirmed_at,
       expiresAt: row.expires_at,
+      helperUserId: row.helper_user_id
+        ? (helperTgId ? `tg-${helperTgId}` : String(row.helper_user_id))
+        : undefined,
+      helperName: row.helper_name || undefined,
+      creatorConfirmedResolved: Boolean(row.creator_confirmed_resolved),
+      helperConfirmedResolved: Boolean(row.helper_confirmed_resolved),
       comments: [],
       confirmations: [],
     };
@@ -705,17 +716,28 @@ export class EventService {
   }
 
   /**
-   * Respond to an assistance / SOS request ("Еду помочь")
+   * Respond to an assistance / SOS request ("Еду помочь").
+   * The server persists the helper and notifies the SOS author on Telegram,
+   * so this is now awaited — a failure must be surfaced to the driver.
    */
-  static respondToAssistance(eventId: string, user: UserProfile): RoadEvent {
+  static async respondToAssistance(eventId: string, user: UserProfile): Promise<RoadEvent> {
     this.initialize();
     this.assertMutationIdentity(user.id);
     if (TelegramService.isTelegramWebApp()) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
-      fetch(`/api/events/${encodeURIComponent(eventId)}/assistance`, {
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/assistance`, {
         method: 'POST',
         credentials: 'include',
-      }).catch((err) => console.warn('[Events] Server assistance failed:', err));
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось отправить отклик на помощь');
+      const updated = payload?.event ? this.fromServerEvent(payload.event) : null;
+      if (updated) {
+        this.events = this.events.map((e) => (e.id === updated.id ? updated : e));
+        this.persist();
+        localRealtime.broadcast('events_channel', { type: 'UPDATE', event: updated });
+        return updated;
+      }
     }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
@@ -742,17 +764,28 @@ export class EventService {
   }
 
   /**
-   * Confirm that an assistance / SOS situation is resolved
+   * Confirm that an assistance / SOS situation is resolved.
+   * The server records the confirmation per side and closes the call once both
+   * sides confirmed (the author can always close their own call directly).
    */
-  static confirmResolved(eventId: string, userId: string): RoadEvent {
+  static async confirmResolved(eventId: string, userId: string): Promise<RoadEvent> {
     this.initialize();
     this.assertMutationIdentity(userId);
     if (TelegramService.isTelegramWebApp()) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
-      fetch(`/api/events/${encodeURIComponent(eventId)}/resolved`, {
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/resolved`, {
         method: 'POST',
         credentials: 'include',
-      }).catch((err) => console.warn('[Events] Server resolve failed:', err));
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось закрыть вызов помощи');
+      const updated = payload?.event ? this.fromServerEvent(payload.event) : null;
+      if (updated) {
+        this.events = this.events.map((e) => (e.id === updated.id ? updated : e));
+        this.persist();
+        localRealtime.broadcast('events_channel', { type: 'UPDATE', event: updated });
+        return updated;
+      }
     }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');

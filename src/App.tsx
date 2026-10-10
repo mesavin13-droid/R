@@ -182,6 +182,22 @@ export default function App() {
     void AdService.registerClick(ad.id).catch(() => {});
   }, []);
 
+  // "Выехать на помощь" from the SOS banner: persist on the server (author gets
+  // a Telegram notification) and open the card with the resulting state.
+  const handleRespondHelp = useCallback(
+    async (ev: RoadEvent) => {
+      try {
+        const updated = await EventService.respondToAssistance(ev.id, currentUser);
+        setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+        setSelectedEvent(updated);
+        setTargetLocation({ lat: updated.latitude, lng: updated.longitude });
+      } catch (err) {
+        console.warn('Could not respond to SOS:', err);
+      }
+    },
+    [currentUser]
+  );
+
   useEffect(() => {
     reloadData();
     TelegramService.ready();
@@ -192,14 +208,16 @@ export default function App() {
       setShowOnboarding(true);
     }
 
-    // Setup periodic refresh & automatic 24h archiving (every 30 seconds)
+    // Setup periodic refresh & automatic 24h archiving (every 15 seconds —
+    // an assistance call must show "help is on the way" / "closed" quickly,
+    // WebSocket realtime is unavailable on Vercel so polling is the channel)
     const interval = setInterval(() => {
       EventService.refreshEventStatuses();
       EventService.archiveOldEvents();
       void EventService.getEventsAsync()
         .then(setEvents)
         .catch(() => setEvents(EventService.getEvents()));
-    }, 30000);
+    }, 15000);
 
     // Realtime listeners
     const unsubEvents = localRealtime.subscribe('events_channel', (payload: any) => {
@@ -223,6 +241,10 @@ export default function App() {
             eventId: payload.event.id,
           });
         }
+      } else if (payload.type === 'UPDATE' && payload.event) {
+        // Another driver responded to / closed a call — sync immediately instead
+        // of waiting for the next poll (WebSocket realtime is dead on Vercel).
+        setEvents((prev) => prev.map((e) => (e.id === payload.event.id ? payload.event : e)));
       }
     });
 
@@ -408,6 +430,7 @@ export default function App() {
             setSelectedEvent(ev);
             setTargetLocation({ lat: ev.latitude, lng: ev.longitude });
           }}
+          onRespondHelp={handleRespondHelp}
         />
       )}
 

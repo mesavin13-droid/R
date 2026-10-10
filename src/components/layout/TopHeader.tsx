@@ -21,6 +21,7 @@ interface TopHeaderProps {
   events: RoadEvent[];
   userCoords: { lat: number; lng: number } | null;
   onSelectEvent: (ev: RoadEvent) => void;
+  onRespondHelp?: (ev: RoadEvent) => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -34,6 +35,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   events,
   userCoords,
   onSelectEvent,
+  onRespondHelp,
 }) => {
   // Always fetch all active campaigns for the marquee line
   const allAds = AdService.getAllAds();
@@ -186,7 +188,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       <CriticalSosBanner
         events={events}
         userCoords={userCoords}
+        currentUserId={currentUser.id}
         onSelectEvent={onSelectEvent}
+        onRespondHelp={onRespondHelp}
       />
     </header>
   );

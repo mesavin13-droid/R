@@ -1439,7 +1439,37 @@ app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) 
     .order('created_at', { ascending: false })
     .limit(500);
   if (error) return res.status(500).json({ error: 'Не удалось загрузить события' });
-  res.json({ events: data || [] });
+  const events = data || [];
+
+  // Events store profile UUIDs, but the client identifies drivers as
+  // `tg-<telegram_id>` (see TelegramService). Enrich rows with the Telegram
+  // identity and display name of the author/helper so a driver can recognize
+  // their own call, see who is coming to help, and skip self-notifications.
+  const profileIds = [...new Set(events.flatMap((ev: any) => [ev.user_id, ev.helper_user_id]).filter(Boolean))] as string[];
+  let accounts: { user_id: string; telegram_id: number | string }[] = [];
+  let profiles: { id: string; full_name: string | null; level: string | null }[] = [];
+  if (profileIds.length) {
+    const [accResult, profResult] = await Promise.all([
+      serverSupabase.from('telegram_accounts').select('user_id, telegram_id').in('user_id', profileIds),
+      serverSupabase.from('profiles').select('id, full_name, level').in('id', profileIds),
+    ]);
+    accounts = accResult.data || [];
+    profiles = profResult.data || [];
+  }
+  const tgByProfile = new Map<string, number>(accounts.map((a) => [a.user_id, Number(a.telegram_id)]));
+  const profileById = new Map<string, { full_name: string | null; level: string | null }>(
+    profiles.map((p) => [p.id, { full_name: p.full_name, level: p.level }])
+  );
+
+  res.json({
+    events: events.map((ev: any) => ({
+      ...ev,
+      author_tg_id: tgByProfile.get(ev.user_id) ?? null,
+      helper_tg_id: ev.helper_user_id ? tgByProfile.get(ev.helper_user_id) ?? null : null,
+      author_name: profileById.get(ev.user_id)?.full_name || null,
+      author_level: profileById.get(ev.user_id)?.level || null,
+    })),
+  });
 });
 
 function eventIdIsValid(id: unknown): id is string {
@@ -1571,9 +1601,19 @@ app.post('/api/events/:eventId/assistance', requireTelegramAuth, userRateLimit(1
   const profileId = await resolveEventProfile(session);
   const event = await loadEventForMutation(eventId);
   if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+  if (event.helper_user_id && event.helper_user_id !== profileId) {
+    return res.status(409).json({ error: 'Кто-то уже выехал на помощь' });
+  }
   const now = new Date().toISOString();
   const helperName = [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель';
-  const updates = await serverSupabase.from('events').update({ updated_at: now }).eq('id', eventId).select('*').single();
+  // Persist WHO is coming — without helper_user_id the author and other drivers
+  // can never see that help is on the way.
+  const updates = await serverSupabase
+    .from('events')
+    .update({ helper_user_id: profileId, helper_name: helperName, updated_at: now })
+    .eq('id', eventId)
+    .select('*')
+    .single();
   if (updates.error || !updates.data) return res.status(500).json({ error: 'Не удалось обновить помощь' });
   const comment = await serverSupabase.from('event_comments').insert({
     event_id: eventId,
@@ -1582,6 +1622,32 @@ app.post('/api/events/:eventId/assistance', requireTelegramAuth, userRateLimit(1
     content: '🤝 Выехал на помощь водителю! Постараюсь быть как можно быстрее.',
   }).select('*').single();
   if (comment.error) return res.status(500).json({ error: 'Не удалось сохранить сообщение помощи' });
+
+  // Notify the SOS author on Telegram that a driver is heading their way.
+  // The event stores the author's profile UUID; the Telegram id lives in telegram_accounts.
+  if (event.user_id && event.user_id !== profileId) {
+    try {
+      const { data: authorAccount } = await serverSupabase
+        .from('telegram_accounts')
+        .select('telegram_id')
+        .eq('user_id', event.user_id)
+        .maybeSingle();
+      if (authorAccount?.telegram_id) {
+        await sendTelegramNotification(
+          Number(authorAccount.telegram_id),
+          [
+            '🤝 <b>ROADLIVE: помощь выехала к вам</b>',
+            `🚗 ${helperName}: ${String(event.title).slice(0, 200)}`,
+            String(event.address).slice(0, 255) ? `📍 ${String(event.address).slice(0, 255)}` : '',
+            `Открыть в приложении: https://roadlive.vercel.app/?event=${event.id}`,
+          ].filter(Boolean).join('\n'),
+        );
+      }
+    } catch (err) {
+      console.warn('[Assistance] author notification failed:', err);
+    }
+  }
+
   res.json({ event: updates.data, comment: comment.data });
 });
 
@@ -1592,10 +1658,50 @@ app.post('/api/events/:eventId/resolved', requireTelegramAuth, userRateLimit(10,
   const profileId = await resolveEventProfile(session);
   const event = await loadEventForMutation(eventId);
   if (!event) return res.status(404).json({ error: 'Событие не найдено' });
-  const updates: any = { updated_at: new Date().toISOString() };
-  if (event.user_id === profileId) updates.status = 'resolved';
+
+  const isAuthor = event.user_id === profileId;
+  const isHelper = Boolean(event.helper_user_id) && event.helper_user_id === profileId;
+  if (!isAuthor && !isHelper) return res.status(403).json({ error: 'Закрывать могут только участники вызова' });
+
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (isAuthor) {
+    // The driver in need can always close their own call unilaterally.
+    updates.creator_confirmed_resolved = true;
+    updates.status = 'resolved';
+  }
+  if (isHelper) {
+    updates.helper_confirmed_resolved = true;
+    // The helper's confirmation closes the call only after the author confirmed.
+    if (event.creator_confirmed_resolved || event.status === 'resolved') {
+      updates.status = 'resolved';
+    }
+  }
+  const wasResolved = event.status === 'resolved';
   const result = await serverSupabase.from('events').update(updates).eq('id', eventId).select('*').single();
   if (result.error || !result.data) return res.status(500).json({ error: 'Не удалось закрыть событие' });
+
+  // When the situation closes, tell the OTHER side of the call on Telegram.
+  if (result.data.status === 'resolved' && !wasResolved) {
+    try {
+      const otherProfileId = isAuthor ? event.helper_user_id : event.user_id;
+      if (otherProfileId) {
+        const { data: otherAccount } = await serverSupabase
+          .from('telegram_accounts')
+          .select('telegram_id')
+          .eq('user_id', otherProfileId)
+          .maybeSingle();
+        if (otherAccount?.telegram_id) {
+          await sendTelegramNotification(
+            Number(otherAccount.telegram_id),
+            `✅ <b>ROADLIVE: ситуация закрыта</b>\nВызов помощи «${String(event.title).slice(0, 200)}» закрыт. Спасибо за взаимовыручку!`,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[Resolved] counterpart notification failed:', err);
+    }
+  }
+
   res.json({ event: result.data });
 });
 
