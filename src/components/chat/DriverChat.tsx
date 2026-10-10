@@ -37,7 +37,23 @@ export const DriverChat: React.FC<DriverChatProps> = ({
     const unsub = ChatService.subscribe(() => {
       reloadMessages();
     });
-    return () => unsub();
+
+    // The live "efir" relies on a WebSocket, which the serverless host
+    // (Vercel) can't keep open. So we poll the same HTTP endpoint the fallback
+    // uses — this is what makes new messages actually appear for everyone on
+    // production. Pauses while the tab is hidden to save battery/data.
+    let pollTimer: any = null;
+    const poll = () => {
+      if (document.visibilityState === 'visible') {
+        void ChatService.refreshFromServer(selectedChannelId).then(reloadMessages);
+      }
+    };
+    pollTimer = setInterval(poll, 5000);
+
+    return () => {
+      unsub();
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [selectedChannelId]);
 
   useEffect(() => {

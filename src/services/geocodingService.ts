@@ -102,15 +102,20 @@ export class GeocodingService {
    * Reverse geocode coordinates to street address
    */
   static async reverse(lat: number, lng: number): Promise<string> {
-    // 1. Try Yandex Maps Reverse Geocoder if loaded
+    // 1. Try Yandex Maps Reverse Geocoder if loaded. The API can hang on a slow
+    //    or blocked network, which would freeze the SOS form forever, so we race
+    //    it against a short timeout and fall through to the offline strategies.
     if (typeof window !== 'undefined' && window.ymaps && window.ymaps.geocode) {
       try {
-        const res = await window.ymaps.geocode([lat, lng], { results: 1 });
-        const first = res.geoObjects.get(0);
-        if (first) {
-          const text = first.getAddressLine();
-          if (text) return text;
-        }
+        const text = await Promise.race([
+          (async () => {
+            const res = await window.ymaps.geocode([lat, lng], { results: 1 });
+            const first = res.geoObjects.get(0);
+            return first ? first.getAddressLine() : null;
+          })(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+        ]);
+        if (text) return text;
       } catch (e) {
         // fallback
       }

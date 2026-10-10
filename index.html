@@ -36,33 +36,46 @@
         // __BUILD_ID__ is replaced at build time by scripts/stamp-build-id.mjs.
         var BUILD_ID = '__BUILD_ID__';
         var STORAGE_KEY = 'roadlive_build_id';
+        var SWITCHING_KEY = 'roadlive_build_switching';
         try {
           var stored = localStorage.getItem(STORAGE_KEY);
-          if (stored && stored !== BUILD_ID) {
-            // A new deploy landed under this client — purge everything stale.
-            localStorage.setItem(STORAGE_KEY, BUILD_ID);
-            var clearAll = (function () {
-              if ('caches' in window) {
-                return caches.keys().then(function (names) {
-                  return Promise.all(names.map(function (n) { return caches.delete(n); }));
-                });
-              }
-              return Promise.resolve();
-            })();
-            clearAll.then(function () {
-              if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.getRegistrations().then(function (regs) {
-                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
-                }).then(function () {
-                  window.location.reload(true);
-                });
-              } else {
-                window.location.reload(true);
-              }
-            });
-          } else {
-            localStorage.setItem(STORAGE_KEY, BUILD_ID);
+          var switching = sessionStorage.getItem(SWITCHING_KEY);
+
+          if (stored === BUILD_ID) {
+            // Up to date: clear any in-flight switch marker and carry on.
+            sessionStorage.removeItem(SWITCHING_KEY);
+            return;
           }
+
+          // A new deploy landed. We purge caches + SW and reload exactly ONCE.
+          // If we already triggered a reload for this build and the running copy
+          // STILL doesn't match, stop — looping forever would trap the user on a
+          // spinner. The stale copy still renders; the next cold open fixes it.
+          if (switching === BUILD_ID) {
+            sessionStorage.removeItem(SWITCHING_KEY);
+            localStorage.setItem(STORAGE_KEY, BUILD_ID);
+            return;
+          }
+
+          sessionStorage.setItem(SWITCHING_KEY, BUILD_ID);
+          localStorage.setItem(STORAGE_KEY, BUILD_ID);
+
+          var done = function () { window.location.reload(); };
+          var clearAll = 'caches' in window
+            ? caches.keys().then(function (names) {
+                return Promise.all(names.map(function (n) { return caches.delete(n); }));
+              })
+            : Promise.resolve();
+
+          clearAll.then(function () {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.getRegistrations()
+                .then(function (regs) { return Promise.all(regs.map(function (r) { return r.unregister(); })); })
+                .then(done, done);
+            } else {
+              done();
+            }
+          });
         } catch (e) {
           /* localStorage may be unavailable — version gate just no-ops. */
         }
