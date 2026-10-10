@@ -64,15 +64,16 @@
     --bg-graphite: #0b111e;
     --bg-dark-graphite: #131b2c;
     --bg-surface: #1d2740;
-    --glass-bg: rgba(16, 23, 38, 0.78);
-    --glass-sheet: rgba(13, 19, 32, 0.94);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-border-strong: rgba(255, 255, 255, 0.14);
+    /* Solid-leaning glass: readable over the bright map, not frosted haze */
+    --glass-bg: rgba(13, 19, 33, 0.92);
+    --glass-sheet: rgba(11, 17, 30, 0.96);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-border-strong: rgba(255, 255, 255, 0.20);
     --accent-blue: #4fa8ff;
     --accent-blue-soft: rgba(79, 168, 255, 0.15);
     --text-primary: #eaf0fa;
-    --text-secondary: #93a1b8;
-    --text-muted: #6b7a94;
+    --text-secondary: #b7c2d6;
+    --text-muted: #8b99b1;
   }
 
   /* Accessible focus ring for keyboard/assistive-navigation users.
@@ -249,12 +250,13 @@
   }
 
   .rl-btn-soft {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid var(--glass-border);
-    color: var(--color-ink);
+    background: rgba(13, 20, 35, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    color: #eaf0fa;
   }
   .rl-btn-soft:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(29, 39, 64, 0.97);
     border-color: rgba(79, 168, 255, 0.4);
   }
 

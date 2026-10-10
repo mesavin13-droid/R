@@ -467,6 +467,11 @@ export default function App() {
             onRecenter={handleRecenter}
             targetLocation={targetLocation}
             isPinPickerMode={isPinPickerMode}
+            onSosClosed={(updated) => {
+              setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+              setSelectedEvent((prev) => (prev && prev.id === updated.id ? updated : prev));
+              reloadData();
+            }}
             onConfirmPinLocation={(coords, address) => {
               setPickedLocation({ coords, address });
               setIsPinPickerMode(false);

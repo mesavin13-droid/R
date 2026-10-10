@@ -152,9 +152,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. Horizontal Scrollable Category Filter Chips Bar */}
-      <div 
-        className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5 w-full"
+      {/* 2. Horizontal Scrollable Category Filter Chips Bar (on a dim scrim so chips read on the bright map) */}
+      <div
+        className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1.5 px-2 w-full rounded-2xl bg-graphite/55 backdrop-blur-md border border-white/[0.06] shadow-[0_6px_20px_rgba(0,0,0,0.35)]"
         role="tablist"
         aria-label="Фильтры категорий событий на карте"
       >

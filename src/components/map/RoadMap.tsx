@@ -36,6 +36,8 @@ interface RoadMapProps {
   sponsoredBanners?: SponsoredBanner[];
   onCloseAdBanner?: (id: string) => void;
   onSelectSponsoredPlace?: (banner: SponsoredBanner) => void;
+  /** Called after the author closes their own SOS from the map mini-card. */
+  onSosClosed?: (event: RoadEvent) => void;
 }
 
 export const RoadMap: React.FC<RoadMapProps> = ({
@@ -58,6 +60,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   sponsoredBanners = [],
   onCloseAdBanner,
   onSelectSponsoredPlace,
+  onSosClosed,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   // Yandex Maps references
@@ -84,6 +87,25 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   });
   const [pickerAddress, setPickerAddress] = useState<string>('Определение адреса...');
   const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
+  // Author-side SOS closing (two-tap confirm, runs inside the map mini-card)
+  const [showSosCloseConfirm, setShowSosCloseConfirm] = useState(false);
+  const [isClosingSos, setIsClosingSos] = useState(false);
+  const [sosCloseError, setSosCloseError] = useState<string | null>(null);
+
+  const handleCloseMySos = async () => {
+    if (!myActiveSos || isClosingSos) return;
+    setIsClosingSos(true);
+    setSosCloseError(null);
+    try {
+      const updated = await EventService.confirmResolved(myActiveSos.id, currentUser.id);
+      setShowSosCloseConfirm(false);
+      if (onSosClosed) onSosClosed(updated);
+    } catch (err: any) {
+      setSosCloseError(err?.message || 'Не удалось закрыть обращение');
+    } finally {
+      setIsClosingSos(false);
+    }
+  };
 
   const currentUser = UserService.getCurrentUser();
 
@@ -91,6 +113,13 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   const myActiveSos = events.find(
     (e) => e.type === 'assistance' && e.userId === currentUser.id && (e.status === 'active' || e.status === 'expiring')
   );
+
+  // Reset the two-tap close confirm when the call changes / disappears.
+  useEffect(() => {
+    setShowSosCloseConfirm(false);
+    setSosCloseError(null);
+    setIsClosingSos(false);
+  }, [myActiveSos?.id, myActiveSos?.status]);
 
   // Reverse geocode debounced when pickerCoords change
   useEffect(() => {
@@ -677,7 +706,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       {/* --- ACTIVE SOS STATUS CARD --- */}
       {!isPinPickerMode && myActiveSos && (
-        <div className="absolute top-[220px] right-3 sm:right-5 z-20 w-[200px] sm:w-[210px] bg-surface-800/95 backdrop-blur-xl border border-red-500/40 p-3 rounded-2xl shadow-[0_12px_36px_rgba(255,59,48,0.35)] animate-in slide-in-from-right-3 duration-300 pointer-events-auto">
+        <div className="absolute right-3 sm:right-5 bottom-40 sm:bottom-44 z-20 w-[200px] sm:w-[216px] bg-graphite-900/95 backdrop-blur-xl border border-red-500/45 p-3 rounded-2xl shadow-[0_12px_36px_rgba(255,59,48,0.35)] animate-in slide-in-from-right-3 duration-300 pointer-events-auto">
           <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-white/10">
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -703,14 +732,52 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             </div>
           )}
 
-          <button
-            onClick={() => {
-              if (onSelectEvent) onSelectEvent(myActiveSos);
-            }}
-            className="w-full py-1.5 rounded-xl bg-white/5 hover:bg-danger/20 text-danger text-[9px] font-extrabold border border-danger/30 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider mt-2"
-          >
-            Открыть вызов
-          </button>
+          <div className="grid grid-cols-2 gap-1.5 mt-2">
+            <button
+              onClick={() => {
+                if (onSelectEvent) onSelectEvent(myActiveSos);
+              }}
+              className="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-ink text-[9px] font-extrabold border border-white/15 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider"
+            >
+              Открыть вызов
+            </button>
+            {!showSosCloseConfirm ? (
+              <button
+                onClick={() => setShowSosCloseConfirm(true)}
+                className="py-1.5 rounded-xl bg-danger hover:bg-danger-strong text-white text-[9px] font-extrabold border border-danger/60 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider shadow-[0_4px_14px_rgba(255,59,48,0.4)]"
+                title="Закрыть моё SOS-обращение"
+                aria-label="Закрыть моё SOS-обращение"
+              >
+                Закрыть SOS
+              </button>
+            ) : (
+              <button
+                onClick={handleCloseMySos}
+                disabled={isClosingSos}
+                className="py-1.5 rounded-xl bg-danger hover:bg-danger-strong text-white text-[9px] font-extrabold border border-danger/60 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider disabled:opacity-60"
+                title="Подтвердить закрытие SOS-обращения"
+                aria-label="Подтвердить закрытие SOS-обращения"
+              >
+                {isClosingSos ? 'Закрытие…' : 'Да, закрыть'}
+              </button>
+            )}
+          </div>
+
+          {showSosCloseConfirm && (
+            <button
+              onClick={() => setShowSosCloseConfirm(false)}
+              disabled={isClosingSos}
+              className="w-full mt-1.5 py-1 rounded-xl text-[9px] font-bold text-muted hover:text-ink transition cursor-pointer uppercase tracking-wider disabled:opacity-50"
+            >
+              Отмена
+            </button>
+          )}
+
+          {sosCloseError && (
+            <p className="mt-1.5 text-[10px] leading-tight text-danger-soft text-center" role="alert">
+              {sosCloseError}
+            </p>
+          )}
         </div>
       )}
 
@@ -721,7 +788,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           role="group"
           aria-label="Элементы управления масштабом и навигацией карты"
         >
-          <div className="flex flex-col rounded-2xl graphite-glass border border-white/10 overflow-hidden divide-y divide-white/10 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+          <div className="flex flex-col rounded-2xl bg-graphite-900/95 backdrop-blur-xl border border-white/15 overflow-hidden divide-y divide-white/10 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
             <button
               type="button"
               onClick={handleZoomIn}
