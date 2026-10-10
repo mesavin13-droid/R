@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage, UserProfile } from '../../types';
 import { ChatService } from '../../services/chatService';
-import { 
-  Send, MapPin, Radio, Navigation 
+import { CHAT_CHANNEL_GROUPS } from '../../data/chatData';
+import {
+  Send, MapPin, Radio, Navigation
 } from 'lucide-react';
 
 interface DriverChatProps {
@@ -104,23 +105,35 @@ export const DriverChat: React.FC<DriverChatProps> = ({
           </div>
         </div>
 
-        {/* Channels Horizontal Pill Scroller */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-2xl mx-auto pb-0.5">
-          {channels.map((ch) => {
-            const isSelected = ch.id === selectedChannelId;
+        {/* Channels — grouped by category (Общее / Мосты / Районы) */}
+        <div className="flex flex-col gap-2 max-w-2xl mx-auto">
+          {CHAT_CHANNEL_GROUPS.map((group) => {
+            const groupChannels = channels.filter((c) => c.group === group.id);
+            if (groupChannels.length === 0) return null;
             return (
-              <button
-                key={ch.id}
-                onClick={() => setSelectedChannelId(ch.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all select-none ${
-                  isSelected
-                    ? 'bg-surface-700 text-white border border-accent/60 shadow-xs'
-                    : 'bg-surface-800 text-muted border border-white/[0.06] hover:text-white'
-                }`}
-              >
-                <span>{ch.icon}</span>
-                <span>{ch.name}</span>
-              </button>
+              <div key={group.id} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-faintest shrink-0 w-[54px] leading-tight">
+                  {group.label}
+                </span>
+                {groupChannels.map((ch) => {
+                  const isSelected = ch.id === selectedChannelId;
+                  return (
+                    <button
+                      key={ch.id}
+                      onClick={() => setSelectedChannelId(ch.id)}
+                      title={ch.description}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all select-none ${
+                        isSelected
+                          ? 'bg-surface-700 text-white border border-accent/60 shadow-xs'
+                          : 'bg-surface-800 text-muted border border-white/[0.06] hover:text-white'
+                      }`}
+                    >
+                      <span>{ch.icon}</span>
+                      <span>{ch.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </div>

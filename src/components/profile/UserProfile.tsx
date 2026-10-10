@@ -8,6 +8,7 @@ import { UserService } from '../../services/userService';
 import { EventService } from '../../services/eventService';
 import { QuestionService } from '../../services/questionService';
 import { HolidayDecorator } from '../common/HolidayDecorator';
+import { computeBadges, computeTrust } from '../../theme/badges';
 
 interface UserProfileModalProps {
   currentUser: UserProfile;
@@ -110,6 +111,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isAdminAuthorized = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'stats' | 'events' | 'questions' | 'answers' | 'about'>('stats');
+  const trust = computeTrust(currentUser);
+  const earnedBadges = computeBadges(currentUser);
+  const badgesEarnedCount = earnedBadges.filter((b) => b.earned).length;
   const [hideOldEvents, setHideOldEvents] = useState(
     localStorage.getItem('roadlive_hide_old_events') === 'true'
   );
@@ -177,7 +181,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <h1 className="text-lg sm:text-xl font-semibold text-white tracking-tight leading-tight">
               {currentUser.fullName}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-xs font-medium text-accent bg-accent/10 px-2.5 py-0.5 rounded-lg border border-accent/20">
                 {currentUser.level}
               </span>
@@ -186,6 +190,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   Шеф-Модератор
                 </span>
               )}
+            </div>
+            {/* Trust / confidence signal — how reliable this driver looks to others */}
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex-1 max-w-[180px] h-1.5 rounded-full bg-graphite overflow-hidden border border-white/5">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    trust.tone === 'success' ? 'bg-success' : trust.tone === 'accent' ? 'bg-accent' : trust.tone === 'warning' ? 'bg-warning' : 'bg-danger'
+                  }`}
+                  style={{ width: `${trust.score}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-semibold text-muted">
+                {trust.score} · {trust.label}
+              </span>
             </div>
           </div>
         </div>
@@ -286,6 +304,39 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <span className="text-xs text-warning font-semibold uppercase tracking-wider">Открыть →</span>
               </div>
             )}
+
+            {/* Driver achievements / badges */}
+            <div className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
+                  Достижения
+                </h2>
+                <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
+                  {badgesEarnedCount} / {earnedBadges.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {earnedBadges.map(({ definition, earned, progress }) => (
+                  <div
+                    key={definition.id}
+                    className={`relative p-2.5 rounded-2xl border flex flex-col items-center text-center gap-1 transition ${
+                      earned
+                        ? 'bg-surface-700 border-accent/30 shadow-[0_4px_14px_rgba(75,141,255,0.12)]'
+                        : 'bg-graphite border-white/[0.05] opacity-60'
+                    }`}
+                    title={earned ? definition.description : `Почти: ${Math.round(progress * 100)}%`}
+                  >
+                    <span className={`text-2xl leading-none ${earned ? '' : 'grayscale'}`}>{definition.icon}</span>
+                    <span className="text-[10px] font-semibold text-white leading-tight">{definition.title}</span>
+                    {!earned && (
+                      <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full bg-accent/70 rounded-full" style={{ width: `${progress * 100}%` }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

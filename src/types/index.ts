@@ -218,6 +218,8 @@ export interface ChatChannel {
   name: string;
   description: string;
   icon: string;
+  /** Grouping bucket used to section the channel picker. */
+  group: 'general' | 'landmarks' | 'districts';
 }
 
 export interface CustomAdIcon {

@@ -377,12 +377,22 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           Boolean(ev.comments && ev.comments.length > 0) ||
           ev.type === 'assistance';
 
+        // Critical events get the solid-colour pin (style A) so danger reads at a
+        // glance; everything else keeps the calm graphite pin (style B).
+        const isCritical =
+          ev.type === 'assistance' ||
+          ev.type === 'hazard' ||
+          (ev.type === 'accident' && ev.subType === 'road_blocked') ||
+          (ev.type === 'crossing' && ev.subType === 'closed') ||
+          (ev.type === 'road' && ev.subType === 'closure');
+
         const markerHtml = getRoadLivePinSvg(
           ev.type,
           ev.subType || '',
           badgeColor,
           ev.confirmationCount,
-          isHighActivity
+          isHighActivity,
+          isCritical
         );
 
         const layout = ymaps.templateLayoutFactory.createClass(
