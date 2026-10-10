@@ -218,7 +218,10 @@ export class NotificationService {
   }
 
   /**
-   * Broadcast critical road event (e.g. major accident, road closure, closed railway crossing)
+   * Broadcast critical road event (e.g. major accident, road closure, closed railway crossing).
+   * Client-side radius gate: the author NEVER notifies themselves, and the
+   * server broadcast only fires when the event carries a valid position.
+   * Without coordinates the server would have to guess — so no broadcast.
    */
   static async broadcastCriticalEvent(
     event: RoadEvent,
@@ -234,15 +237,24 @@ export class NotificationService {
     const currentUserId = TelegramService.getCachedAuthoritativeIdentity()?.userId || null;
     const isAuthor = Boolean(currentUserId && event.userId === currentUserId);
 
-    // Save in-app notification only if NOT the author!
-    if (isCritical && !isAuthor) {
+    // Only the AUTHOR broadcasts their own critical event — everybody else
+    // would spam duplicates to the whole radius.
+    if (!isCritical) return;
+    if (!isAuthor) {
       this.addNotification({
         title: `🚨 ${event.title}`,
         message: `${event.address}. ${event.description || 'Движение сильно затруднено.'}`,
         type: 'alert',
         eventId: event.id,
       });
+      return;
     }
+
+    // No valid position → no broadcast. The server would have to guess
+    // who is "nearby" — city-wide spam is forbidden.
+    const lat = Number(event.latitude);
+    const lng = Number(event.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     // Call server push broadcast API — pass the event position so the server
     // notifies only drivers inside the radius (SOS 5 km, rest 2 km).
@@ -283,7 +295,13 @@ export class NotificationService {
         message: `📍 ${question.address}: «${question.question}»`,
         type: 'alert',
       });
+      return;
     }
+
+    // No valid position → no broadcast (server would spam the whole city).
+    const qLat = Number(question.latitude);
+    const qLng = Number(question.longitude);
+    if (!Number.isFinite(qLat) || !Number.isFinite(qLng)) return;
 
     try {
       await fetch('/api/push/broadcast-critical', {

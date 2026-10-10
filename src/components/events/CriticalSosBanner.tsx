@@ -30,7 +30,7 @@ export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
     userCoords ? EventService.calculateDistanceMeters(ev.latitude, ev.longitude, userCoords.lat, userCoords.lng) : null;
 
   // Active SOS not dismissed by the user, not their own call, and within the
-  // help radius (when the driver's position is known) — nearest first.
+  // help radius. Unknown driver position → hide (never spam the whole city).
   const activeSosEvents = events
     .filter((ev) => {
       if (ev.type !== 'assistance') return false;
@@ -39,7 +39,7 @@ export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
       // Never show a driver their own SOS call.
       if (currentUserId && ev.userId === currentUserId) return false;
       const meters = distanceTo(ev);
-      return meters === null || meters <= SOS_BANNER_RADIUS_M;
+      return meters !== null && meters <= SOS_BANNER_RADIUS_M;
     })
     .sort((a, b) => (distanceTo(a) ?? 0) - (distanceTo(b) ?? 0));
 

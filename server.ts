@@ -269,28 +269,6 @@ const TELEGRAM_API_BASE = TELEGRAM_BOT_TOKEN
   ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
   : '';
 
-/**
- * Telegram Bot push. Web Push cannot reach the WebViews used by Telegram Mini
- * Apps (no Service Worker), so critical road events and SOS requests are
- * delivered to drivers directly through the bot's private chat instead.
- *
- * Driver positions come from `driver_locations` (client heartbeat). Only
- * drivers inside the radius get the message — no city-wide spam.
- */
-async function listTelegramDrivers(): Promise<number[]> {
-  if (!serverSupabase) return [];
-  const { data, error } = await serverSupabase
-    .from('telegram_accounts')
-    .select('telegram_id');
-  if (error) {
-    console.error('[TG Push] Failed to list Telegram drivers:', error.message);
-    return [];
-  }
-  return (data || [])
-    .map((row) => Number(row.telegram_id))
-    .filter((id) => Number.isFinite(id) && id > 0);
-}
-
 /** Last known driver positions, keyed by tg id. Fresh = updated within 30 min. */
 async function listNearbyTelegramDrivers(
   lat: number,
@@ -353,7 +331,8 @@ async function notifyTelegramDrivers(
   center?: { lat: number; lng: number },
   radiusM?: number,
 ): Promise<{ tgSentCount: number; notifiedCount: number; checked?: number; stale?: number }> {
-  // Radius-targeted send: only fresh driver positions inside the radius.
+  // Radius-targeted send ONLY: only fresh driver positions inside the radius.
+  // No center/radius → nobody gets it. City-wide spam is forbidden.
   if (center && Number.isFinite(radiusM) && (radiusM as number) > 0) {
     const nearby = await listNearbyTelegramDrivers(center.lat, center.lng, radiusM as number);
     let tgSentCount = 0;
@@ -365,16 +344,7 @@ async function notifyTelegramDrivers(
     );
     return { tgSentCount, notifiedCount: nearby.chatIds.length, checked: nearby.checked, stale: nearby.stale };
   }
-  // Legacy fallback: no position available (should be rare).
-  const drivers = await listTelegramDrivers();
-  let tgSentCount = 0;
-  await Promise.all(
-    drivers.map(async (chatId) => {
-      if (excludeChatId && chatId === excludeChatId) return;
-      if (await sendTelegramNotification(chatId, text)) tgSentCount++;
-    }),
-  );
-  return { tgSentCount, notifiedCount: drivers.length };
+  return { tgSentCount: 0, notifiedCount: 0 };
 }
 
 // --- MANDATORY CHANNEL SUBSCRIPTION GATE ---
@@ -1109,6 +1079,12 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     ? { lat: eventLat, lng: eventLng }
     : (Number.isFinite(inlineLat) && Number.isFinite(inlineLng) ? { lat: inlineLat, lng: inlineLng } : null);
 
+  // No valid position → nobody is notified. Broadcasting without
+  // coordinates would spam the whole city — forbidden.
+  if (!center) {
+    return res.status(400).json({ error: 'Нет координат события — рассылка невозможна' });
+  }
+
   const emoji =
     event.type === 'assistance' ? '🆘' :
     event.type === 'question' ? '❓' :
@@ -1148,9 +1124,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
 
   // Telegram Bot notifications run regardless of Web Push subscriber count —
   // but only to drivers inside the radius (fresh positions, 30-min TTL).
-  const tgResult = center
-    ? await notifyTelegramDrivers(session.tgId, tgText, center, radiusM)
-    : await notifyTelegramDrivers(session.tgId, tgText);
+  const tgResult = await notifyTelegramDrivers(session.tgId, tgText, center, radiusM);
 
   const endpoints = Array.from(subscriptions.keys());
   if (endpoints.length === 0) {
@@ -1174,14 +1148,12 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     const item = subscriptions.get(ep);
     if (!item) return;
     if (item.userId && item.userId === session.userId) return;
-    // Radius filter: skip subscribers whose last known position is outside
-    // the radius. No position → skip too (no city-wide spam).
-    if (center) {
-      if (!Number.isFinite(item.lat as number) || !Number.isFinite(item.lng as number)) { skippedFar++; return; }
-      const updatedAt = item.updatedAt ? Date.parse(item.updatedAt) : NaN;
-      if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > 30 * 60_000) { skippedFar++; return; }
-      if (distanceMeters(center.lat, center.lng, item.lat as number, item.lng as number) > radiusM) { skippedFar++; return; }
-    }
+    // Strict radius filter: outside the radius, no/expired position →
+    // skip. Nobody outside the radius ever gets the push.
+    if (!Number.isFinite(item.lat as number) || !Number.isFinite(item.lng as number)) { skippedFar++; return; }
+    const updatedAt = item.updatedAt ? Date.parse(item.updatedAt) : NaN;
+    if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > 30 * 60_000) { skippedFar++; return; }
+    if (distanceMeters(center.lat, center.lng, item.lat as number, item.lng as number) > radiusM) { skippedFar++; return; }
 
     try {
       await webpush.sendNotification(item.subscription, payload);
