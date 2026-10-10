@@ -21,6 +21,53 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!--
+      Hard version gate for Telegram WebView.
+      Telegram's WebView is notorious for holding onto an old Service Worker
+      that keeps serving a previous build (stale JS + stale HTML = blank or
+      "could not render" screens). We embed a fresh build id at every deploy;
+      if the running copy doesn't match what's stored, we nuke every cache and
+      the Service Worker, then reload once. index.html itself is always served
+      from the network (see vercel.json: max-age=0, must-revalidate), so this
+      script is guaranteed to run the newest version.
+    -->
+    <script>
+      (function () {
+        // __BUILD_ID__ is replaced at build time by scripts/stamp-build-id.mjs.
+        var BUILD_ID = '__BUILD_ID__';
+        var STORAGE_KEY = 'roadlive_build_id';
+        try {
+          var stored = localStorage.getItem(STORAGE_KEY);
+          if (stored && stored !== BUILD_ID) {
+            // A new deploy landed under this client — purge everything stale.
+            localStorage.setItem(STORAGE_KEY, BUILD_ID);
+            var clearAll = (function () {
+              if ('caches' in window) {
+                return caches.keys().then(function (names) {
+                  return Promise.all(names.map(function (n) { return caches.delete(n); }));
+                });
+              }
+              return Promise.resolve();
+            })();
+            clearAll.then(function () {
+              if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                }).then(function () {
+                  window.location.reload(true);
+                });
+              } else {
+                window.location.reload(true);
+              }
+            });
+          } else {
+            localStorage.setItem(STORAGE_KEY, BUILD_ID);
+          }
+        } catch (e) {
+          /* localStorage may be unavailable — version gate just no-ops. */
+        }
+      })();
+    </script>
   </head>
   <body class="bg-[#111315] text-[#F0F2F5] antialiased overflow-hidden select-none">
     <div id="root" class="h-full w-full"></div>

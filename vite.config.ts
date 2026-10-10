@@ -1,14 +1,41 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { execSync } from 'node:child_process';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// Replaces the __BUILD_ID__ placeholder in index.html with a unique id on every
+// build (git commit + timestamp). The version gate in index.html compares it to
+// what the client last saw and force-clears stale caches when they differ — this
+// is what finally defeats the "stuck Service Worker in Telegram WebView" problem.
+function buildIdPlugin(): Plugin {
+  let buildId = 'dev';
+  return {
+    name: 'roadlive-build-id',
+    buildStart() {
+      let commit = 'local';
+      try {
+        commit = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+          .toString()
+          .trim();
+      } catch {
+        /* not a git checkout — fall back to 'local' */
+      }
+      buildId = `${commit}-${Date.now()}`;
+    },
+    transformIndexHtml(html) {
+      return html.replace(/__BUILD_ID__/g, buildId);
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
     plugins: [
       react(),
       tailwindcss(),
+      buildIdPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: null,

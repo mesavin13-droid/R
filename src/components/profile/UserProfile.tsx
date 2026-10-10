@@ -169,11 +169,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <div className="relative">
             <HolidayDecorator size="lg" />
             <div className="w-16 h-16 rounded-2xl bg-surface-700 border border-white/10 text-white flex items-center justify-center text-2xl font-bold shadow-md">
-              {currentUser.fullName[0]}
+              {currentUser.fullName?.[0] ?? 'В'}
             </div>
             <div className="absolute -bottom-1 -right-1 bg-surface-800 border border-accent/40 text-accent text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
               <Star className="w-2.5 h-2.5 fill-current" />
-              <span>{currentUser.rating.toFixed(1)}</span>
+              <span>{(currentUser.rating ?? 5).toFixed(1)}</span>
             </div>
           </div>
 
@@ -315,24 +315,37 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   {badgesEarnedCount} / {earnedBadges.length}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <p className="text-[11px] text-muted leading-snug -mt-1">
+                Бейджи за реальную помощь и активность на дорогах. Чем больше помогаешь другим водителям — тем выше доверие.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
                 {earnedBadges.map(({ definition, earned, progress }) => (
                   <div
                     key={definition.id}
-                    className={`relative p-2.5 rounded-2xl border flex flex-col items-center text-center gap-1 transition ${
+                    className={`p-2.5 rounded-2xl border flex items-center gap-2.5 transition text-left ${
                       earned
                         ? 'bg-surface-700 border-accent/30 shadow-[0_4px_14px_rgba(75,141,255,0.12)]'
-                        : 'bg-graphite border-white/[0.05] opacity-60'
+                        : 'bg-graphite border-white/[0.05]'
                     }`}
-                    title={earned ? definition.description : `Почти: ${Math.round(progress * 100)}%`}
                   >
-                    <span className={`text-2xl leading-none ${earned ? '' : 'grayscale'}`}>{definition.icon}</span>
-                    <span className="text-[10px] font-semibold text-white leading-tight">{definition.title}</span>
-                    {!earned && (
-                      <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full bg-accent/70 rounded-full" style={{ width: `${progress * 100}%` }} />
-                      </div>
-                    )}
+                    <span className={`text-xl leading-none shrink-0 ${earned ? '' : 'grayscale opacity-50'}`}>
+                      {definition.icon}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-[11px] font-semibold leading-tight ${earned ? 'text-white' : 'text-muted'}`}>
+                        {definition.title}
+                      </p>
+                      {earned ? (
+                        <p className="text-[9px] text-success font-medium leading-tight mt-0.5">Получено ✓</p>
+                      ) : (
+                        <>
+                          <p className="text-[9px] text-faint leading-tight mt-0.5 line-clamp-2">{definition.description}</p>
+                          <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden mt-1">
+                            <div className="h-full bg-accent/70 rounded-full" style={{ width: `${progress * 100}%` }} />
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
