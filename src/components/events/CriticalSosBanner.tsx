@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { RoadEvent } from '../../types';
 import { X, ArrowRight } from 'lucide-react';
 import { EventService } from '../../services/eventService';
+import { NOTIFY_RADIUS_M } from '../../services/notificationService';
 
 interface CriticalSosBannerProps {
   events: RoadEvent[];
@@ -13,9 +14,9 @@ interface CriticalSosBannerProps {
 
 /**
  * The banner is only shown to drivers who can realistically get there:
- * city-scale help radius around the caller's position.
+ * same radius as server push (SOS 5 km) around the caller's position.
  */
-const SOS_BANNER_RADIUS_M = 15000;
+const SOS_BANNER_RADIUS_M = NOTIFY_RADIUS_M.sos;
 
 export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
   events,

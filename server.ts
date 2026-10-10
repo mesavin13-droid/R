@@ -150,11 +150,43 @@ try {
   console.error('❌ Failed to configure WebPush VAPID details:', err);
 }
 
+// Push-radius policy: SOS reaches drivers up to 5 km away, everything else
+// (accidents, crossings, questions) only within 2 km — no city-wide spam.
+const NOTIFY_RADIUS_M = { sos: 5000, standard: 2000 } as const;
+
+function notifyRadiusFor(type: string): number {
+  return type === 'assistance' ? NOTIFY_RADIUS_M.sos : NOTIFY_RADIUS_M.standard;
+}
+
+/** Haversine distance in meters — used to filter push/TG recipients by radius. */
+function distanceMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371e3;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s1 = Math.sin(dLat / 2) ** 2;
+  const s2 = Math.sin(dLng / 2) ** 2;
+  const a = s1 + Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * s2;
+  return 2 * R * Math.asin(Math.sqrt(Math.min(1, Math.max(0, a))));
+}
+
+function parseClientCoords(value: unknown): { lat: number; lng: number } | null {
+  if (!value || typeof value !== 'object') return null;
+  const lat = Number((value as any).lat);
+  const lng = Number((value as any).lng ?? (value as any).lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
 // In-Memory & File-backed Push Subscriptions
 interface StoredSubscription {
   subscription: webpush.PushSubscription;
   userId?: string;
   districtId?: string;
+  /** Last known driver position — updated on every authenticated heartbeat. */
+  lat?: number;
+  lng?: number;
+  updatedAt?: string;
   createdAt: string;
 }
 
@@ -168,7 +200,7 @@ async function loadSubscriptions() {
 
   const { data, error } = await serverSupabase
     .from('push_subscriptions')
-    .select('endpoint,user_id,subscription,district_id,created_at');
+    .select('endpoint,user_id,subscription,district_id,last_lat,last_lng,updated_at,created_at');
 
   if (error) {
     throw new Error(`Failed to load push subscriptions: ${error.message}`);
@@ -181,6 +213,9 @@ async function loadSubscriptions() {
         subscription: row.subscription as webpush.PushSubscription,
         userId: row.user_id,
         districtId: row.district_id || undefined,
+        lat: Number.isFinite(Number(row.last_lat)) ? Number(row.last_lat) : undefined,
+        lng: Number.isFinite(Number(row.last_lng)) ? Number(row.last_lng) : undefined,
+        updatedAt: row.updated_at || row.created_at,
         createdAt: row.created_at,
       },
     ]),
@@ -208,6 +243,8 @@ async function persistPushSubscription(endpoint: string, item: StoredSubscriptio
     user_id: item.userId,
     subscription: item.subscription,
     district_id: item.districtId || null,
+    last_lat: Number.isFinite(item.lat as number) ? item.lat : null,
+    last_lng: Number.isFinite(item.lng as number) ? item.lng : null,
     created_at: item.createdAt,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'endpoint' });
@@ -236,6 +273,9 @@ const TELEGRAM_API_BASE = TELEGRAM_BOT_TOKEN
  * Telegram Bot push. Web Push cannot reach the WebViews used by Telegram Mini
  * Apps (no Service Worker), so critical road events and SOS requests are
  * delivered to drivers directly through the bot's private chat instead.
+ *
+ * Driver positions come from `driver_locations` (client heartbeat). Only
+ * drivers inside the radius get the message — no city-wide spam.
  */
 async function listTelegramDrivers(): Promise<number[]> {
   if (!serverSupabase) return [];
@@ -249,6 +289,37 @@ async function listTelegramDrivers(): Promise<number[]> {
   return (data || [])
     .map((row) => Number(row.telegram_id))
     .filter((id) => Number.isFinite(id) && id > 0);
+}
+
+/** Last known driver positions, keyed by tg id. Fresh = updated within 30 min. */
+async function listNearbyTelegramDrivers(
+  lat: number,
+  lng: number,
+  radiusM: number,
+): Promise<{ chatIds: number[]; checked: number; stale: number }> {
+  if (!serverSupabase) return { chatIds: [], checked: 0, stale: 0 };
+  const { data, error } = await serverSupabase
+    .from('driver_locations')
+    .select('telegram_id,last_lat,last_lng,updated_at');
+  if (error) {
+    console.error('[TG Push] Failed to list driver locations:', error.message);
+    return { chatIds: [], checked: 0, stale: 0 };
+  }
+  const freshMs = 30 * 60_000;
+  const now = Date.now();
+  const chatIds: number[] = [];
+  let stale = 0;
+  for (const row of data || []) {
+    const chatId = Number((row as any).telegram_id);
+    const rLat = Number((row as any).last_lat);
+    const rLng = Number((row as any).last_lng);
+    if (!Number.isFinite(chatId) || chatId <= 0) continue;
+    if (!Number.isFinite(rLat) || !Number.isFinite(rLng)) { stale++; continue; }
+    const updatedAt = (row as any).updated_at ? Date.parse((row as any).updated_at) : NaN;
+    if (!Number.isFinite(updatedAt) || now - updatedAt > freshMs) { stale++; continue; }
+    if (distanceMeters(lat, lng, rLat, rLng) <= radiusM) chatIds.push(chatId);
+  }
+  return { chatIds, checked: (data || []).length, stale };
 }
 
 async function sendTelegramNotification(chatId: number, text: string): Promise<boolean> {
@@ -279,7 +350,22 @@ async function sendTelegramNotification(chatId: number, text: string): Promise<b
 async function notifyTelegramDrivers(
   excludeChatId: number,
   text: string,
-): Promise<{ tgSentCount: number; notifiedCount: number }> {
+  center?: { lat: number; lng: number },
+  radiusM?: number,
+): Promise<{ tgSentCount: number; notifiedCount: number; checked?: number; stale?: number }> {
+  // Radius-targeted send: only fresh driver positions inside the radius.
+  if (center && Number.isFinite(radiusM) && (radiusM as number) > 0) {
+    const nearby = await listNearbyTelegramDrivers(center.lat, center.lng, radiusM as number);
+    let tgSentCount = 0;
+    await Promise.all(
+      nearby.chatIds.map(async (chatId) => {
+        if (excludeChatId && chatId === excludeChatId) return;
+        if (await sendTelegramNotification(chatId, text)) tgSentCount++;
+      }),
+    );
+    return { tgSentCount, notifiedCount: nearby.chatIds.length, checked: nearby.checked, stale: nearby.stale };
+  }
+  // Legacy fallback: no position available (should be rare).
   const drivers = await listTelegramDrivers();
   let tgSentCount = 0;
   await Promise.all(
@@ -873,6 +959,9 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, asyn
     subscription,
     userId,
     districtId,
+    lat: parseClientCoords(req.body?.coords)?.lat,
+    lng: parseClientCoords(req.body?.coords)?.lng,
+    updatedAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
   try {
@@ -915,6 +1004,37 @@ app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, as
   res.json({ success: true, deleted, persistent: true, subscribersCount: subscriptions.size });
 });
 
+// 4b. Driver location heartbeat — lets the server target push/TG by radius.
+// Lightweight: upsert last known position per tg id, throttled client-side.
+app.post('/api/drivers/location', rateLimit(60, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
+  const session = (req as any).telegramSession as TelegramSession;
+  const coords = parseClientCoords(req.body?.coords);
+  if (!coords) return res.status(400).json({ error: 'Некорректные координаты' });
+
+  const { error } = await serverSupabase.from('driver_locations').upsert({
+    telegram_id: session.tgId,
+    user_id: session.userId,
+    last_lat: coords.lat,
+    last_lng: coords.lng,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'telegram_id' });
+  if (error) return res.status(500).json({ error: 'Не удалось сохранить позицию' });
+
+  // Also refresh the in-memory push entries of this driver so web-push
+  // filtering works even without re-subscribing.
+  const nowIso = new Date().toISOString();
+  for (const item of subscriptions.values()) {
+    if (item.userId === session.userId) {
+      item.lat = coords.lat;
+      item.lng = coords.lng;
+      item.updatedAt = nowIso;
+    }
+  }
+
+  res.json({ success: true });
+});
+
 // 5. Broadcast Critical Road Event
 app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, userRateLimit(3, 60 * 60_000), async (req: Request, res: Response) => {
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
@@ -934,6 +1054,8 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     type: string;
     sub_type: string;
     status: string;
+    latitude?: number | null;
+    longitude?: number | null;
   } | null = null;
 
   const profileId = await resolveEventProfile(session);
@@ -943,7 +1065,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     // The push payload is derived exclusively from the persisted event.
     const { data, error: eventError } = await serverSupabase
       .from('events')
-      .select('id,user_id,title,address,description,type,sub_type,status')
+      .select('id,user_id,title,address,description,type,sub_type,status,latitude,longitude')
       .eq('id', eventId)
       .maybeSingle();
 
@@ -976,6 +1098,16 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     (event.type === 'road' && (event.sub_type === 'closure' || event.sub_type === 'ice')) ||
     event.type === 'hazard' ||
     event.type === 'assistance';
+
+  // Radius policy: SOS 5 km, everything else 2 km.
+  const radiusM = notifyRadiusFor(event.type);
+  const eventLat = Number((event as any).latitude);
+  const eventLng = Number((event as any).longitude);
+  const inlineLat = Number((inlineEvent as any)?.latitude ?? (inlineEvent as any)?.lat);
+  const inlineLng = Number((inlineEvent as any)?.longitude ?? (inlineEvent as any)?.lng ?? (inlineEvent as any)?.lon);
+  const center = Number.isFinite(eventLat) && Number.isFinite(eventLng)
+    ? { lat: eventLat, lng: eventLng }
+    : (Number.isFinite(inlineLat) && Number.isFinite(inlineLng) ? { lat: inlineLat, lng: inlineLng } : null);
 
   const emoji =
     event.type === 'assistance' ? '🆘' :
@@ -1014,8 +1146,11 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     },
   });
 
-  // Telegram Bot notifications run regardless of Web Push subscriber count.
-  const tgResult = await notifyTelegramDrivers(session.tgId, tgText);
+  // Telegram Bot notifications run regardless of Web Push subscriber count —
+  // but only to drivers inside the radius (fresh positions, 30-min TTL).
+  const tgResult = center
+    ? await notifyTelegramDrivers(session.tgId, tgText, center, radiusM)
+    : await notifyTelegramDrivers(session.tgId, tgText);
 
   const endpoints = Array.from(subscriptions.keys());
   if (endpoints.length === 0) {
@@ -1032,12 +1167,21 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
 
   let sentCount = 0;
   let failureCount = 0;
+  let skippedFar = 0;
   const expiredEndpoints: string[] = [];
 
   await Promise.all(endpoints.map(async (ep) => {
     const item = subscriptions.get(ep);
     if (!item) return;
     if (item.userId && item.userId === session.userId) return;
+    // Radius filter: skip subscribers whose last known position is outside
+    // the radius. No position → skip too (no city-wide spam).
+    if (center) {
+      if (!Number.isFinite(item.lat as number) || !Number.isFinite(item.lng as number)) { skippedFar++; return; }
+      const updatedAt = item.updatedAt ? Date.parse(item.updatedAt) : NaN;
+      if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > 30 * 60_000) { skippedFar++; return; }
+      if (distanceMeters(center.lat, center.lng, item.lat as number, item.lng as number) > radiusM) { skippedFar++; return; }
+    }
 
     try {
       await webpush.sendNotification(item.subscription, payload);
@@ -1055,7 +1199,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     }));
   }
 
-  res.json({ success: true, sentCount, failureCount, totalSubscribers: subscriptions.size, isCritical, tgSentCount: tgResult.tgSentCount });
+  res.json({ success: true, sentCount, failureCount, skippedFar, radiusM, totalSubscribers: subscriptions.size, isCritical, tgSentCount: tgResult.tgSentCount, tgNotifiedCount: (tgResult as any).notifiedCount ?? 0 });
 });
 
 // 6. Test Push Endpoint

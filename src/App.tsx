@@ -200,6 +200,29 @@ export default function App() {
     setActiveTab('chat');
   }, []);
 
+  // Push-radius heartbeat: report the driver's position so the server only
+  // notifies nearby drivers (SOS 5 km, everything else 2 km). Throttled to
+  // at most once per 5 minutes / 200 m to save battery.
+  const lastHeartbeatRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  useEffect(() => {
+    if (!userCoords || !isTelegramAuthenticated) return;
+    const last = lastHeartbeatRef.current;
+    const now = Date.now();
+    if (last) {
+      const movedM = EventService.calculateDistanceMeters(
+        last.lat, last.lng, userCoords.lat, userCoords.lng,
+      );
+      if (now - last.at < 5 * 60_000 && movedM < 200) return;
+    }
+    lastHeartbeatRef.current = { lat: userCoords.lat, lng: userCoords.lng, at: now };
+    fetch('/api/drivers/location', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ coords: { lat: userCoords.lat, lng: userCoords.lng } }),
+    }).catch(() => {});
+  }, [userCoords, isTelegramAuthenticated]);
+
   useEffect(() => {
     reloadData();
     TelegramService.ready();

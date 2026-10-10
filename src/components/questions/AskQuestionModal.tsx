@@ -77,7 +77,7 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
       );
 
       // Trigger Web Push alert to drivers in radius
-      await NotificationService.broadcastQuestionAlert(q, currentUser.fullName);
+      await NotificationService.broadcastQuestionAlert(q, currentUser.fullName, userCoords ?? null);
 
       onQuestionCreated(q);
       onClose();

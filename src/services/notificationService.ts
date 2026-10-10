@@ -4,6 +4,17 @@ import { TelegramService } from './telegramService';
 const NOTIFS_KEY = 'roadlive_notifs_v1';
 const PUSH_SUB_KEY = 'roadlive_push_subscribed';
 
+export const NOTIFY_RADIUS_M = {
+  /** SOS / помощь — доедут за ~10 минут по городу. */
+  sos: 5000,
+  /** Всё остальное (ДТП, переезды, вопросы) — только кто реально рядом. */
+  standard: 2000,
+} as const;
+
+export function notifyRadiusFor(type: string): number {
+  return type === 'assistance' ? NOTIFY_RADIUS_M.sos : NOTIFY_RADIUS_M.standard;
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -164,7 +175,7 @@ export class NotificationService {
       // Add in-app confirmation
       this.addNotification({
         title: '🔔 Уведомления активированы',
-        message: 'Вы будете мгновенно получать сигналы о перекрытиях и авариях через Web Push.',
+        message: 'SOS — в радиусе 5 км, ДТП и перекрытия — в радиусе 2 км от вас.',
         type: 'system',
       });
 
@@ -209,7 +220,10 @@ export class NotificationService {
   /**
    * Broadcast critical road event (e.g. major accident, road closure, closed railway crossing)
    */
-  static async broadcastCriticalEvent(event: RoadEvent): Promise<void> {
+  static async broadcastCriticalEvent(
+    event: RoadEvent,
+    authorCoords?: { lat: number; lng: number } | null,
+  ): Promise<void> {
     const isCritical =
       (event.type === 'accident' && (event.subType === 'road_blocked' || event.subType === 'major')) ||
       (event.type === 'crossing' && event.subType === 'closed') ||
@@ -230,13 +244,22 @@ export class NotificationService {
       });
     }
 
-    // Call server push broadcast API
+    // Call server push broadcast API — pass the event position so the server
+    // notifies only drivers inside the radius (SOS 5 km, rest 2 km).
     try {
       await fetch('/api/push/broadcast-critical', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ eventId: event.id }),
+        body: JSON.stringify({
+          eventId: event.id,
+          event: {
+            id: event.id,
+            latitude: event.latitude,
+            longitude: event.longitude,
+            ...(authorCoords ? { lat: authorCoords.lat, lng: authorCoords.lng } : {}),
+          },
+        }),
       });
     } catch (err) {
       console.warn('[WebPush] Server broadcast error:', err);
@@ -246,7 +269,11 @@ export class NotificationService {
   /**
    * Broadcast localized driver question alert to nearby users in radius
    */
-  static async broadcastQuestionAlert(question: DriverQuestion, authorName: string): Promise<void> {
+  static async broadcastQuestionAlert(
+    question: DriverQuestion,
+    authorName: string,
+    authorCoords?: { lat: number; lng: number } | null,
+  ): Promise<void> {
     const currentUserId = TelegramService.getCachedAuthoritativeIdentity()?.userId || null;
     const isAuthor = Boolean(currentUserId && question.userId === currentUserId);
 
@@ -271,6 +298,9 @@ export class NotificationService {
             address: question.address,
             description: question.question,
             type: 'question',
+            latitude: question.latitude,
+            longitude: question.longitude,
+            ...(authorCoords ? { lat: authorCoords.lat, lng: authorCoords.lng } : {}),
           },
           isCritical: true,
         }),
