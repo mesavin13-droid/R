@@ -182,21 +182,23 @@ export default function App() {
     void AdService.registerClick(ad.id).catch(() => {});
   }, []);
 
-  // "Выехать на помощь" from the SOS banner: persist on the server (author gets
-  // a Telegram notification) and open the card with the resulting state.
-  const handleRespondHelp = useCallback(
-    async (ev: RoadEvent) => {
-      try {
-        const updated = await EventService.respondToAssistance(ev.id, currentUser);
-        setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
-        setSelectedEvent(updated);
-        setTargetLocation({ lat: updated.latitude, lng: updated.longitude });
-      } catch (err) {
-        console.warn('Could not respond to SOS:', err);
-      }
-    },
-    [currentUser]
-  );
+  // A private per-call dialog (`event-<id>`): the SOS author and the accepted
+  // helper negotiate details there (place / time / price) after one side accepts.
+  const [directChatChannel, setDirectChatChannel] = useState<{
+    id: string;
+    name: string;
+    description: string;
+  } | null>(null);
+
+  const handleOpenEventChat = useCallback((ev: RoadEvent) => {
+    setDirectChatChannel({
+      id: `event-${ev.id}`,
+      name: 'Диалог по вызову',
+      description: `${ev.title} · ${ev.address}`,
+    });
+    setSelectedEvent(null);
+    setActiveTab('chat');
+  }, []);
 
   useEffect(() => {
     reloadData();
@@ -430,7 +432,6 @@ export default function App() {
             setSelectedEvent(ev);
             setTargetLocation({ lat: ev.latitude, lng: ev.longitude });
           }}
-          onRespondHelp={handleRespondHelp}
         />
       )}
 
@@ -490,6 +491,8 @@ export default function App() {
           <DriverChat
             currentUser={currentUser}
             userCoords={userCoords}
+            directChannel={directChatChannel}
+            onExitDirect={() => setDirectChatChannel(null)}
             onFocusMap={(lat, lng) => {
               setTargetLocation({ lat, lng });
               setActiveTab('map');
@@ -607,6 +610,7 @@ export default function App() {
             setSelectedEvent(updated);
             reloadData();
           }}
+          onOpenChat={handleOpenEventChat}
         />
       )}
 

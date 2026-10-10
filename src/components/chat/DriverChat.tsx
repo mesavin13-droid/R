@@ -10,22 +10,41 @@ interface DriverChatProps {
   currentUser: UserProfile;
   userCoords: { lat: number; lng: number } | null;
   onFocusMap: (lat: number, lng: number) => void;
+  /** A private per-call dialog (`event-<id>`) opened instead of the public channels. */
+  directChannel?: { id: string; name: string; description: string } | null;
+  /** Leave the private dialog and go back to the public radio channels. */
+  onExitDirect?: () => void;
 }
 
 export const DriverChat: React.FC<DriverChatProps> = ({
   currentUser,
   userCoords,
   onFocusMap,
+  directChannel,
+  onExitDirect,
 }) => {
   const channels = ChatService.getChannels();
-  const [selectedChannelId, setSelectedChannelId] = useState(channels[0].id);
+  const [selectedChannelId, setSelectedChannelId] = useState(directChannel?.id || channels[0].id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [includeLocation] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const activeChannel = channels.find((c) => c.id === selectedChannelId) || channels[0];
+  // Entering/leaving a private per-call dialog switches the active channel.
+  useEffect(() => {
+    if (directChannel) {
+      setSelectedChannelId(directChannel.id);
+    } else if (selectedChannelId.startsWith('event-')) {
+      setSelectedChannelId(channels[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directChannel?.id]);
+
+  const isDirect = Boolean(directChannel && selectedChannelId === directChannel.id);
+  const activeChannel = isDirect && directChannel
+    ? { id: directChannel.id, name: directChannel.name, description: directChannel.description, icon: '💬', group: 'general' as const }
+    : channels.find((c) => c.id === selectedChannelId) || channels[0];
 
   const reloadMessages = () => {
     setMessages(ChatService.getMessages(selectedChannelId));
@@ -128,9 +147,20 @@ export const DriverChat: React.FC<DriverChatProps> = ({
               <p className="text-xs text-muted truncate mt-0.5">{activeChannel.description}</p>
             </div>
           </div>
+
+          {isDirect && (
+            <button
+              type="button"
+              onClick={onExitDirect}
+              className="shrink-0 px-3 py-1.5 rounded-xl bg-surface-700 hover:bg-white/10 text-ink text-xs font-medium border border-white/[0.08] transition active:scale-95 cursor-pointer"
+            >
+              ← Все каналы
+            </button>
+          )}
         </div>
 
-        {/* Channels — grouped by category (Общее / Мосты / Районы) */}
+        {/* Channels — grouped by category (Общее / Мосты / Районы). Hidden in a private dialog. */}
+        {!isDirect && (
         <div className="flex flex-col gap-2 max-w-2xl mx-auto">
           {CHAT_CHANNEL_GROUPS.map((group) => {
             const groupChannels = channels.filter((c) => c.group === group.id);
@@ -162,6 +192,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
             );
           })}
         </div>
+        )}
       </div>
 
       {/* Message Feed */}
@@ -171,16 +202,22 @@ export const DriverChat: React.FC<DriverChatProps> = ({
             <div className="w-10 h-10 rounded-2xl bg-surface-700 border border-white/10 text-accent mx-auto flex items-center justify-center mb-3">
               <Radio className="w-5 h-5" />
             </div>
-            <p className="text-sm font-semibold text-white">В эфире пока тихо</p>
-            <p className="text-xs text-muted mt-1 mb-4">
-              Сообщите обстановку на вашем маршруте
+            <p className="text-sm font-semibold text-white">
+              {isDirect ? 'Личный диалог по вызову' : 'В эфире пока тихо'}
             </p>
-            <button
-              onClick={() => handleSendMessage('Всем привет! Как обстановка на дорогах?')}
-              className="px-4 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-medium rounded-xl transition active:scale-95"
-            >
-              Выйти в эфир
-            </button>
+            <p className="text-xs text-muted mt-1 mb-4">
+              {isDirect
+                ? 'Договоритесь здесь о деталях: место, время, цена.'
+                : 'Сообщите обстановку на вашем маршруте'}
+            </p>
+            {!isDirect && (
+              <button
+                onClick={() => handleSendMessage('Всем привет! Как обстановка на дорогах?')}
+                className="px-4 py-2 bg-accent hover:bg-accent-strong text-white text-xs font-medium rounded-xl transition active:scale-95"
+              >
+                Выйти в эфир
+              </button>
+            )}
           </div>
         ) : (
           messages.map((m) => {
@@ -260,7 +297,8 @@ export const DriverChat: React.FC<DriverChatProps> = ({
 
       {/* Composer Section */}
       <div className="p-3 sm:p-4 bg-surface-800/90 backdrop-blur-2xl border-t border-white/[0.08] max-w-2xl mx-auto w-full">
-        {/* Quick Driver Presets */}
+        {/* Quick Driver Presets — hidden in a private dialog */}
+        {!isDirect && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
           {driverPresets.map((preset) => (
             <button
@@ -272,6 +310,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
             </button>
           ))}
         </div>
+        )}
 
         {/* Input Bar */}
         <form
@@ -284,7 +323,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
           <div className="relative flex-1 flex items-center bg-graphite rounded-xl px-4 py-2 border border-white/[0.08] focus-within:border-accent/60 transition">
             <input
               type="text"
-              placeholder="Сообщение в эфир..."
+              placeholder={isDirect ? 'Личное сообщение…' : 'Сообщение в эфир...'}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               className="w-full text-xs sm:text-sm bg-transparent outline-none text-white placeholder:text-faint"

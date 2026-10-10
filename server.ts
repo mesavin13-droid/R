@@ -1461,6 +1461,23 @@ app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) 
     profiles.map((p) => [p.id, { full_name: p.full_name, level: p.level }])
   );
 
+  // Pending help-offers count per SOS — drives the "ищем помощь / N откликов"
+  // badges. Degrades to 0 when the offers table has not been migrated yet.
+  const offersCountByEvent = new Map<string, number>();
+  if (events.length) {
+    const { data: offerRows, error: offerErr } = await serverSupabase
+      .from('event_assistance_offers')
+      .select('event_id')
+      .in('event_id', events.map((ev: any) => ev.id))
+      .eq('status', 'pending');
+    if (offerErr && offerErr.code !== '42P01') {
+      console.warn('[Events] offers count failed:', offerErr.message);
+    }
+    for (const row of offerRows || []) {
+      offersCountByEvent.set(row.event_id, (offersCountByEvent.get(row.event_id) || 0) + 1);
+    }
+  }
+
   res.json({
     events: events.map((ev: any) => ({
       ...ev,
@@ -1468,6 +1485,7 @@ app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) 
       helper_tg_id: ev.helper_user_id ? tgByProfile.get(ev.helper_user_id) ?? null : null,
       author_name: profileById.get(ev.user_id)?.full_name || null,
       author_level: profileById.get(ev.user_id)?.level || null,
+      offers_count: offersCountByEvent.get(ev.id) ?? 0,
     })),
   });
 });
@@ -1703,6 +1721,387 @@ app.post('/api/events/:eventId/resolved', requireTelegramAuth, userRateLimit(10,
   }
 
   res.json({ event: result.data });
+});
+
+// ============================================================================
+// Assistance OFFERS — several drivers may offer help on one SOS call
+// ("бесплатно" / "за оплату" / "по договорённости"); the author accepts ONE.
+// ============================================================================
+
+function sanitizeOfferInput(input: any) {
+  if (!input || typeof input !== 'object') return null;
+  const offerKind = typeof input.offerKind === 'string' ? input.offerKind : '';
+  if (offerKind !== 'free' && offerKind !== 'paid' && offerKind !== 'negotiable') return null;
+  const priceNote = typeof input.priceNote === 'string' ? input.priceNote.trim().slice(0, 60) : '';
+  const message = typeof input.message === 'string' ? input.message.trim().slice(0, 300) : '';
+  return { offerKind, priceNote, message };
+}
+
+function offerKindLabel(kind: string, priceNote?: string | null): string {
+  if (kind === 'paid') return priceNote ? `за оплату · ${priceNote}` : 'за оплату';
+  if (kind === 'negotiable') return 'по договорённости';
+  return 'бесплатно';
+}
+
+// Enrich offer rows with the offering driver's Telegram identity and display
+// name — the client identifies drivers as `tg-<id>`, the DB stores UUIDs.
+async function offersToDtos(rows: any[]): Promise<any[]> {
+  if (!rows.length || !serverSupabase) return [];
+  const profileIds = [...new Set(rows.map((r) => r.helper_user_id).filter(Boolean))] as string[];
+  const [accResult, profResult] = await Promise.all([
+    serverSupabase.from('telegram_accounts').select('user_id, telegram_id').in('user_id', profileIds),
+    serverSupabase.from('profiles').select('id, full_name, level').in('id', profileIds),
+  ]);
+  const tgByProfile = new Map<string, number>(
+    (accResult.data || []).map((a: any) => [a.user_id, Number(a.telegram_id)])
+  );
+  const profileById = new Map<string, any>((profResult.data || []).map((p: any) => [p.id, p]));
+  return rows.map((row) => ({
+    id: row.id,
+    event_id: row.event_id,
+    helper_user_id: row.helper_user_id,
+    helper_tg_id: tgByProfile.get(row.helper_user_id) ?? null,
+    helper_name: profileById.get(row.helper_user_id)?.full_name || 'Водитель',
+    helper_level: profileById.get(row.helper_user_id)?.level || null,
+    offer_kind: row.offer_kind,
+    price_note: row.price_note,
+    message: row.message,
+    status: row.status,
+    created_at: row.created_at,
+    responded_at: row.responded_at,
+  }));
+}
+
+// The SOS author sees every offer, the assigned helper sees theirs, other
+// drivers only their own row (so they know whether they were accepted).
+function filterOffersForViewer(rows: any[], viewerProfileId: string, event: any): any[] {
+  if (event.user_id === viewerProfileId || event.helper_user_id === viewerProfileId) return rows;
+  return rows.filter((row) => row.helper_user_id === viewerProfileId);
+}
+
+async function loadOfferRows(eventId: string): Promise<{ rows: any[] }> {
+  const { data, error } = await serverSupabase!
+    .from('event_assistance_offers')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    // 42P01 = offers table missing (deployed before the migration ran) — degrade to empty.
+    if (error.code === '42P01') return { rows: [] };
+    throw error;
+  }
+  return { rows: data || [] };
+}
+
+// Telegram id linked to a driver profile (null when the driver has no link).
+async function telegramIdForProfile(profileId: string): Promise<number | null> {
+  if (!serverSupabase || !profileId) return null;
+  const { data } = await serverSupabase
+    .from('telegram_accounts')
+    .select('telegram_id')
+    .eq('user_id', profileId)
+    .maybeSingle();
+  return data?.telegram_id ? Number(data.telegram_id) : null;
+}
+
+app.get('/api/events/:eventId/offers', requireTelegramAuth, async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId) || !serverSupabase) return res.status(400).json({ error: 'Некорректный запрос' });
+  const session = (req as any).telegramSession as TelegramSession;
+  try {
+    const profileId = await resolveEventProfile(session);
+    const event = await loadEventForMutation(eventId);
+    if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+    const { rows } = await loadOfferRows(eventId);
+    res.json({
+      offers: await offersToDtos(filterOffersForViewer(rows, profileId, event)),
+      offers_count: rows.filter((row) => row.status === 'pending').length,
+    });
+  } catch (err: any) {
+    console.warn('[Offers] load failed:', err?.message);
+    res.status(500).json({ error: 'Не удалось загрузить отклики' });
+  }
+});
+
+app.post('/api/events/:eventId/offers', requireTelegramAuth, userRateLimit(20, 60_000), async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  if (!eventIdIsValid(eventId) || !serverSupabase) return res.status(400).json({ error: 'Некорректный запрос' });
+  const input = sanitizeOfferInput(req.body);
+  if (!input) return res.status(400).json({ error: 'Некорректные данные отклика' });
+  const session = (req as any).telegramSession as TelegramSession;
+
+  try {
+    const profileId = await resolveEventProfile(session);
+    const event = await loadEventForMutation(eventId);
+    if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+    if (event.type !== 'assistance') return res.status(400).json({ error: 'Отклики принимаются только на вызовы помощи' });
+    if (['resolved', 'archived', 'expired', 'hidden'].includes(event.status)) {
+      return res.status(409).json({ error: 'Вызов уже закрыт' });
+    }
+    if (event.user_id === profileId) return res.status(403).json({ error: 'Нельзя предлагать помощь на свой вызов' });
+    if (event.helper_user_id) return res.status(409).json({ error: 'Помощник уже выехал' });
+
+    const { data: existing } = await serverSupabase
+      .from('event_assistance_offers')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('helper_user_id', profileId)
+      .maybeSingle();
+    if (existing && (existing.status === 'pending' || existing.status === 'accepted')) {
+      return res.status(409).json({ error: 'Вы уже отправили отклик' });
+    }
+
+    const now = new Date().toISOString();
+    const values = {
+      offer_kind: input.offerKind,
+      price_note: input.priceNote || null,
+      message: input.message || null,
+      status: 'pending',
+    };
+    let row: any = null;
+    if (existing) {
+      const { data, error } = await serverSupabase
+        .from('event_assistance_offers')
+        .update({ ...values, created_at: now, responded_at: null })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      if (error || !data) return res.status(500).json({ error: 'Не удалось сохранить отклик' });
+      row = data;
+    } else {
+      const { data, error } = await serverSupabase
+        .from('event_assistance_offers')
+        .insert({ event_id: eventId, helper_user_id: profileId, ...values })
+        .select('*')
+        .single();
+      if (error || !data) {
+        // Table not created yet (migration pending) — tell the client clearly.
+        if (error?.code === '42P01') return res.status(503).json({ error: 'Отклики временно недоступны (миграция не применена)' });
+        console.warn('[Offers] insert failed:', error?.message);
+        return res.status(500).json({ error: 'Не удалось сохранить отклик' });
+      }
+      row = data;
+    }
+
+    // Tell the SOS author on Telegram that someone is offering help.
+    if (event.user_id && event.user_id !== profileId) {
+      try {
+        const authorTgId = await telegramIdForProfile(event.user_id);
+        if (authorTgId) {
+          const helperName = [session.user.first_name, session.user.last_name].filter(Boolean).join(' ').slice(0, 100) || 'Водитель';
+          await sendTelegramNotification(
+            authorTgId,
+            [
+              '🤝 <b>ROADLIVE: новый отклик на помощь</b>',
+              `🚗 ${helperName} предлагает помощь (${offerKindLabel(input.offerKind, input.priceNote)})`,
+              input.message ? `💬 ${input.message}` : '',
+              `🚗 ${String(event.title).slice(0, 200)}`,
+              String(event.address).slice(0, 255) ? `📍 ${String(event.address).slice(0, 255)}` : '',
+              `Открыть в приложении: https://roadlive.vercel.app/?event=${event.id}`,
+            ].filter(Boolean).join('\n')
+          );
+        }
+      } catch (err) {
+        console.warn('[Offers] author notification failed:', err);
+      }
+    }
+
+    const { rows } = await loadOfferRows(eventId).catch(() => ({ rows: [] as any[] }));
+    const [dto] = await offersToDtos([row]);
+    res.status(201).json({
+      offer: dto,
+      offers_count: rows.filter((r) => r.status === 'pending').length,
+    });
+  } catch (err: any) {
+    console.warn('[Offers] create failed:', err?.message);
+    res.status(500).json({ error: 'Не удалось отправить отклик' });
+  }
+});
+
+// The SOS author accepts one offer: that driver becomes events.helper_user_id,
+// every other pending offer is declined, both sides get a Telegram message.
+app.post('/api/events/:eventId/offers/:offerId/accept', requireTelegramAuth, userRateLimit(20, 60_000), async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  const offerId = req.params.offerId;
+  if (!eventIdIsValid(eventId) || !UUID_PATTERN.test(String(offerId)) || !serverSupabase) {
+    return res.status(400).json({ error: 'Некорректный запрос' });
+  }
+  const session = (req as any).telegramSession as TelegramSession;
+  try {
+    const profileId = await resolveEventProfile(session);
+    const event = await loadEventForMutation(eventId);
+    if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+    if (event.user_id !== profileId) return res.status(403).json({ error: 'Принимать отклики может только автор вызова' });
+    if (['resolved', 'archived', 'expired', 'hidden'].includes(event.status)) {
+      return res.status(409).json({ error: 'Вызов уже закрыт' });
+    }
+    if (event.helper_user_id) return res.status(409).json({ error: 'Помощник уже выбран' });
+
+    const { data: offer } = await serverSupabase
+      .from('event_assistance_offers')
+      .select('*')
+      .eq('id', offerId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!offer) return res.status(404).json({ error: 'Отклик не найден' });
+    if (offer.status !== 'pending') return res.status(409).json({ error: 'Отклик уже обработан' });
+
+    const now = new Date().toISOString();
+
+    // Snapshot the drivers who lose out BEFORE the bulk update, so we can notify them.
+    const { data: otherPending } = await serverSupabase
+      .from('event_assistance_offers')
+      .select('helper_user_id')
+      .eq('event_id', eventId)
+      .eq('status', 'pending')
+      .neq('id', offerId);
+
+    await serverSupabase
+      .from('event_assistance_offers')
+      .update({ status: 'declined', responded_at: now })
+      .eq('event_id', eventId)
+      .eq('status', 'pending')
+      .neq('id', offerId);
+
+    const { data: acceptedRow, error: acceptError } = await serverSupabase
+      .from('event_assistance_offers')
+      .update({ status: 'accepted', responded_at: now })
+      .eq('id', offerId)
+      .select('*')
+      .single();
+    if (acceptError || !acceptedRow) return res.status(500).json({ error: 'Не удалось принять отклик' });
+
+    const { data: helperProfile } = await serverSupabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', offer.helper_user_id)
+      .maybeSingle();
+    const helperName = helperProfile?.full_name || 'Водитель';
+
+    const { data: updatedEvent, error: eventError } = await serverSupabase
+      .from('events')
+      .update({ helper_user_id: offer.helper_user_id, helper_name: helperName, updated_at: now })
+      .eq('id', eventId)
+      .select('*')
+      .single();
+    if (eventError || !updatedEvent) return res.status(500).json({ error: 'Не удалось обновить вызов' });
+
+    // Telegram: the chosen helper, then everyone else who was waiting.
+    try {
+      const helperTgId = await telegramIdForProfile(offer.helper_user_id);
+      if (helperTgId) {
+        await sendTelegramNotification(
+          helperTgId,
+          [
+            '✅ <b>ROADLIVE: вас выбрали помощником</b>',
+            `🚗 ${String(event.title).slice(0, 200)}`,
+            String(event.address).slice(0, 255) ? `📍 ${String(event.address).slice(0, 255)}` : '',
+            `Условия: ${offerKindLabel(offer.offer_kind, offer.price_note)}`,
+            'Откройте карточку вызова и чат, чтобы договориться.',
+            `https://roadlive.vercel.app/?event=${event.id}`,
+          ].filter(Boolean).join('\n')
+        );
+      }
+    } catch (err) {
+      console.warn('[Offers] accepted-helper notification failed:', err);
+    }
+    try {
+      const losers = (otherPending || []).map((row: any) => row.helper_user_id).filter(Boolean) as string[];
+      for (const loserProfileId of losers) {
+        const tgId = await telegramIdForProfile(loserProfileId);
+        if (tgId) {
+          await sendTelegramNotification(
+            tgId,
+            `ℹ️ <b>ROADLIVE: автор выбрал другого помощника</b>\n🚗 ${String(event.title).slice(0, 200)} — ваш отклик снят. Спасибо за отзывчивость!`
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[Offers] declined-offers notification failed:', err);
+    }
+
+    const { rows } = await loadOfferRows(eventId).catch(() => ({ rows: [] as any[] }));
+    res.json({ event: updatedEvent, offers: await offersToDtos(rows) });
+  } catch (err: any) {
+    console.warn('[Offers] accept failed:', err?.message);
+    res.status(500).json({ error: 'Не удалось принять отклик' });
+  }
+});
+
+// The SOS author rejects one specific offer (the driver may re-offer later).
+app.post('/api/events/:eventId/offers/:offerId/decline', requireTelegramAuth, userRateLimit(30, 60_000), async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  const offerId = req.params.offerId;
+  if (!eventIdIsValid(eventId) || !UUID_PATTERN.test(String(offerId)) || !serverSupabase) {
+    return res.status(400).json({ error: 'Некорректный запрос' });
+  }
+  const session = (req as any).telegramSession as TelegramSession;
+  try {
+    const profileId = await resolveEventProfile(session);
+    const event = await loadEventForMutation(eventId);
+    if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+    if (event.user_id !== profileId) return res.status(403).json({ error: 'Отклонять отклики может только автор вызова' });
+
+    const { data: offer } = await serverSupabase
+      .from('event_assistance_offers')
+      .select('id, status')
+      .eq('id', offerId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!offer) return res.status(404).json({ error: 'Отклик не найден' });
+    if (offer.status !== 'pending') return res.status(409).json({ error: 'Отклик уже обработан' });
+
+    const { error } = await serverSupabase
+      .from('event_assistance_offers')
+      .update({ status: 'declined', responded_at: new Date().toISOString() })
+      .eq('id', offerId)
+      .eq('status', 'pending');
+    if (error) return res.status(500).json({ error: 'Не удалось отклонить отклик' });
+
+    const { rows } = await loadOfferRows(eventId);
+    res.json({ offers: await offersToDtos(filterOffersForViewer(rows, profileId, event)) });
+  } catch (err: any) {
+    console.warn('[Offers] decline failed:', err?.message);
+    res.status(500).json({ error: 'Не удалось отклонить отклик' });
+  }
+});
+
+// The offering driver cancels their own offer while it is still pending.
+app.post('/api/events/:eventId/offers/:offerId/withdraw', requireTelegramAuth, userRateLimit(30, 60_000), async (req: Request, res: Response) => {
+  const eventId = req.params.eventId;
+  const offerId = req.params.offerId;
+  if (!eventIdIsValid(eventId) || !UUID_PATTERN.test(String(offerId)) || !serverSupabase) {
+    return res.status(400).json({ error: 'Некорректный запрос' });
+  }
+  const session = (req as any).telegramSession as TelegramSession;
+  try {
+    const profileId = await resolveEventProfile(session);
+    const event = await loadEventForMutation(eventId);
+    if (!event) return res.status(404).json({ error: 'Событие не найдено' });
+
+    const { data: offer } = await serverSupabase
+      .from('event_assistance_offers')
+      .select('id, status, helper_user_id')
+      .eq('id', offerId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!offer) return res.status(404).json({ error: 'Отклик не найден' });
+    if (offer.helper_user_id !== profileId) return res.status(403).json({ error: 'Отозвать можно только свой отклик' });
+    if (offer.status !== 'pending') return res.status(409).json({ error: 'Отклик уже обработан' });
+
+    const { error } = await serverSupabase
+      .from('event_assistance_offers')
+      .update({ status: 'withdrawn', responded_at: new Date().toISOString() })
+      .eq('id', offerId)
+      .eq('status', 'pending');
+    if (error) return res.status(500).json({ error: 'Не удалось отозвать отклик' });
+
+    const { rows } = await loadOfferRows(eventId);
+    res.json({ offers: await offersToDtos(filterOffersForViewer(rows, profileId, event)) });
+  } catch (err: any) {
+    console.warn('[Offers] withdraw failed:', err?.message);
+    res.status(500).json({ error: 'Не удалось отозвать отклик' });
+  }
 });
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -2695,8 +3094,33 @@ async function persistChatReaction(messageId: string, emoji: string, telegramUse
   return true;
 }
 
+// Private per-call dialog channels (`event-<id>`) are only readable/writable by
+// the SOS author and the accepted helper — everyone else keeps using the public
+// radio channels.
+async function canAccessEventChannel(channelId: string, session: TelegramSession): Promise<boolean> {
+  if (!channelId.startsWith('event-')) return true;
+  const eventId = channelId.slice('event-'.length);
+  if (!eventIdIsValid(eventId) || !serverSupabase) return false;
+  try {
+    const profileId = await resolveEventProfile(session);
+    const { data: event } = await serverSupabase
+      .from('events')
+      .select('user_id, helper_user_id')
+      .eq('id', eventId)
+      .maybeSingle();
+    if (!event) return false;
+    return event.user_id === profileId || event.helper_user_id === profileId;
+  } catch {
+    return false;
+  }
+}
+
 app.get('/api/chat/messages', requireTelegramAuth, async (req: Request, res: Response) => {
   const channelId = typeof req.query.channelId === 'string' ? req.query.channelId.slice(0, 100) : undefined;
+  const session = (req as any).telegramSession as TelegramSession;
+  if (channelId && !(await canAccessEventChannel(channelId, session))) {
+    return res.status(403).json({ error: 'Нет доступа к этому диалогу' });
+  }
   res.json(await loadChatMessages(channelId));
 });
 
@@ -2711,6 +3135,9 @@ app.post('/api/chat/messages', rateLimit(60, 60_000), requireTelegramAuth, async
   }
   if (message.userId !== session.userId) {
     return res.status(403).json({ error: 'Нельзя отправлять сообщение от имени другого пользователя' });
+  }
+  if (!(await canAccessEventChannel(message.channelId, session))) {
+    return res.status(403).json({ error: 'Нет доступа к этому диалогу' });
   }
 
   const normalized = {

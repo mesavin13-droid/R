@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { RoadEvent, UserProfile } from '../../types';
+import React, { useEffect, useState } from 'react';
+import { AssistanceOffer, RoadEvent, UserProfile } from '../../types';
 import { 
   X, Check, Share2, 
   MapPin, Send, MessageCircle, AlertCircle, ShieldCheck, ShieldAlert
@@ -13,6 +13,8 @@ interface EventDetailSheetProps {
   currentUser: UserProfile;
   userCoords: { lat: number; lng: number } | null;
   onEventUpdated: (updatedEvent: RoadEvent) => void;
+  /** Open the private driver-to-driver dialog for this call. */
+  onOpenChat?: (ev: RoadEvent) => void;
 }
 
 export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
@@ -21,6 +23,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
   currentUser,
   userCoords,
   onEventUpdated,
+  onOpenChat,
 }) => {
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -31,7 +34,124 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
   const [isClosing, setIsClosing] = useState(false);
   const [showRemoteConfirmModal, setShowRemoteConfirmModal] = useState(false);
 
+  // Assistance offers: the live list of drivers offering help on this SOS call.
+  const [offers, setOffers] = useState<AssistanceOffer[]>([]);
+  const [isOfferFormOpen, setIsOfferFormOpen] = useState(false);
+  const [offerKind, setOfferKind] = useState<'free' | 'paid' | 'negotiable'>('free');
+  const [priceNote, setPriceNote] = useState('');
+  const [offerMessage, setOfferMessage] = useState('');
+  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false);
+  const [isOfferBusy, setIsOfferBusy] = useState(false);
+
+  // Poll the offers while the card is open — this is what makes the author see
+  // new responses "in real time" (WebSocket realtime is dead on Vercel).
+  useEffect(() => {
+    if (!event || event.type !== 'assistance') return;
+    let cancelled = false;
+    const load = () => {
+      EventService.fetchOffers(event.id)
+        .then((list) => {
+          if (!cancelled) setOffers(list);
+        })
+        .catch(() => {
+          // Keep the last known list on transient failures.
+        });
+    };
+    load();
+    const timer = setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [event?.id, event?.type]);
+
   if (!event) return null;
+
+  const isAuthor = event.userId === currentUser.id;
+  const pendingOffers = offers.filter((o) => o.status === 'pending');
+  const myLiveOffer = offers.find(
+    (o) => o.helperUserId === currentUser.id && (o.status === 'pending' || o.status === 'accepted')
+  );
+
+  const offerKindText = (offer: AssistanceOffer) => {
+    if (offer.offerKind === 'paid') return offer.priceNote ? `💰 ${offer.priceNote}` : '💰 За оплату';
+    if (offer.offerKind === 'negotiable') return '💬 По договорённости';
+    return '💚 Бесплатно';
+  };
+  const offerKindBadgeClass = (offer: AssistanceOffer) => {
+    if (offer.offerKind === 'paid') return 'bg-warning/15 text-warning border-warning/25';
+    if (offer.offerKind === 'negotiable') return 'bg-accent/15 text-accent border-accent/25';
+    return 'bg-success/15 text-success border-success/25';
+  };
+
+  const flashNotice = (text: string) => {
+    setNotice(text);
+    setTimeout(() => setNotice(null), 4000);
+  };
+
+  const handleSendOffer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmittingOffer) return;
+    setIsSubmittingOffer(true);
+    try {
+      const offer = await EventService.createOffer(event.id, currentUser, {
+        offerKind,
+        priceNote: offerKind === 'paid' ? priceNote.trim() : undefined,
+        message: offerMessage.trim() || undefined,
+      });
+      setOffers((prev) => [...prev.filter((o) => o.helperUserId !== offer.helperUserId), offer]);
+      setOfferMessage('');
+      setPriceNote('');
+      setIsOfferFormOpen(false);
+      flashNotice('✓ Отклик отправлен — автор вызова получил уведомление!');
+    } catch (err) {
+      flashNotice(err instanceof Error ? err.message : 'Не удалось отправить отклик');
+    } finally {
+      setIsSubmittingOffer(false);
+    }
+  };
+
+  const handleAcceptOffer = async (offer: AssistanceOffer) => {
+    if (isOfferBusy) return;
+    setIsOfferBusy(true);
+    try {
+      const updated = await EventService.acceptOffer(event.id, offer.id, currentUser.id);
+      onEventUpdated(updated);
+      flashNotice(`✓ ${offer.helperName} выезжает к вам! Откройте чат, чтобы договориться.`);
+    } catch (err) {
+      flashNotice(err instanceof Error ? err.message : 'Не удалось принять отклик');
+    } finally {
+      setIsOfferBusy(false);
+    }
+  };
+
+  const handleDeclineOffer = async (offer: AssistanceOffer) => {
+    if (isOfferBusy) return;
+    setIsOfferBusy(true);
+    try {
+      const list = await EventService.declineOffer(event.id, offer.id, currentUser.id);
+      setOffers(list);
+      flashNotice(`Отклик «${offer.helperName}» отклонён`);
+    } catch (err) {
+      flashNotice(err instanceof Error ? err.message : 'Не удалось отклонить отклик');
+    } finally {
+      setIsOfferBusy(false);
+    }
+  };
+
+  const handleWithdrawOffer = async () => {
+    if (!myLiveOffer || isOfferBusy) return;
+    setIsOfferBusy(true);
+    try {
+      const list = await EventService.withdrawOffer(event.id, myLiveOffer.id, currentUser.id);
+      setOffers(list);
+      flashNotice('Отклик отозван');
+    } catch (err) {
+      flashNotice(err instanceof Error ? err.message : 'Не удалось отозвать отклик');
+    } finally {
+      setIsOfferBusy(false);
+    }
+  };
 
   const handleAnimatedClose = () => {
     setIsClosing(true);
@@ -255,36 +375,179 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
 
           {event.type === 'assistance' && (
             <div className="p-3.5 rounded-2xl bg-danger/15 border border-danger/35 space-y-2.5 animate-in fade-in">
-              <div className="flex items-center gap-2 text-xs font-bold text-danger">
-                <span className="text-base">🆘</span>
-                <span>Запрос взаимовыручки водителей!</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-danger">
+                  <span className="text-base">🆘</span>
+                  <span>{event.helperUserId ? 'Помощь в пути!' : 'Ищем помощь!'}</span>
+                </div>
+                {!event.helperUserId && (event.offersCount ?? pendingOffers.length) > 0 && (
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-danger text-white shrink-0">
+                    📡 {event.offersCount ?? pendingOffers.length} откликов
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-ink leading-relaxed">
                 Водителю необходима помощь с аккумулятором, тросом, колесом или топливом.
               </p>
 
-              {/* Case 1: No helper has responded yet */}
-              {!event.helperUserId && (
-                <button
-                  onClick={async () => {
-                    try {
-                      const updated = await EventService.respondToAssistance(event.id, currentUser);
-                      onEventUpdated(updated);
-                      setNotice('🤝 Вы выехали на помощь — автор получил уведомление!');
-                    } catch (err) {
-                      setNotice(err instanceof Error ? err.message : 'Не удалось отправить отклик');
-                    }
-                    setTimeout(() => setNotice(null), 4000);
-                  }}
-                  className="w-full py-2.5 px-3 rounded-xl bg-danger hover:bg-danger-strong text-white text-xs font-bold transition active:scale-95 shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>🤝 Выехать на помощь водителю</span>
-                </button>
+              {/* The SOS author watches the offers come in and picks one */}
+              {isAuthor && !event.helperUserId && (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-white font-semibold">
+                    📡 Отклики водителей (в реальном времени):
+                  </p>
+                  {pendingOffers.length === 0 ? (
+                    <p className="text-[11px] text-white/70 text-center py-2 rounded-lg bg-white/5 border border-white/10">
+                      Пока откликов нет — водители в радиусе 15 км видят ваш SOS-баннер.
+                    </p>
+                  ) : (
+                    pendingOffers.map((offer) => (
+                      <div key={offer.id} className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-white font-bold truncate">🤝 {offer.helperName}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${offerKindBadgeClass(offer)}`}>
+                            {offerKindText(offer)}
+                          </span>
+                        </div>
+                        {offer.message && (
+                          <p className="text-[11px] text-white/80 leading-snug">💬 {offer.message}</p>
+                        )}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleAcceptOffer(offer)}
+                            disabled={isOfferBusy}
+                            className="py-1.5 rounded-lg bg-success hover:bg-success-bright text-white text-[11px] font-bold transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Согласиться</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeclineOffer(offer)}
+                            disabled={isOfferBusy}
+                            className="py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-[11px] font-semibold transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                          >
+                            <span>✗ Отказать</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* Another driver: send an offer (free / paid / negotiable) */}
+              {!isAuthor && !event.helperUserId && (
+                <div className="space-y-2">
+                  {myLiveOffer && myLiveOffer.status === 'pending' ? (
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-1 text-center">
+                      <p className="text-[11px] text-white font-semibold">
+                        ⏳ Отклик отправлен — ждём решения автора
+                      </p>
+                      <p className="text-[10px] text-white/70">
+                        {offerKindText(myLiveOffer)}
+                        {myLiveOffer.message ? ` · «${myLiveOffer.message}»` : ''}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleWithdrawOffer}
+                        disabled={isOfferBusy}
+                        className="text-[11px] text-danger font-semibold underline underline-offset-2 cursor-pointer disabled:opacity-50"
+                      >
+                        Отозвать отклик
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {myLiveOffer && myLiveOffer.status === 'declined' && (
+                        <p className="text-[11px] text-white/70 text-center">
+                          Автор не выбрал вас — можно предложить помощь снова.
+                        </p>
+                      )}
+                      {!isOfferFormOpen ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsOfferFormOpen(true)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-danger hover:bg-danger-strong text-white text-xs font-bold transition active:scale-95 shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <span>🤝 Предложить помощь</span>
+                        </button>
+                      ) : (
+                        <form onSubmit={handleSendOffer} className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                          <p className="text-[11px] text-white font-semibold">Как вы предлагаете помочь?</p>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {([
+                              { id: 'free' as const, label: '💚 Бесплатно' },
+                              { id: 'paid' as const, label: '💰 За оплату' },
+                              { id: 'negotiable' as const, label: '💬 Договорная' },
+                            ]).map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setOfferKind(opt.id)}
+                                className={`py-1.5 px-1 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
+                                  offerKind === opt.id
+                                    ? 'bg-danger text-white border-danger'
+                                    : 'bg-white/5 text-white/80 border-white/15 hover:bg-white/10'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                          {offerKind === 'paid' && (
+                            <input
+                              type="text"
+                              value={priceNote}
+                              onChange={(e) => setPriceNote(e.target.value)}
+                              maxLength={60}
+                              placeholder="Сумма, например: 1500 ₽"
+                              className="w-full px-2.5 py-2 rounded-lg bg-white/5 border border-white/15 text-xs text-white placeholder-white/40 focus:outline-none focus:border-danger/60"
+                            />
+                          )}
+                          <textarea
+                            rows={2}
+                            value={offerMessage}
+                            onChange={(e) => setOfferMessage(e.target.value)}
+                            maxLength={300}
+                            placeholder="Комментарий: «Буду через 10 минут, у меня трос»"
+                            className="w-full px-2.5 py-2 rounded-lg bg-white/5 border border-white/15 text-xs text-white placeholder-white/40 focus:outline-none focus:border-danger/60 resize-none"
+                          />
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setIsOfferFormOpen(false)}
+                              className="py-2 rounded-lg bg-white/10 text-white text-[11px] font-semibold hover:bg-white/15 transition cursor-pointer"
+                            >
+                              Отмена
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isSubmittingOffer}
+                              className="py-2 rounded-lg bg-danger hover:bg-danger-strong text-white text-[11px] font-bold transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                            >
+                              {isSubmittingOffer ? 'Отправляем…' : 'Отправить отклик'}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
 
               {/* Case 2: Current user is the registered helper */}
               {event.helperUserId === currentUser.id && (
                 <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => onOpenChat?.(event)}
+                    className="w-full py-2 px-3 rounded-lg bg-telegram hover:opacity-90 text-white text-xs font-bold transition active:scale-95 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>Договориться в чате с автором</span>
+                  </button>
                   <p className="text-[11px] text-white font-medium">
                     Вы выехали на помощь! Подтвердите завершение:
                   </p>
@@ -322,6 +585,14 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
                   <p className="text-[11px] text-accent font-semibold">
                     🤝 {event.helperName} едет к вам на помощь!
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => onOpenChat?.(event)}
+                    className="w-full py-2 px-3 rounded-lg bg-telegram hover:opacity-90 text-white text-xs font-bold transition active:scale-95 shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>Открыть чат с {event.helperName}</span>
+                  </button>
                   <button
                     onClick={async () => {
                       try {

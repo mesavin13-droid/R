@@ -104,6 +104,31 @@ export interface RoadEvent {
   helperName?: string;
   creatorConfirmedResolved?: boolean;
   helperConfirmedResolved?: boolean;
+  /** Number of pending help offers for this SOS (from the server). */
+  offersCount?: number;
+  /** Live list of help offers, loaded/refreshed by EventDetailSheet. */
+  offers?: AssistanceOffer[];
+}
+
+/** How an offering driver proposes to help on a SOS call. */
+export type AssistanceOfferKind = 'free' | 'paid' | 'negotiable';
+
+export type AssistanceOfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+
+export interface AssistanceOffer {
+  id: string;
+  eventId: string;
+  /** `tg-<id>` — same identity space as RoadEvent.userId/helperUserId. */
+  helperUserId: string;
+  helperName: string;
+  helperLevel?: UserLevel;
+  offerKind: AssistanceOfferKind;
+  /** Price / remark for paid offers, e.g. "1500 ₽". */
+  priceNote?: string;
+  message?: string;
+  status: AssistanceOfferStatus;
+  createdAt: string;
+  respondedAt?: string;
 }
 
 export interface QuestionAnswer {

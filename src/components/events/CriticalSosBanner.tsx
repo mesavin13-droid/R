@@ -9,7 +9,6 @@ interface CriticalSosBannerProps {
   /** The signed-in driver (`tg-<id>`). Used to hide their OWN SOS from the banner. */
   currentUserId?: string;
   onSelectEvent: (ev: RoadEvent) => void;
-  onRespondHelp?: (ev: RoadEvent) => void;
 }
 
 /**
@@ -23,7 +22,6 @@ export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
   userCoords,
   currentUserId,
   onSelectEvent,
-  onRespondHelp,
 }) => {
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
 
@@ -131,19 +129,18 @@ export const CriticalSosBanner: React.FC<CriticalSosBannerProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (onRespondHelp && !latestSos.helperUserId) {
-                onRespondHelp(latestSos);
-              } else {
-                // Someone is already on the way — just open the card.
-                onSelectEvent(latestSos);
-              }
+              // Opens the card where the driver fills in their offer
+              // (free / paid / negotiable) and watches the author's response.
+              onSelectEvent(latestSos);
             }}
             className="py-1.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-danger font-bold text-[11px] shadow-sm transition active:scale-95 flex items-center justify-center gap-1 cursor-pointer"
           >
             {latestSos.helperUserId ? (
               <span>🤝 Уже едут</span>
+            ) : latestSos.offersCount ? (
+              <span>📡 Смотреть отклики</span>
             ) : (
-              <span>🤝 Еду помочь</span>
+              <span>🤝 Предложить помощь</span>
             )}
           </button>
         </div>

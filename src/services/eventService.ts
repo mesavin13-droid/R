@@ -1,4 +1,4 @@
-import { EventComment, EventConfirmation, EventType, RoadEvent, UserProfile } from '../types';
+import { AssistanceOffer, AssistanceOfferKind, EventComment, EventConfirmation, EventType, RoadEvent, UserProfile } from '../types';
 import { localRealtime } from '../lib/supabase';
 import { NotificationService } from './notificationService';
 import { TelegramService } from './telegramService';
@@ -46,8 +46,27 @@ export class EventService {
       helperName: row.helper_name || undefined,
       creatorConfirmedResolved: Boolean(row.creator_confirmed_resolved),
       helperConfirmedResolved: Boolean(row.helper_confirmed_resolved),
+      offersCount: row.offers_count != null ? Number(row.offers_count) : undefined,
       comments: [],
       confirmations: [],
+    };
+  }
+
+  /** Map a server row of `event_assistance_offers` (enriched) to the client type. */
+  private static fromServerOffer(row: any): AssistanceOffer {
+    const helperTgId = row.helper_tg_id ? String(row.helper_tg_id) : '';
+    return {
+      id: String(row.id),
+      eventId: String(row.event_id),
+      helperUserId: helperTgId ? `tg-${helperTgId}` : String(row.helper_user_id),
+      helperName: row.helper_name || 'Водитель',
+      helperLevel: row.helper_level || undefined,
+      offerKind: (row.offer_kind || 'free') as AssistanceOfferKind,
+      priceNote: row.price_note || undefined,
+      message: row.message || undefined,
+      status: row.status,
+      createdAt: row.created_at,
+      respondedAt: row.responded_at || undefined,
     };
   }
 
@@ -761,6 +780,209 @@ export class EventService {
     this.persist();
     localRealtime.broadcast('events_channel', { type: 'UPDATE', event });
     return event;
+  }
+
+  /**
+   * Load the live help-offers list for a SOS call. The server filters visibility
+   * (the author sees every offer; other drivers only their own).
+   */
+  static async fetchOffers(eventId: string): Promise<AssistanceOffer[]> {
+    this.initialize();
+    if (TelegramService.isTelegramWebApp()) {
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/offers`, {
+        credentials: 'include',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось загрузить отклики');
+      const offers: AssistanceOffer[] = Array.isArray(payload?.offers)
+        ? payload.offers.map((row: any) => this.fromServerOffer(row))
+        : [];
+      const event = this.events.find((e) => e.id === eventId);
+      if (event) {
+        event.offers = offers;
+        event.offersCount =
+          typeof payload?.offers_count === 'number'
+            ? payload.offers_count
+            : offers.filter((o) => o.status === 'pending').length;
+        this.persist();
+      }
+      return offers;
+    }
+    return this.events.find((e) => e.id === eventId)?.offers || [];
+  }
+
+  /**
+   * Offer help on a SOS call ("предложить помощь"): free / paid / negotiable.
+   * The server notifies the SOS author on Telegram — so this is awaited.
+   */
+  static async createOffer(
+    eventId: string,
+    user: UserProfile,
+    input: { offerKind: AssistanceOfferKind; priceNote?: string; message?: string }
+  ): Promise<AssistanceOffer> {
+    this.initialize();
+    this.assertMutationIdentity(user.id);
+    if (TelegramService.isTelegramWebApp()) {
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/offers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(input),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось отправить отклик');
+      const offer = payload?.offer ? this.fromServerOffer(payload.offer) : null;
+      if (!offer) throw new Error('Сервер не вернул отклик');
+      const event = this.events.find((e) => e.id === eventId);
+      if (event) {
+        event.offers = [...(event.offers || []).filter((o) => o.helperUserId !== offer.helperUserId), offer];
+        event.offersCount = event.offers.filter((o) => o.status === 'pending').length;
+        this.persist();
+        localRealtime.broadcast('events_channel', { type: 'UPDATE', event });
+      }
+      return offer;
+    }
+
+    const event = this.events.find((e) => e.id === eventId);
+    if (!event) throw new Error('Событие не найдено');
+    const offer: AssistanceOffer = {
+      id: `offer-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      eventId,
+      helperUserId: user.id,
+      helperName: user.fullName,
+      helperLevel: user.level,
+      offerKind: input.offerKind,
+      priceNote: input.priceNote?.slice(0, 60) || undefined,
+      message: input.message?.slice(0, 300) || undefined,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    event.offers = [...(event.offers || []).filter((o) => o.helperUserId !== user.id), offer];
+    event.offersCount = event.offers.filter((o) => o.status === 'pending').length;
+    this.persist();
+    localRealtime.broadcast('events_channel', { type: 'UPDATE', event });
+    return offer;
+  }
+
+  /** The SOS author accepts one offer — that driver becomes the helper. */
+  static async acceptOffer(eventId: string, offerId: string, userId: string): Promise<RoadEvent> {
+    this.initialize();
+    this.assertMutationIdentity(userId);
+    if (TelegramService.isTelegramWebApp()) {
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
+      const response = await fetch(
+        `/api/events/${encodeURIComponent(eventId)}/offers/${encodeURIComponent(offerId)}/accept`,
+        { method: 'POST', credentials: 'include' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось принять отклик');
+      const updated = payload?.event ? this.fromServerEvent(payload.event) : null;
+      if (!updated) throw new Error('Сервер не вернул обновлённое событие');
+      const local = this.events.find((e) => e.id === updated.id);
+      if (local && Array.isArray(payload?.offers)) {
+        updated.offers = payload.offers.map((row: any) => this.fromServerOffer(row));
+        updated.offersCount = (updated.offers || []).filter((o) => o.status === 'pending').length;
+      } else if (local) {
+        updated.offers = local.offers;
+      }
+      this.events = this.events.map((e) => (e.id === updated.id ? updated : e));
+      this.persist();
+      localRealtime.broadcast('events_channel', { type: 'UPDATE', event: updated });
+      return updated;
+    }
+
+    const event = this.events.find((e) => e.id === eventId);
+    const offer = event?.offers?.find((o) => o.id === offerId);
+    if (!event || !offer) throw new Error('Отклик не найден');
+    if (event.userId !== userId) throw new Error('Принимать отклики может только автор вызова');
+    if (event.helperUserId) throw new Error('Помощник уже выбран');
+    const now = new Date().toISOString();
+    offer.status = 'accepted';
+    offer.respondedAt = now;
+    for (const other of event.offers || []) {
+      if (other.id !== offerId && other.status === 'pending') {
+        other.status = 'declined';
+        other.respondedAt = now;
+      }
+    }
+    event.helperUserId = offer.helperUserId;
+    event.helperName = offer.helperName;
+    event.offersCount = 0;
+    this.persist();
+    localRealtime.broadcast('events_channel', { type: 'UPDATE', event });
+    return event;
+  }
+
+  /** The SOS author rejects a specific offer. */
+  static async declineOffer(eventId: string, offerId: string, userId: string): Promise<AssistanceOffer[]> {
+    this.initialize();
+    this.assertMutationIdentity(userId);
+    if (TelegramService.isTelegramWebApp()) {
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
+      const response = await fetch(
+        `/api/events/${encodeURIComponent(eventId)}/offers/${encodeURIComponent(offerId)}/decline`,
+        { method: 'POST', credentials: 'include' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось отклонить отклик');
+      const offers: AssistanceOffer[] = Array.isArray(payload?.offers)
+        ? payload.offers.map((row: any) => this.fromServerOffer(row))
+        : [];
+      const event = this.events.find((e) => e.id === eventId);
+      if (event) {
+        event.offers = offers;
+        event.offersCount = offers.filter((o) => o.status === 'pending').length;
+        this.persist();
+      }
+      return offers;
+    }
+
+    const event = this.events.find((e) => e.id === eventId);
+    const offer = event?.offers?.find((o) => o.id === offerId);
+    if (!event || !offer) throw new Error('Отклик не найден');
+    if (event.userId !== userId) throw new Error('Отклонять отклики может только автор вызова');
+    offer.status = 'declined';
+    offer.respondedAt = new Date().toISOString();
+    event.offersCount = (event.offers || []).filter((o) => o.status === 'pending').length;
+    this.persist();
+    return event.offers || [];
+  }
+
+  /** The offering driver cancels their own offer. */
+  static async withdrawOffer(eventId: string, offerId: string, userId: string): Promise<AssistanceOffer[]> {
+    this.initialize();
+    this.assertMutationIdentity(userId);
+    if (TelegramService.isTelegramWebApp()) {
+      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
+      const response = await fetch(
+        `/api/events/${encodeURIComponent(eventId)}/offers/${encodeURIComponent(offerId)}/withdraw`,
+        { method: 'POST', credentials: 'include' }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Не удалось отозвать отклик');
+      const offers: AssistanceOffer[] = Array.isArray(payload?.offers)
+        ? payload.offers.map((row: any) => this.fromServerOffer(row))
+        : [];
+      const event = this.events.find((e) => e.id === eventId);
+      if (event) {
+        event.offers = offers;
+        event.offersCount = offers.filter((o) => o.status === 'pending').length;
+        this.persist();
+      }
+      return offers;
+    }
+
+    const event = this.events.find((e) => e.id === eventId);
+    const offer = event?.offers?.find((o) => o.id === offerId);
+    if (!event || !offer) throw new Error('Отклик не найден');
+    if (offer.helperUserId !== userId) throw new Error('Отозвать можно только свой отклик');
+    offer.status = 'withdrawn';
+    offer.respondedAt = new Date().toISOString();
+    event.offersCount = (event.offers || []).filter((o) => o.status === 'pending').length;
+    this.persist();
+    return event.offers || [];
   }
 
   /**
