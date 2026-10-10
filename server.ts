@@ -1139,7 +1139,7 @@ app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, userRateLi
 });
 
 // --- AUTHORITATIVE ROAD EVENT API ---
-const EVENT_TYPES = new Set(['crossing','accident','patrol','fuel','road','traffic_light','hazard','other']);
+const EVENT_TYPES = new Set(['crossing','accident','patrol','fuel','road','traffic_light','hazard','assistance','question','other']);
 const UUID_INPUT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG_INPUT = /^[a-z0-9-]{1,100}$/;
 

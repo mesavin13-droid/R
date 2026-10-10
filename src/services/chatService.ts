@@ -51,11 +51,30 @@ export class ChatService {
       if (!response.ok) return;
       const rows = await response.json();
       if (!Array.isArray(rows)) return;
-      this.messages = rows;
+
+      // Merge instead of overwriting: only append genuinely new messages and
+      // update reaction counts on ones we already have. Overwriting the whole
+      // array every poll made the chat list flicker and re-trigger listeners
+      // constantly (which read like the screen "reloading"). Merging keeps the
+      // UI stable and only notifies when something actually changed.
+      let changed = false;
+      for (const row of rows) {
+        if (!row || typeof row.id !== 'string') continue;
+        const existing = this.messages.find((m) => m.id === row.id);
+        if (!existing) {
+          this.messages.push(row);
+          changed = true;
+        } else if (JSON.stringify(existing.reactions || {}) !== JSON.stringify(row.reactions || {})) {
+          existing.reactions = row.reactions || {};
+          changed = true;
+        }
+      }
+
+      if (!changed) return;
+
+      this.messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       this.persist();
-      this.listeners.forEach((fn) => {
-        if (rows.length) fn(rows[rows.length - 1]);
-      });
+      this.listeners.forEach((fn) => fn(rows[rows.length - 1]));
     } catch (err) {
       console.warn('[Chat] Server refresh failed:', err);
     }

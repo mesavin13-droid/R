@@ -57,7 +57,16 @@ export const DriverChat: React.FC<DriverChatProps> = ({
   }, [selectedChannelId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-scroll when the user is already near the bottom. Previously the
+    // poll re-rendered every 5s and yanked the view to the bottom, which felt
+    // like the screen kept reloading/jumping while reading older messages.
+    const el = messagesEndRef.current;
+    if (!el) return;
+    const nearBottom =
+      window.innerHeight + window.scrollY >= document.body.scrollHeight - 200;
+    if (nearBottom) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   const handleSendMessage = async (textToSend?: string) => {
