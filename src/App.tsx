@@ -462,9 +462,8 @@ export default function App() {
               setActiveTab('map');
               setIsPinPickerMode(true);
             }}
-            onOpenQuickSos={() => setIsQuickSosOpen(true)}
             onOpenAskQuestion={() => setIsAskQuestionOpen(true)}
-            onOpenChat={() => setActiveTab('chat')}
+            onOpenRoute={() => setActiveTab('route')}
             onRecenter={handleRecenter}
             targetLocation={targetLocation}
             isPinPickerMode={isPinPickerMode}
@@ -718,6 +717,7 @@ export default function App() {
             setSelectedEvent(null);
             setSelectedStation(null);
           }}
+          onSosClick={() => setIsQuickSosOpen(true)}
           questionsBadgeCount={questions.filter((q) => q.answersCount === 0).length}
         />
       )}

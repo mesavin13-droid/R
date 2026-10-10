@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { RoadEvent, FuelStation, DriverQuestion, RoutePlan, SponsoredBanner } from '../../types';
 import { 
-  Navigation, Plus, HelpCircle, MessageSquare, 
+  Navigation, Plus, HelpCircle, Route as RouteIcon,
   MapPin, Check, X, ShieldCheck, ShieldAlert
 } from 'lucide-react';
 import { YandexMapsService } from '../../services/yandexMapsService';
@@ -23,9 +23,9 @@ interface RoadMapProps {
   onSelectStation: (station: FuelStation) => void;
   onSelectQuestion: (question: DriverQuestion) => void;
   onOpenCreateEvent: () => void;
-  onOpenQuickSos?: () => void;
   onOpenAskQuestion: () => void;
-  onOpenChat?: () => void;
+  /** Opens the route planner (moved here from the bottom navigation). */
+  onOpenRoute?: () => void;
   onRecenter: () => void;
   targetLocation?: { lat: number; lng: number } | null;
   // Interactive Pin Placement Mode
@@ -48,9 +48,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   onSelectStation,
   onSelectQuestion,
   onOpenCreateEvent,
-  onOpenQuickSos,
   onOpenAskQuestion,
-  onOpenChat,
+  onOpenRoute,
   onRecenter,
   targetLocation,
   isPinPickerMode = false,
@@ -747,7 +746,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           <button
             type="button"
             onClick={handleRecenterMap}
-            className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl graphite-glass text-accent hover:bg-white/10 active:scale-90 transition border border-accent/50 shadow-[0_12px_32px_rgba(0,0,0,0.5)] cursor-pointer"
+            className="rl-icon-btn rl-icon-btn-accent"
             title="Моё местоположение"
             aria-label="Переместить карту к моему текущему местоположению"
           >
@@ -763,49 +762,35 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           role="toolbar"
           aria-label="Быстрые действия на дороге"
         >
-          {/* Quick SOS Call Button */}
-          {onOpenQuickSos && (
+          {/* Route Planner Capsule («Маршрут» — moved here from the bottom nav) */}
+          {onOpenRoute && (
             <button
               type="button"
-              onClick={onOpenQuickSos}
-              className="pointer-events-auto flex items-center justify-center gap-1.5 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-2xl bg-danger/90 hover:bg-danger-strong text-white font-bold text-xs sm:text-sm border border-red-400/50 shadow-[0_0_20px_rgba(255,59,48,0.5)] active:scale-95 transition cursor-pointer animate-pulse shrink-0"
-              title="Быстрый вызов помощи на дороге (SOS)"
-              aria-label="Экстренный вызов помощи на дороге SOS"
+              onClick={onOpenRoute}
+              className="rl-btn rl-btn-soft pointer-events-auto flex-1 px-3.5 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm"
+              aria-label="Построить маршрут и посмотреть события на пути"
             >
-              <span className="text-sm sm:text-base leading-none">🆘</span>
-              <span>SOS</span>
+              <RouteIcon className="w-4 h-4 shrink-0 stroke-[2.2]" />
+              <span>Маршрут</span>
             </button>
           )}
 
-          {/* Live Chat Capsule ("Эфир") */}
-          {onOpenChat && (
-            <button
-              type="button"
-              onClick={onOpenChat}
-              className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-surface-750 text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-info/50 active:scale-95 transition-all duration-200 cursor-pointer"
-              aria-label="Открыть прямой дорожный автоэфир и чат"
-            >
-              <MessageSquare className="w-4 h-4 text-info shrink-0 stroke-[2.2]" />
-              <span>Эфир</span>
-            </button>
-          )}
-
-          {/* Ask Question Capsule ("Спросить") */}
+          {/* Ask Question Capsule */}
           <button
             type="button"
             onClick={onOpenAskQuestion}
-            className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-surface-750 text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-info/50 active:scale-95 transition-all duration-200 cursor-pointer"
+            className="rl-btn rl-btn-soft pointer-events-auto flex-1 px-3.5 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm"
             aria-label="Задать вопрос другим водителям в этой локации"
           >
             <HelpCircle className="w-4 h-4 text-info shrink-0 stroke-[2.2]" />
             <span>Спросить</span>
           </button>
 
-          {/* Primary Report Action Button ("Сообщить") */}
+          {/* Primary Report Action Button */}
           <button
             type="button"
             onClick={onOpenCreateEvent}
-            className="pointer-events-auto flex-1 flex items-center justify-center gap-2 px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl graphite-glass hover:bg-surface-750 text-white font-semibold text-xs sm:text-sm border border-white/12 shadow-[0_8px_28px_rgba(0,0,0,0.5)] hover:border-info/50 active:scale-95 transition-all duration-200 cursor-pointer"
+            className="rl-btn rl-btn-primary pointer-events-auto flex-[1.3] px-3.5 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm"
             aria-label="Сообщить о событии, ДТП, переезде или контроле на дороге"
           >
             <Plus className="w-4 h-4 text-info shrink-0 stroke-[2.5]" />

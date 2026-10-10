@@ -58,7 +58,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       aria-label="Верхняя панель навигации и фильтрации ROADLIVE"
     >
       {/* 1. Mobile-Perfect Glass Deck: Left Brand Logo -> Middle Marquee -> Right Profile */}
-      <div className="pointer-events-auto relative w-full flex items-center gap-2 graphite-glass rounded-2xl px-2.5 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] border border-white/10 z-20">
+      <div className="pointer-events-auto relative w-full flex items-center gap-2 graphite-glass rounded-2xl px-2.5 py-1.5 z-20">
         
         {/* Left Brand Service Logo (R) */}
         <button
@@ -169,11 +169,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               role="tab"
               aria-selected={isSelected}
               aria-label={`Фильтр карты: ${cat.label}`}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer shrink-0 active:scale-95 shadow-xs border ${
-                isSelected
-                  ? 'bg-graphite-950/90 text-white border-info shadow-[0_0_12px_rgba(56,189,248,0.4)] font-semibold'
-                  : 'bg-graphite-950/70 hover:bg-surface-blue text-muted hover:text-white border-white/10 backdrop-blur-md'
-              }`}
+              className={`rl-chip ${isSelected ? 'rl-chip-active' : ''}`}
             >
               <IconComp className="w-3.5 h-3.5" style={{ color: isSelected ? colors.info : cat.color }} aria-hidden="true" />
               <span>{cat.label}</span>

@@ -1,74 +1,78 @@
 @import "tailwindcss";
 
 /*
- * ROADLIVE design tokens — single source of truth.
+ * ROADLIVE «RoadOS» design tokens — single source of truth.
  * Every colour the UI uses is declared once here and consumed as a semantic
  * Tailwind utility (bg-graphite, text-muted, border-accent, …). Components
  * must NOT hard-code hex values; changing the palette means editing this block
  * only. Keep names semantic (role), never literal (blue-500).
  */
 @theme {
-  /* Surfaces / backgrounds */
-  --color-graphite: #111315;      /* app background */
-  --color-graphite-950: #0b111e;  /* deepest */
-  --color-graphite-900: #14171b;  /* overlays */
-  --color-surface-800: #181b1f;   /* cards, dark panels */
-  --color-surface-750: #1e232b;
-  --color-surface-700: #20242a;   /* raised surface */
-  --color-surface-600: #282d35;   /* hover surface */
+  /* Fonts — Inter for crisp Cyrillic, system stack as fallback */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", Roboto, sans-serif;
+
+  /* Surfaces / backgrounds — deep blue-graphite base */
+  --color-graphite: #0b111e;      /* app background */
+  --color-graphite-950: #070c16;  /* deepest */
+  --color-graphite-900: #101726;  /* overlays */
+  --color-surface-800: #131b2c;   /* cards, dark panels */
+  --color-surface-750: #182135;
+  --color-surface-700: #1d2740;   /* raised surface */
+  --color-surface-600: #25314f;   /* hover surface */
 
   /* Brand accent (primary interactive) */
-  --color-accent: #4b8dff;
-  --color-accent-strong: #3c7ae6;
-  --color-accent-soft: rgba(75, 141, 255, 0.15);
+  --color-accent: #4fa8ff;
+  --color-accent-strong: #3b8ef0;
+  --color-accent-soft: rgba(79, 168, 255, 0.15);
 
   /* Informational / categorical */
   --color-info: #38bdf8;
   --color-info-2: #30b0c7;
-  --color-telegram: #24a1de;
+  --color-telegram: #2a9fe0;
   --color-purple: #af52de;
   --color-purple-2: #c084fc;
 
   /* Status */
-  --color-success: #34c759;
+  --color-success: #32d17d;
   --color-warning: #e5a93c;
   --color-warning-strong: #ff9f0a;
   --color-amber: #ffd60a;
-  --color-danger: #ff453a;
+  --color-danger: #ff4d55;
   --color-danger-strong: #e03126;
   --color-danger-alt: #ff3b30;   /* legacy red, kept for one-off accents */
   --color-danger-soft: #ff8a80;
 
   /* Text */
-  --color-ink: #f0f2f5;          /* primary text */
-  --color-muted: #9aa0a8;        /* secondary text */
-  --color-faint: #5f656d;        /* tertiary / inactive */
-  --color-faintest: #555a60;     /* disabled / hints */
+  --color-ink: #eaf0fa;          /* primary text */
+  --color-muted: #93a1b8;        /* secondary text */
+  --color-faint: #5a6b85;        /* tertiary / inactive */
+  --color-faintest: #4c5a70;     /* disabled / hints */
 
   /* Extra surface tints used by gradients & panels (kept for fidelity) */
-  --color-surface-900: #121519;  /* inset channel card */
-  --color-surface-850: #1c2026;
-  --color-surface-650: #282e36;
-  --color-surface-blue: #151d2a; /* blue-tinted dark panel */
-  --color-graphite-925: #1c2433; /* deep blue-graphite */
-  --color-accent-deep: #2a5bd7;  /* gradient end of the brand accent */
+  --color-surface-900: #0e1420;  /* inset channel card */
+  --color-surface-850: #162033;
+  --color-surface-650: #2b3757;
+  --color-surface-blue: #11203a; /* blue-tinted dark panel */
+  --color-graphite-925: #16223b; /* deep blue-graphite */
+  --color-accent-deep: #2563eb;  /* gradient end of the brand accent */
   --color-success-bright: #30d158;
 }
 
 @layer base {
   :root {
-    --bg-graphite: #111315;
-    --bg-dark-graphite: #181B1F;
-    --bg-surface: #20242A;
-    --glass-bg: rgba(25, 29, 34, 0.78);
-    --glass-sheet: rgba(20, 23, 27, 0.94);
+    --bg-graphite: #0b111e;
+    --bg-dark-graphite: #131b2c;
+    --bg-surface: #1d2740;
+    --glass-bg: rgba(16, 23, 38, 0.78);
+    --glass-sheet: rgba(13, 19, 32, 0.94);
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-border-strong: rgba(255, 255, 255, 0.14);
-    --accent-blue: #4B8DFF;
-    --accent-blue-soft: rgba(75, 141, 255, 0.15);
-    --text-primary: #F0F2F5;
-    --text-secondary: #9AA0A8;
-    --text-muted: #717881;
+    --accent-blue: #4fa8ff;
+    --accent-blue-soft: rgba(79, 168, 255, 0.15);
+    --text-primary: #eaf0fa;
+    --text-secondary: #93a1b8;
+    --text-muted: #6b7a94;
   }
 
   /* Accessible focus ring for keyboard/assistive-navigation users.
@@ -99,7 +103,9 @@
     position: fixed;
     background-color: var(--bg-graphite);
     color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+      "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     user-select: none;
@@ -133,7 +139,7 @@
 
   /* Premium Graphite Glassmorphism Utilities */
   .graphite-glass {
-    background: rgba(25, 29, 34, 0.82);
+    background: var(--glass-bg);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.10);
@@ -141,7 +147,7 @@
   }
 
   .graphite-glass-card {
-    background: rgba(24, 27, 31, 0.86);
+    background: var(--glass-sheet);
     backdrop-filter: blur(28px) saturate(190%);
     -webkit-backdrop-filter: blur(28px) saturate(190%);
     border: 1px solid rgba(255, 255, 255, 0.10);
@@ -166,6 +172,329 @@
       0 -6px 18px -2px rgba(0, 0, 0, 0.45),
       0 0 0 1px rgba(255, 255, 255, 0.08), 
       inset 0 1px 0 0 rgba(255, 255, 255, 0.20);
+  }
+}
+
+/* ============================================================
+   RoadOS shared components (@layer components)
+   The visual skeleton every screen is built from: cards, buttons,
+   chips, inputs, sheet headers. Utilities still override these.
+   ============================================================ */
+@layer components {
+  /* Full-screen tab header: bold title, muted subtitle, hairline rule */
+  .page-header {
+    background: linear-gradient(
+      180deg,
+      rgba(19, 27, 44, 0.96) 0%,
+      rgba(11, 17, 30, 0.88) 100%
+    );
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  /* Elevated card */
+  .rl-card {
+    background: linear-gradient(
+      165deg,
+      rgba(29, 39, 64, 0.6) 0%,
+      rgba(19, 27, 44, 0.92) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 20px;
+    box-shadow:
+      0 10px 30px -12px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Buttons — base + variants */
+  .rl-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border-radius: 16px;
+    transition:
+      transform 0.15s ease,
+      filter 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .rl-btn:active {
+    transform: scale(0.97);
+  }
+  .rl-btn:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .rl-btn-primary {
+    background: linear-gradient(
+      135deg,
+      var(--color-accent) 0%,
+      var(--color-accent-deep) 100%
+    );
+    color: #fff;
+    box-shadow:
+      0 8px 24px -8px rgba(79, 168, 255, 0.55),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
+  }
+  .rl-btn-primary:hover {
+    filter: brightness(1.08);
+  }
+
+  .rl-btn-soft {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
+    color: var(--color-ink);
+  }
+  .rl-btn-soft:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(79, 168, 255, 0.4);
+  }
+
+  .rl-btn-danger {
+    background: linear-gradient(
+      135deg,
+      var(--color-danger) 0%,
+      var(--color-danger-strong) 100%
+    );
+    color: #fff;
+  /* Icon-only square button (map zoom / recenter controls) */
+  .rl-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--radius-xl);
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    color: var(--color-ink);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    transition:
+      background 0.15s ease,
+      transform 0.1s ease,
+      border-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+  }
+  @media (min-width: 640px) {
+    .rl-icon-btn {
+      width: 3rem;
+      height: 3rem;
+    }
+  }
+  .rl-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .rl-icon-btn:active {
+    transform: scale(0.9);
+  }
+  .rl-icon-btn-accent {
+    color: var(--color-accent);
+    border-color: rgba(79, 168, 255, 0.5);
+  }
+
+  /* Raised SOS beacon (bottom navigation centre button) */
+  .rl-sos {
+    position: absolute;
+    top: -1.5rem;
+    width: 58px;
+    height: 58px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(
+      145deg,
+      var(--color-danger-soft) 0%,
+      var(--color-danger-strong) 100%
+    );
+    box-shadow:
+      0 10px 28px -6px rgba(255, 77, 85, 0.6),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+      0 0 0 4px var(--bg-graphite);
+    transition: transform 0.1s ease;
+    cursor: pointer;
+  }
+  .rl-sos:active {
+    transform: scale(0.9);
+  }
+  .rl-sos:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .rl-sos-ping {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle,
+      rgba(255, 77, 85, 0.35) 0%,
+      transparent 70%
+    );
+    animation: ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+    box-shadow:
+      0 8px 24px -8px rgba(255, 77, 85, 0.55),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+  }
+
+  /* Category / filter chip */
+  .rl-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: var(--color-muted);
+    transition: all 0.18s ease;
+    cursor: pointer;
+  }
+  .rl-chip:hover {
+    color: var(--color-ink);
+    background: rgba(255, 255, 255, 0.09);
+  }
+  .rl-chip-active {
+    background: linear-gradient(
+      135deg,
+      var(--color-accent) 0%,
+      var(--color-accent-deep) 100%
+    );
+    border-color: transparent;
+    color: #fff;
+    font-weight: 600;
+    box-shadow:
+      0 6px 20px -6px rgba(79, 168, 255, 0.6),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+  }
+  .rl-chip-active:hover {
+    background: linear-gradient(
+      135deg,
+      var(--color-accent) 0%,
+      var(--color-accent-deep) 100%
+    );
+    color: #fff;
+    filter: brightness(1.06);
+  }
+
+  /* Text field */
+  .rl-input {
+    width: 100%;
+    background: rgba(7, 12, 22, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    color: var(--color-ink);
+    font-size: 16px; /* prevents iOS zoom */
+    transition:
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+  .rl-input::placeholder {
+    color: var(--color-faint);
+  }
+  .rl-input:focus {
+    outline: none;
+    border-color: rgba(79, 168, 255, 0.65);
+    box-shadow: 0 0 0 3px rgba(79, 168, 255, 0.18);
+  }
+
+  /* Bottom-sheet header: grabber + title row */
+  .rl-sheet-header {
+    position: relative;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background: linear-gradient(
+      180deg,
+      rgba(29, 39, 64, 0.5) 0%,
+      rgba(13, 19, 32, 0.2) 100%
+    );
+  }
+  .rl-sheet-header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(79, 168, 255, 0.45),
+      transparent
+    );
+  }
+}
+
+/* ============================================================
+   Enter-animation shims (tw-animate-css is NOT installed).
+   Components across the app rely on `animate-in fade-in`,
+   `slide-in-from-*`, `zoom-in-*` — define them here.
+   Keyframes use `transform`, which composes with Tailwind v4's
+   individual `translate`/`scale` utilities on the same element.
+   ============================================================ */
+@keyframes rl-enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate(
+        var(--tw-enter-translate-x, 0),
+        var(--tw-enter-translate-y, 0)
+      )
+      scale(var(--tw-enter-scale, 1));
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    --tw-enter-opacity: 1;
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 1;
+    animation: rl-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .fade-in {
+    --tw-enter-opacity: 0;
+  }
+  .zoom-in-90 {
+    --tw-enter-scale: 0.9;
+  }
+  .zoom-in-95 {
+    --tw-enter-scale: 0.95;
+  }
+  .slide-in-from-top {
+    --tw-enter-translate-y: -100%;
+  }
+  .slide-in-from-top-3 {
+    --tw-enter-translate-y: -0.75rem;
+  }
+  .slide-in-from-top-4 {
+    --tw-enter-translate-y: -1rem;
+  }
+  .slide-in-from-bottom {
+    --tw-enter-translate-y: 100%;
+  }
+  .slide-in-from-bottom-3 {
+    --tw-enter-translate-y: 0.75rem;
+  }
+  .slide-in-from-right-3 {
+    --tw-enter-translate-x: 1rem;
+  }
+  .slide-in-from-left-3 {
+    --tw-enter-translate-x: -1rem;
   }
 }
 
@@ -239,7 +568,7 @@
 .yandex-map-container {
   width: 100%;
   height: 100%;
-  background-color: #111315 !important;
+  background-color: #0b111e !important;
 }
 
 /* Custom Graphite Dark Mode CSS Filters for Map Tiles & Vector Canvas */
@@ -275,7 +604,7 @@
   width: 100%;
   height: 100%;
   font-family: inherit;
-  background-color: #111315 !important;
+  background-color: #0b111e !important;
 }
 
 .custom-event-marker,
@@ -293,8 +622,8 @@
 .leaflet-control-attribution,
 [class*="ymaps-2-1"][class*="-copyrights-pane"] {
   font-size: 8px !important;
-  color: #5F656D !important;
-  background: rgba(17, 19, 21, 0.95) !important;
+  color: #5a6b85 !important;
+  background: rgba(11, 17, 30, 0.95) !important;
   padding: 1px 6px !important;
   border-radius: 6px 0 0 0 !important;
   margin: 0 !important;
@@ -305,7 +634,7 @@
 
 .leaflet-control-attribution a,
 [class*="ymaps-2-1"][class*="-copyright__link"] {
-  color: #9AA0A8 !important;
+  color: #93a1b8 !important;
   text-decoration: none;
 }
 

@@ -8,46 +8,46 @@
  * mirrors it for the imperative/canvas cases only.
  */
 export const colors = {
-  /* Surfaces */
-  graphite: '#111315',
-  graphite950: '#0b111e',
-  graphite900: '#14171b',
-  graphite925: '#1c2433',
-  surface800: '#181b1f',
-  surface750: '#1e232b',
-  surface700: '#20242a',
-  surface650: '#282e36',
-  surface600: '#282d35',
-  surfaceBlue: '#151d2a',
+  /* Surfaces — deep blue-graphite base */
+  graphite: '#0b111e',
+  graphite950: '#070c16',
+  graphite900: '#101726',
+  graphite925: '#16223b',
+  surface800: '#131b2c',
+  surface750: '#182135',
+  surface700: '#1d2740',
+  surface650: '#2b3757',
+  surface600: '#25314f',
+  surfaceBlue: '#11203a',
 
   /* Brand accent */
-  accent: '#4b8dff',
-  accentStrong: '#3c7ae6',
-  accentDeep: '#2a5bd7',
+  accent: '#4fa8ff',
+  accentStrong: '#3b8ef0',
+  accentDeep: '#2563eb',
 
   /* Categorical */
   info: '#38bdf8',
   info2: '#30b0c7',
-  telegram: '#24a1de',
+  telegram: '#2a9fe0',
   roadBlue: '#60a5fa',
   purple: '#af52de',
   purple2: '#c084fc',
 
   /* Status */
-  success: '#34c759',
+  success: '#32d17d',
   successBright: '#30d158',
   warning: '#e5a93c',
   warningStrong: '#ff9f0a',
   amber: '#ffd60a',
-  danger: '#ff453a',
+  danger: '#ff4d55',
   dangerStrong: '#e03126',
   dangerSoft: '#ff8a80',
 
   /* Text */
-  ink: '#f0f2f5',
-  muted: '#9aa0a8',
-  faint: '#5f656d',
-  faintest: '#555a60',
+  ink: '#eaf0fa',
+  muted: '#93a1b8',
+  faint: '#5a6b85',
+  faintest: '#4c5a70',
 } as const;
 
 /** Map-event category palette, keyed by the ids used across TopHeader & RoadMap. */
