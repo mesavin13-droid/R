@@ -58,7 +58,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       aria-label="Верхняя панель навигации и фильтрации ROADLIVE"
     >
       {/* 1. Mobile-Perfect Glass Deck: Left Brand Logo -> Middle Marquee -> Right Profile */}
-      <div className="pointer-events-auto relative w-full flex items-center gap-2 graphite-glass rounded-2xl px-2.5 py-1.5 z-20">
+      <div className="pointer-events-auto relative w-full flex items-center gap-2 graphite-glass rl-map-brand-deck rounded-2xl px-2.5 py-1.5 z-20">
         
         {/* Left Brand Service Logo (R) */}
         <button
