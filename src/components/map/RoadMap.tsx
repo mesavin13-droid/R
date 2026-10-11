@@ -432,7 +432,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           { hintContent: ev.title },
           {
             iconLayout: layout,
-            iconShape: { type: 'Rectangle', coordinates: [[-22, -44], [22, 0]] },
+            iconShape: { type: 'Circle', coordinates: [0, 0], radius: 21 },
             zIndex: ev.status === 'active' ? 500 : 300,
           }
         );
@@ -464,7 +464,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           { hintContent: st.name },
           {
             iconLayout: layout,
-            iconShape: { type: 'Rectangle', coordinates: [[-22, -44], [22, 0]] },
+            iconShape: { type: 'Circle', coordinates: [0, 0], radius: 21 },
             zIndex: 400,
           }
         );
