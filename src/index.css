@@ -703,3 +703,109 @@
     0 8px 26px rgba(0, 0, 0, 0.48),
     inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
+
+
+/* ROAD LIVE category pins — metallic teardrops with legible captions.
+   Horizontal scrolling is deliberate: no squeezing labels into tiny pills. */
+.rl-category-filter-rail {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 7px 5px 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(7, 12, 22, 0.94);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  backdrop-filter: blur(20px) saturate(145%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.rl-category-filter-rail::-webkit-scrollbar { display: none; }
+.rl-category-filter {
+  position: relative;
+  display: flex;
+  flex: 0 0 68px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  min-width: 0;
+  padding: 0 1px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .16s ease, color .16s ease;
+}
+.rl-category-filter:active { transform: scale(.95); }
+.rl-category-pin {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 57px;
+  height: 65px;
+  flex: 0 0 65px;
+  isolation: isolate;
+}
+.rl-category-pin-shell {
+  position: absolute;
+  inset: 0;
+  width: 57px;
+  height: 65px;
+  overflow: visible;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .45));
+}
+.rl-category-pin-icon {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4));
+  pointer-events: none;
+}
+.rl-category-pin-glow {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 43px;
+  height: 43px;
+  border: 1px solid rgba(79, 168, 255, .65);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(79, 168, 255, .2), inset 0 0 10px rgba(79, 168, 255, .08);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.rl-category-filter-label {
+  display: block;
+  width: 100%;
+  min-height: 23px;
+  padding: 0 1px;
+  color: #A7B4C9;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.rl-category-filter-active .rl-category-filter-label { color: #FFFFFF; font-weight: 700; }
+.rl-category-filter:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+@media (min-width: 420px) {
+  .rl-category-filter { flex-basis: 72px; }
+  .rl-category-filter-label { font-size: 10.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rl-category-filter, .rl-category-pin-shell { transition: none !important; }
+}
