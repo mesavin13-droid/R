@@ -614,7 +614,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         <>
           {/* The chosen marker stays at the map centre; move the map underneath it. */}
           <div className="absolute inset-0 pointer-events-none z-30">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
               {pinPickerType ? (
                 <div
                   className="rl-placement-marker"
@@ -648,8 +648,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
                   <circle cx="24" cy="24" r="4.5" fill="white"/>
                 </svg>
               )}
-              <div className="w-8 h-2 rounded-full bg-black/50 blur-[2px] mt-1" />
             </div>
+            <div className="absolute left-1/2 top-[calc(50%+27px)] -translate-x-1/2 w-8 h-2 rounded-full bg-black/50 blur-[2px]" />
             <div className="absolute left-1/2 top-[calc(50%-57px)] -translate-x-1/2">
               <div className="px-3.5 py-1.5 rounded-full bg-surface-800/95 backdrop-blur-xl border border-accent/60 shadow-[0_8px_28px_rgba(0,0,0,0.75)] text-white text-xs font-semibold flex items-center gap-2 whitespace-nowrap">
                 <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
