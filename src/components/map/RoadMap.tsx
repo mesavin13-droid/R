@@ -331,10 +331,15 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
   // Sync Markers on Map Engine
   useEffect(() => {
+    // Include every field that changes a rendered pin, its position, or its
+    // hint. Otherwise a status/subtype/coordinate edit can leave stale marker SVG.
     const currentDataHash = JSON.stringify([
-      events.map((e) => `${e.id}-${e.status}-${e.confirmationCount}-${e.comments?.length || 0}`),
-      stations.map((s) => `${s.id}-${s.queueStatus}`),
-      questions.map((q) => `${q.id}-${q.answersCount}`),
+      events.map((e) => [
+        e.id, e.type, e.subType, e.latitude, e.longitude, e.status,
+        e.confirmationCount, e.comments?.length || 0, e.title,
+      ]),
+      stations.map((s) => [s.id, s.latitude, s.longitude, s.queueStatus, s.name]),
+      questions.map((q) => [q.id, q.latitude, q.longitude, q.answersCount, q.question]),
     ]);
 
     if (prevDataHashRef.current === currentDataHash) {
@@ -478,7 +483,10 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           { hintContent: st.name },
           {
             iconLayout: layout,
-            iconShape: { type: 'Circle', coordinates: [0, 0], radius: 21 },
+            // The same category-shaped pin as road events: latitude/longitude
+            // attaches to the pointed tip, while the active area covers the head.
+            iconOffset: [-32, -68],
+            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 21 },
             zIndex: 400,
           }
         );
