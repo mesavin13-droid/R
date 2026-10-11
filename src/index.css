@@ -574,10 +574,10 @@
 }
 
 /* Custom Graphite Dark Mode CSS Filters for Map Tiles & Vector Canvas */
+/* Filter only the basemap tiles, never the map root or shared pane wrapper.
+   A filter on an ancestor also inverts custom SVG event markers and cluster badges. */
 .yandex-map-container [class*="ground-pane"],
-.yandex-map-container [class*="map-inner-panes"],
 .yandex-map-container [class*="places-pane"] > canvas,
-.graphite-dark-map-tiles,
 .leaflet-tile-pane,
 .leaflet-tile {
   filter: invert(100%) hue-rotate(180deg) brightness(0.72) contrast(1.22) saturate(0.80) !important;
@@ -808,4 +808,28 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .rl-category-filter, .rl-category-pin-shell { transition: none !important; }
+}
+
+
+/* Category marker shown during report placement. */
+.rl-placement-marker {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, .55));
+  animation: rl-placement-float 1.8s ease-in-out infinite;
+}
+.rl-placement-marker > div,
+.rl-placement-marker svg {
+  width: 48px !important;
+  height: 48px !important;
+}
+@keyframes rl-placement-float {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rl-placement-marker { animation: none; }
 }
