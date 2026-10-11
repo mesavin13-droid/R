@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   ShieldAlert, AlertTriangle, LifeBuoy, Fuel, Construction, 
-  HelpCircle, Compass, ShieldCheck, Navigation, Disc, Radio
+  HelpCircle, Compass, ShieldCheck, Navigation, Disc, Radio, CarFront, Truck, CircleHelp
 } from 'lucide-react';
 import { HolidayDecorator } from '../common/HolidayDecorator';
 import { EventType, UserProfile, SponsoredBanner, RoadEvent } from '../../types';
@@ -41,13 +41,15 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
   const categories = [
     { id: 'all', label: 'Все', icon: Compass, color: colors.info },
-    { id: 'assistance', label: 'Помощь SOS', icon: LifeBuoy, color: colors.danger },
     { id: 'crossing', label: 'Переезд', icon: Construction, color: colors.warningStrong },
-    { id: 'accident', label: 'ДТП', icon: AlertTriangle, color: colors.danger },
-    { id: 'patrol', label: 'Контроль', icon: ShieldCheck, color: colors.info2 },
-    { id: 'fuel', label: 'АЗС', icon: Fuel, color: colors.purple },
-    { id: 'road', label: 'Дорога', icon: Navigation, color: colors.roadBlue },
+    { id: 'accident', label: 'ДТП', icon: CarFront, color: colors.danger },
+    { id: 'patrol', label: 'Дорожный контроль', icon: ShieldCheck, color: colors.info2 },
+    { id: 'fuel', label: 'АЗС', icon: Fuel, color: colors.success },
+    { id: 'road', label: 'Дорога / ремонт', icon: Navigation, color: colors.roadBlue },
     { id: 'traffic_light', label: 'Светофор', icon: Disc, color: colors.amber },
+    { id: 'hazard', label: 'Препятствие', icon: Truck, color: colors.warningStrong },
+    { id: 'assistance', label: 'Помощь SOS', icon: LifeBuoy, color: colors.danger },
+    { id: 'other', label: 'Другое', icon: CircleHelp, color: colors.muted },
     { id: 'question', label: 'Вопросы', icon: HelpCircle, color: colors.purple2 },
   ];
 
@@ -152,15 +154,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. Horizontal Scrollable Category Filter Chips Bar (on a dim scrim so chips read on the bright map) */}
+      {/* 2. Scrollable category pins — large visual targets on narrow Telegram screens */}
       <div
-        className="pointer-events-auto isolate flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1.5 px-2 w-full rounded-2xl bg-graphite-950/95 backdrop-blur-xl border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+        className="rl-category-filter-rail pointer-events-auto"
         role="tablist"
-        aria-label="Фильтры категорий событий на карте"
+        aria-label="Категории дорожных событий на карте"
       >
         {categories.map((cat) => {
           const isSelected = selectedCategory === cat.id;
           const IconComp = cat.icon;
+          const pinId = cat.id.replace(/[^a-z0-9_-]/gi, '-');
           return (
             <button
               key={cat.id}
@@ -169,10 +172,34 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               role="tab"
               aria-selected={isSelected}
               aria-label={`Фильтр карты: ${cat.label}`}
-              className={`rl-chip ${isSelected ? 'rl-chip-active' : ''}`}
+              title={cat.label}
+              className={`rl-category-filter ${isSelected ? 'rl-category-filter-active' : ''}`}
             >
-              <IconComp className="w-3.5 h-3.5" style={{ color: isSelected ? colors.info : cat.color }} aria-hidden="true" />
-              <span>{cat.label}</span>
+              <span className="rl-category-pin">
+                <svg className="rl-category-pin-shell" viewBox="0 0 64 72" aria-hidden="true">
+                  <defs>
+                    <linearGradient id={`rl-category-housing-${pinId}`} x1="8" y1="2" x2="54" y2="68" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#526681" />
+                      <stop offset=".22" stopColor="#1A2639" />
+                      <stop offset=".72" stopColor="#080D17" />
+                      <stop offset="1" stopColor="#344A68" />
+                    </linearGradient>
+                    <linearGradient id={`rl-category-rim-${pinId}`} x1="11" y1="4" x2="51" y2="54" gradientUnits="userSpaceOnUse">
+                      <stop stopColor={isSelected ? "#B8D9FF" : "#91A4C0"} />
+                      <stop offset=".45" stopColor={isSelected ? colors.accent : "#526681"} />
+                      <stop offset="1" stopColor={isSelected ? colors.accentDeep : "#283A52"} />
+                    </linearGradient>
+                  </defs>
+                  <path d="M32 68S7 43 7 25a25 25 0 1 1 50 0C57 43 32 68 32 68Z" fill={`url(#rl-category-housing-${pinId})`} stroke={isSelected ? colors.accent : "#70829C"} strokeWidth={isSelected ? "1.8" : "1.2"} />
+                  <circle cx="32" cy="25" r="20" fill={`url(#rl-category-housing-${pinId})`} stroke={`url(#rl-category-rim-${pinId})`} strokeWidth={isSelected ? "2.8" : "1.8"} />
+                  <circle cx="32" cy="25" r="16.5" fill="#0C1421" stroke="#415470" strokeWidth=".8" />
+                  <path d="M19 12.5a18 18 0 0 1 23-1.2" fill="none" stroke="#F5F8FF" strokeOpacity=".52" strokeWidth="1.1" strokeLinecap="round" />
+                  <path d="M20 48 32 64 44 48" fill="none" stroke="#03070D" strokeOpacity=".55" strokeWidth="1.2" />
+                </svg>
+                <IconComp className="rl-category-pin-icon" style={{ color: "#EAF1FC" }} aria-hidden="true" />
+                {isSelected && <span className="rl-category-pin-glow" aria-hidden="true" />}
+              </span>
+              <span className="rl-category-filter-label">{cat.label}</span>
             </button>
           );
         })}
