@@ -676,3 +676,17 @@
 }
 
 
+
+
+/* Keep floating map actions fully above BottomNav and Telegram/iOS safe-area.
+   BottomNav is 62px tall plus its safe-area padding; this leaves a small,
+   consistent visual gap instead of letting the action buttons tuck under it. */
+.rl-map-action-deck {
+  bottom: calc(5rem + max(env(safe-area-inset-bottom, 0px), 8px));
+}
+
+@media (min-width: 640px) {
+  .rl-map-action-deck {
+    bottom: 5rem;
+  }
+}
