@@ -1,10 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EventType, UserProfile, RoadEvent } from '../../types';
 import { 
   X, MapPin, AlertCircle, ArrowLeft, Check, Navigation, ShieldCheck, ShieldAlert, Map as MapIcon
 } from 'lucide-react';
 import { EventService } from '../../services/eventService';
 import { GeocodingService } from '../../services/geocodingService';
+
+
+const EVENT_TYPE_DEFAULTS: Record<EventType, { subType: string; title: string }> = {
+  assistance: { subType: 'other_help', title: 'Нужна помощь водителей 🤝' },
+  road: { subType: 'repair', title: 'Ремонт дороги' },
+  crossing: { subType: 'closed', title: 'Переезд закрыт' },
+  accident: { subType: 'minor', title: 'Мелкое ДТП' },
+  patrol: { subType: 'check', title: 'Дорожный контроль' },
+  traffic_light: { subType: 'broken', title: 'Светофор не работает' },
+  hazard: { subType: 'obstacle', title: 'Препятствие на дороге' },
+  fuel: { subType: 'none', title: 'АЗС: очереди нет' },
+  other: { subType: 'other', title: 'Дорожная обстановка' },
+};
 
 interface CreateEventModalProps {
   isOpen: boolean;
@@ -14,6 +27,7 @@ interface CreateEventModalProps {
   onEventCreated: (event: RoadEvent) => void;
   initialCoords?: { lat: number; lng: number } | null;
   initialAddress?: string;
+  initialType?: EventType | null;
   onReopenPinPicker?: () => void;
 }
 
@@ -25,6 +39,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   onEventCreated,
   initialCoords,
   initialAddress,
+  initialType = null,
   onReopenPinPicker,
 }) => {
   const [step, setStep] = useState<1 | 2>(1);
@@ -42,6 +57,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishedNotice, setPublishedNotice] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<RoadEvent | null>(null);
+  const appliedInitialTypeRef = useRef<EventType | null>(null);
 
   // Sync initial coords & address
   useEffect(() => {
@@ -61,6 +77,36 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
       });
     }
   }, [initialCoords, initialAddress, userCoords, isOpen]);
+
+  // Prefill the detail form when the user has already picked the marker category.
+  // If they return to the map, preserve the typed draft when the modal opens again.
+  useEffect(() => {
+    if (!isOpen) {
+      if (!initialType) appliedInitialTypeRef.current = null;
+      return;
+    }
+
+    if (!initialType) {
+      appliedInitialTypeRef.current = null;
+      setStep(1);
+      setSelectedType(null);
+      setSubType('');
+      setTitle('');
+      return;
+    }
+
+    if (appliedInitialTypeRef.current === initialType) return;
+    const preset = EVENT_TYPE_DEFAULTS[initialType];
+    setStep(2);
+    setSelectedType(initialType);
+    setSubType(preset.subType);
+    setTitle(preset.title);
+    setDescription('');
+    setDirection('');
+    setDuplicateWarning(null);
+    setPublishedNotice(false);
+    appliedInitialTypeRef.current = initialType;
+  }, [isOpen, initialType]);
 
   // Compute distance from user GPS
   const distanceFromUserMeters = userCoords
@@ -259,7 +305,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                {step > 1 && (
+                {step > 1 && !initialType && (
                   <button
                     onClick={() => setStep(1)}
                     className="p-1.5 text-muted hover:text-white rounded-full transition active:scale-95"
@@ -432,6 +478,15 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
               {step === 2 && (
                 <form onSubmit={handleManualSubmit} className="space-y-3.5">
+                  {initialType && (
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-accent/10 border border-accent/25">
+                      <MapPin className="w-4 h-4 text-accent shrink-0" />
+                      <span className="text-xs text-white font-semibold">
+                        {categories.find((category) => category.type === selectedType)?.label.replace(/^\S+\s/, '') || 'Выбранная категория'}
+                      </span>
+                      <span className="text-[10px] text-muted ml-auto">Метка выбрана на карте</span>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-medium text-muted mb-1">
                       Заголовок события

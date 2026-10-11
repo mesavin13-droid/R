@@ -28,6 +28,7 @@ import { AboutServiceModal } from './components/common/AboutServiceModal';
 import { SubscriptionGate } from './components/gate/SubscriptionGate';
 import { OnboardingTutorial } from './components/common/OnboardingTutorial';
 import { SponsoredDetailModal } from './components/ads/SponsoredDetailModal';
+import { ReportTypePicker } from './components/events/ReportTypePicker';
 import { AdService } from './services/adService';
 import { SponsoredBanner } from './types';
 
@@ -52,6 +53,8 @@ export default function App() {
 
   // Pin Picker & Modals
   const [isPinPickerMode, setIsPinPickerMode] = useState(false);
+  const [isReportTypePickerOpen, setIsReportTypePickerOpen] = useState(false);
+  const [selectedReportType, setSelectedReportType] = useState<EventType | null>(null);
   const [pinPickerTarget, setPinPickerTarget] = useState<'event' | 'question'>('event');
   const [pickedLocation, setPickedLocation] = useState<{
     coords: { lat: number; lng: number };
@@ -483,13 +486,14 @@ export default function App() {
             onOpenCreateEvent={() => {
               setPinPickerTarget('event');
               setActiveTab('map');
-              setIsPinPickerMode(true);
+              setIsReportTypePickerOpen(true);
             }}
             onOpenAskQuestion={() => setIsAskQuestionOpen(true)}
             onOpenRoute={() => setActiveTab('route')}
             onRecenter={handleRecenter}
             targetLocation={targetLocation}
             isPinPickerMode={isPinPickerMode}
+            pinPickerType={pinPickerTarget === 'event' ? selectedReportType : null}
             onSosClosed={(updated) => {
               setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
               setSelectedEvent((prev) => (prev && prev.id === updated.id ? updated : prev));
@@ -504,7 +508,10 @@ export default function App() {
                 setIsCreateEventOpen(true);
               }
             }}
-            onCancelPinPicker={() => setIsPinPickerMode(false)}
+            onCancelPinPicker={() => {
+              setIsPinPickerMode(false);
+              setSelectedReportType(null);
+            }}
             sponsoredBanners={sponsoredBanners}
             onCloseAdBanner={(id) => {
               AdService.closeBanner(id);
@@ -654,20 +661,39 @@ export default function App() {
         />
       )}
 
-      {/* Create Event Modal (Pre-filled from Map Pin Placement) */}
+      {/* Choose the report category before moving its matching marker on the map. */}
+      <ReportTypePicker
+        isOpen={isReportTypePickerOpen}
+        onClose={() => setIsReportTypePickerOpen(false)}
+        onSelect={(type) => {
+          setSelectedReportType(type);
+          setPinPickerTarget('event');
+          setIsReportTypePickerOpen(false);
+          setActiveTab('map');
+          setIsPinPickerMode(true);
+        }}
+      />
+
+      {/* Category and location are confirmed before filling in event details. */}
       <CreateEventModal
         isOpen={isCreateEventOpen}
-        onClose={() => setIsCreateEventOpen(false)}
+        onClose={() => {
+          setIsCreateEventOpen(false);
+          setSelectedReportType(null);
+        }}
         currentUser={currentUser}
         userCoords={userCoords}
         initialCoords={pickedLocation?.coords}
         initialAddress={pickedLocation?.address}
+        initialType={selectedReportType}
         onReopenPinPicker={() => {
           setIsCreateEventOpen(false);
+          setPinPickerTarget('event');
           setIsPinPickerMode(true);
         }}
         onEventCreated={(ev) => {
           setSelectedEvent(ev);
+          setSelectedReportType(null);
           reloadData();
         }}
       />

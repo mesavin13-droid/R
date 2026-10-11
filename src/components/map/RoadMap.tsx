@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { RoadEvent, FuelStation, DriverQuestion, RoutePlan, SponsoredBanner } from '../../types';
+import { EventType, RoadEvent, FuelStation, DriverQuestion, RoutePlan, SponsoredBanner } from '../../types';
 import { 
   Navigation, Plus, HelpCircle, Route as RouteIcon,
   MapPin, Check, X, ShieldCheck, ShieldAlert
@@ -30,6 +30,8 @@ interface RoadMapProps {
   targetLocation?: { lat: number; lng: number } | null;
   // Interactive Pin Placement Mode
   isPinPickerMode?: boolean;
+  /** Category selected before entering map placement. */
+  pinPickerType?: EventType | null;
   onConfirmPinLocation?: (coords: { lat: number; lng: number }, address: string) => void;
   onCancelPinPicker?: () => void;
   // 2GIS Style Ads
@@ -55,6 +57,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   onRecenter,
   targetLocation,
   isPinPickerMode = false,
+  pinPickerType = null,
   onConfirmPinLocation,
   onCancelPinPicker,
   sponsoredBanners = [],
@@ -345,22 +348,23 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       const group = yandexGeoObjectsRef.current;
       group.removeAll();
 
-      // Create premium Graphite dark glass Clusterer
+      // Use inline styles inside Yandex's templateLayoutFactory. Tailwind utilities
+      // are not reliably generated/applied for this separately-created DOM.
+      // Cluster badges now use the same gunmetal housing and steel rim as event markers.
       const clusterIconLayout = ymaps.templateLayoutFactory.createClass(
-        `<div class="relative flex items-center justify-center select-none" style="width: 44px; height: 44px; margin-top: -22px; margin-left: -22px;">
-          <!-- Glowing neon ring -->
-          <div class="absolute inset-0 rounded-full bg-accent/15 border-2 border-accent/40 animate-pulse shadow-[0_0_15px_rgba(75,141,255,0.4)]"></div>
-          <!-- Premium dark glass badge -->
-          <div class="relative w-8.5 h-8.5 rounded-full bg-surface-800/90 backdrop-blur-md border border-white/15 flex items-center justify-center text-white font-bold text-xs shadow-md">
+        `<div style="position:relative;width:48px;height:48px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 5px 8px rgba(0,0,0,.58));">
+          <div style="position:absolute;inset:1px;border-radius:50%;background:linear-gradient(145deg,#546985 0%,#1b2739 28%,#080d17 72%,#3d5069 100%);border:1px solid #8192ac;box-shadow:inset 0 1px 2px rgba(255,255,255,.3),0 2px 6px rgba(0,0,0,.4);"></div>
+          <div style="position:relative;width:37px;height:37px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 32% 22%,#243550 0%,#111a2a 58%,#080d17 100%);border:2px solid #4fa8ff;color:#f4f8ff;font:700 13px/1 Inter,-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.02em;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 0 8px rgba(79,168,255,.24);">
             $[properties.geoObjects.length]
           </div>
+          <div style="position:absolute;left:10px;top:7px;width:16px;height:2px;border-radius:2px;background:rgba(255,255,255,.28);transform:rotate(-38deg);"></div>
         </div>`
       );
 
       const clusterer = new ymaps.Clusterer({
-        clusterIconLayout: clusterIconLayout,
-        clusterIconImageSize: [44, 44],
-        clusterIconImageOffset: [-22, -22],
+        clusterIconLayout,
+        clusterIconImageSize: [48, 48],
+        clusterIconImageOffset: [-24, -24],
         gridSize: 64,
         margin: 10,
         clusterDisableClickZoom: false,
@@ -608,27 +612,49 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       {/* --- PIN PLACEMENT MODE OVERLAYS --- */}
       {isPinPickerMode && (
         <>
-          {/* 1. Fixed Central Target Pin */}
-          <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center -translate-y-7">
-            <div className="flex flex-col items-center animate-in zoom-in-95 duration-200">
-              {/* Floating Address Tag over Pin */}
-              <div className="px-3.5 py-1.5 rounded-full bg-surface-800/95 backdrop-blur-xl border border-accent/60 shadow-[0_8px_28px_rgba(0,0,0,0.75)] text-white text-xs font-semibold flex items-center gap-2 mb-1">
-                <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
-                <span className="truncate max-w-[200px]">{isGeocoding ? 'Поиск адреса...' : pickerAddress}</span>
-              </div>
-
-              {/* Pin Graphics */}
-              <div className="relative transform hover:scale-105 transition-transform">
-                <svg width="44" height="54" viewBox="0 0 44 54" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)]">
-                  <path d="M22 0C9.85 0 0 9.85 0 22C0 38.5 22 54 22 54C22 54 44 38.5 44 22C44 9.85 34.15 0 22 0Z" fill={colors.surface800}/>
-                  <path d="M22 2C11.05 2 2 11.05 2 22C2 36.8 22 51.5 22 51.5C22 51.5 42 36.8 42 22C42 11.05 32.95 2 22 2Z" fill={colors.surface700} stroke={colors.accent} strokeWidth="2.5"/>
-                  <circle cx="22" cy="22" r="10" fill={colors.accent}/>
-                  <circle cx="22" cy="22" r="4.5" fill="white"/>
+          {/* The chosen marker stays at the map centre; move the map underneath it. */}
+          <div className="absolute inset-0 pointer-events-none z-30">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+              {pinPickerType ? (
+                <div
+                  className="rl-placement-marker"
+                  aria-label="Метка выбранной категории"
+                  dangerouslySetInnerHTML={{
+                    __html: getRoadLivePinSvg(
+                      pinPickerType,
+                      '',
+                      ({
+                        crossing: colors.warningStrong,
+                        accident: colors.danger,
+                        patrol: colors.info2,
+                        fuel: colors.success,
+                        road: colors.roadBlue,
+                        traffic_light: colors.amber,
+                        hazard: colors.danger,
+                        assistance: colors.danger,
+                        other: colors.muted,
+                      } as Record<EventType, string>)[pinPickerType],
+                      0,
+                      false,
+                      pinPickerType === 'assistance' || pinPickerType === 'hazard' || pinPickerType === 'accident'
+                    ),
+                  }}
+                />
+              ) : (
+                <svg width="48" height="58" viewBox="0 0 48 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_12px_24px_rgba(0,0,0,0.8)]">
+                  <path d="M24 0C10.75 0 0 10.75 0 24C0 42 24 58 24 58C24 58 48 42 48 24C48 10.75 37.25 0 24 0Z" fill={colors.surface800}/>
+                  <path d="M24 2C12 2 2 12 2 24C2 40.5 24 55.5 24 55.5C24 55.5 46 40.5 46 24C46 12 36 2 24 2Z" fill={colors.surface700} stroke={colors.accent} strokeWidth="2.5"/>
+                  <circle cx="24" cy="24" r="10" fill={colors.accent}/>
+                  <circle cx="24" cy="24" r="4.5" fill="white"/>
                 </svg>
+              )}
+            </div>
+            <div className="absolute left-1/2 top-[calc(50%+27px)] -translate-x-1/2 w-8 h-2 rounded-full bg-black/50 blur-[2px]" />
+            <div className="absolute left-1/2 top-[calc(50%-57px)] -translate-x-1/2">
+              <div className="px-3.5 py-1.5 rounded-full bg-surface-800/95 backdrop-blur-xl border border-accent/60 shadow-[0_8px_28px_rgba(0,0,0,0.75)] text-white text-xs font-semibold flex items-center gap-2 whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
+                <span className="truncate max-w-[220px]">{isGeocoding ? 'Поиск адреса...' : pickerAddress}</span>
               </div>
-
-              {/* Aiming Beacon on Ground */}
-              <div className="w-8 h-2 rounded-full bg-black/50 blur-[2px] mt-1" />
             </div>
           </div>
 
@@ -645,7 +671,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
                       {pickerAddress}
                     </p>
                     <p className="text-[11px] text-muted truncate mt-0.5">
-                      Перемещайте карту для точного выбора точки
+                      {pinPickerType ? 'Двигайте карту под меткой выбранной категории' : 'Перемещайте карту для точного выбора точки'}
                     </p>
                   </div>
                 </div>
