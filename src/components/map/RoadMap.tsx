@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { EventType, RoadEvent, FuelStation, DriverQuestion, RoutePlan, SponsoredBanner } from '../../types';
 import { 
   Navigation, Plus, HelpCircle, Route as RouteIcon,
-  MapPin, Check, X, ShieldCheck, ShieldAlert
+  MapPin, Check, X, ShieldCheck, ShieldAlert, Moon, Sun
 } from 'lucide-react';
 import { YandexMapsService } from '../../services/yandexMapsService';
 import { GeocodingService } from '../../services/geocodingService';
@@ -66,6 +66,26 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   onSosClosed,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  // A persisted map theme: start with Yandex's natural, readable light tiles,
+  // then let drivers switch to a dark rendering without changing map data.
+  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    try {
+      return window.localStorage.getItem('roadlive-map-theme') === 'dark' ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('roadlive-map-theme', mapTheme);
+    } catch {
+      // Private browsing may block local storage; the in-memory toggle still works.
+    }
+  }, [mapTheme]);
+
   // Yandex Maps references
   const yandexMapRef = useRef<any>(null);
   const yandexGeoObjectsRef = useRef<any>(null);
@@ -614,7 +634,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       {/* Map DOM Canvas */}
       <div
         ref={mapContainerRef}
-        className="w-full h-full z-0 yandex-map-container graphite-dark-map-tiles"
+        className={`w-full h-full z-0 yandex-map-container map-theme-${mapTheme}`}
         tabIndex={0}
         aria-label="Область интерактивной карты"
       />
@@ -819,46 +839,60 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         </div>
       )}
 
-      {/* Floating Map Controls on Right (Centered Vertically) */}
-      {!isPinPickerMode && (
-        <div 
-          className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2.5 pointer-events-auto"
-          role="group"
-          aria-label="Элементы управления масштабом и навигацией карты"
+      {/* Map appearance, zoom and location controls */}
+      <div
+        className={`absolute right-3 sm:right-5 ${isPinPickerMode ? 'top-[48%]' : 'top-1/2'} -translate-y-1/2 z-20 flex flex-col gap-2.5 pointer-events-auto`}
+        role="group"
+        aria-label="Управление картой"
+      >
+        <button
+          type="button"
+          onClick={() => setMapTheme((current) => current === 'dark' ? 'light' : 'dark')}
+          className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-graphite-900/95 backdrop-blur-xl border border-white/15 text-white shadow-[0_8px_24px_rgba(0,0,0,0.42)] hover:bg-graphite-800 active:scale-95 transition"
+          title={mapTheme === 'dark' ? 'Включить светлую карту' : 'Включить тёмную карту'}
+          aria-label={mapTheme === 'dark' ? 'Включить светлую тему карты' : 'Включить тёмную тему карты'}
+          aria-pressed={mapTheme === 'dark'}
         >
-          <div className="flex flex-col rounded-2xl bg-graphite-900/95 backdrop-blur-xl border border-white/15 overflow-hidden divide-y divide-white/10 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-ink hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
-              title="Приблизить карту"
-              aria-label="Увеличить масштаб карты"
-            >
-              ＋
-            </button>
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-ink hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
-              title="Отдалить карту"
-              aria-label="Уменьшить масштаб карты"
-            >
-              −
-            </button>
-          </div>
+          {mapTheme === 'dark'
+            ? <Sun className="w-5 h-5 text-amber-300" />
+            : <Moon className="w-5 h-5 text-sky-200" />}
+        </button>
 
-          {/* Location Button with Accent Ring */}
-          <button
-            type="button"
-            onClick={handleRecenterMap}
-            className="rl-icon-btn rl-icon-btn-accent"
-            title="Моё местоположение"
-            aria-label="Переместить карту к моему текущему местоположению"
-          >
-            <Navigation className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-          </button>
-        </div>
-      )}
+        {!isPinPickerMode && (
+          <>
+            <div className="flex flex-col rounded-2xl bg-graphite-900/95 backdrop-blur-xl border border-white/15 overflow-hidden divide-y divide-white/10 shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-ink hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
+                title="Приблизить карту"
+                aria-label="Увеличить масштаб карты"
+              >
+                ＋
+              </button>
+              <button
+                type="button"
+                onClick={handleZoomOut}
+                className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 text-ink hover:bg-white/10 active:scale-95 transition text-lg sm:text-xl font-light leading-none cursor-pointer"
+                title="Отдалить карту"
+                aria-label="Уменьшить масштаб карты"
+              >
+                −
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRecenterMap}
+              className="rl-icon-btn rl-icon-btn-accent"
+              title="Моё местоположение"
+              aria-label="Переместить карту к моему текущему местоположению"
+            >
+              <Navigation className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Floating Action Buttons at Bottom (Normal Mode - Unified Graphite Glass Capsules) */}
       {!isPinPickerMode && (

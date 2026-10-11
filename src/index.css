@@ -566,21 +566,43 @@
   will-change: opacity, backdrop-filter;
 }
 
-/* Yandex Maps Graphite Dark Theme Map Canvas */
+/* Map theme rendering.
+   Light is the unmodified Yandex basemap: roads, labels and parks stay natural.
+   Dark filters only the map's base/label canvases — never the custom marker pane.
+   The filter is deliberately gentle so road edges survive on dark backgrounds. */
 .yandex-map-container {
   width: 100%;
   height: 100%;
-  background-color: #0b111e !important;
+  background-color: #F1F3F6 !important;
+  transition: background-color .18s ease;
+}
+.yandex-map-container.map-theme-light {
+  background-color: #F1F3F6 !important;
+}
+.yandex-map-container.map-theme-dark {
+  background-color: #121923 !important;
+}
+.yandex-map-container.map-theme-light [class*="ground-pane"],
+.yandex-map-container.map-theme-light [class*="places-pane"] > canvas {
+  filter: none !important;
+}
+.yandex-map-container.map-theme-dark [class*="ground-pane"],
+.yandex-map-container.map-theme-dark [class*="places-pane"] > canvas {
+  filter: invert(100%) hue-rotate(180deg) brightness(1.06) contrast(0.88) saturate(0.72) !important;
 }
 
-/* Custom Graphite Dark Mode CSS Filters for Map Tiles & Vector Canvas */
-/* Filter only the basemap tiles, never the map root or shared pane wrapper.
-   A filter on an ancestor also inverts custom SVG event markers and cluster badges. */
-.yandex-map-container [class*="ground-pane"],
-.yandex-map-container [class*="places-pane"] > canvas,
-.leaflet-tile-pane,
-.leaflet-tile {
-  filter: invert(100%) hue-rotate(180deg) brightness(0.72) contrast(1.22) saturate(0.80) !important;
+/* Keep a possible Leaflet fallback readable in the selected theme as well. */
+.leaflet-container.map-theme-light {
+  background-color: #F1F3F6 !important;
+}
+.leaflet-container.map-theme-dark {
+  background-color: #121923 !important;
+}
+.leaflet-container.map-theme-light .leaflet-tile-pane {
+  filter: none !important;
+}
+.leaflet-container.map-theme-dark .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(1.06) contrast(0.88) saturate(0.72) !important;
 }
 
 /* Ensure custom overlay placemarks and pins are preserved in pristine original vibrant colors */
@@ -632,6 +654,18 @@
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-bottom: none !important;
   border-right: none !important;
+}
+
+/* Light-theme attribution should stay discreet on Yandex's light tiles. */
+.yandex-map-container.map-theme-light [class*="copyrights-pane"],
+.leaflet-container.map-theme-light .leaflet-control-attribution {
+  color: #637083 !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(25, 42, 62, 0.12) !important;
+}
+.yandex-map-container.map-theme-light [class*="copyright__link"],
+.leaflet-container.map-theme-light .leaflet-control-attribution a {
+  color: #52647A !important;
 }
 
 .leaflet-control-attribution a,
