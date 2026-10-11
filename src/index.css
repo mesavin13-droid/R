@@ -827,7 +827,7 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  animation: rl-placement-float 1.8s ease-in-out infinite;
+  /* Keep the pin tip fixed to the exact geographic centre while the map moves. */
 }
 .rl-placement-marker > div,
 .rl-placement-marker svg {
@@ -850,11 +850,4 @@
   top: calc(50% - 108px);
   transform: translateX(-50%);
   pointer-events: none;
-}
-@keyframes rl-placement-float {
-  0%, 100% { margin-top: 0; }
-  50% { margin-top: -4px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rl-placement-marker { animation: none; }
 }
