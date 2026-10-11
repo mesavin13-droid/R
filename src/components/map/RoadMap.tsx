@@ -825,7 +825,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       {/* Floating Action Buttons at Bottom (Normal Mode - Unified Graphite Glass Capsules) */}
       {!isPinPickerMode && (
         <div 
-          className="absolute left-0 right-0 bottom-20 sm:bottom-20 z-20 pointer-events-none px-3 flex justify-center items-center gap-2 sm:gap-3 max-w-lg mx-auto"
+          className="rl-map-action-deck absolute left-0 right-0 z-20 pointer-events-none px-3 flex justify-center items-center gap-2 sm:gap-3 max-w-lg mx-auto"
           role="toolbar"
           aria-label="Быстрые действия на дороге"
         >
