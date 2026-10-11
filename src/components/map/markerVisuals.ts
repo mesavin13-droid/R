@@ -87,27 +87,30 @@ export function getRoadLivePinSvg(
   const rimWidth = critical ? 3 : 1.8;
   const innerStrokeOpacity = critical ? '.95' : '.58';
   const centerFill = critical ? '#191D2A' : '#101827';
+  // Every marker carries its own SVG ids so simultaneous pins with different
+  // status colours cannot accidentally share another marker's gradient.
+  const markerId = `rl-pin-${type}-${subType || 'default'}-${accentColor.replace('#', '')}-${critical ? 'critical' : 'normal'}`.replace(/[^a-z0-9_-]/gi, '-');
 
   return `
     <div class="relative flex items-center justify-center w-11 h-11 cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95">
       <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_12px_rgba(0,0,0,0.65)]">
         <defs>
-          <linearGradient id="rl-pin-housing-${type}" x1="8" y1="3" x2="37" y2="42" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${markerId}-housing" x1="8" y1="3" x2="37" y2="42" gradientUnits="userSpaceOnUse">
             <stop stop-color="#536783"/><stop offset=".24" stop-color="#1A2639"/>
             <stop offset=".72" stop-color="#080D17"/><stop offset="1" stop-color="#3D506A"/>
           </linearGradient>
-          <linearGradient id="rl-pin-core-${type}" x1="12" y1="7" x2="33" y2="34" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${markerId}-core" x1="12" y1="7" x2="33" y2="34" gradientUnits="userSpaceOnUse">
             <stop stop-color="#202F49"/><stop offset="1" stop-color="${centerFill}"/>
           </linearGradient>
-          <linearGradient id="rl-pin-rim-${type}" x1="7" y1="3" x2="36" y2="40" gradientUnits="userSpaceOnUse">
+          <linearGradient id="${markerId}-rim" x1="7" y1="3" x2="36" y2="40" gradientUnits="userSpaceOnUse">
             <stop stop-color="${critical ? accentColor : '#AFC4E4'}"/>
             <stop offset=".45" stop-color="${accentColor}"/>
             <stop offset="1" stop-color="${critical ? accentColor : '#415675'}"/>
           </linearGradient>
         </defs>
         ${ringGlow}
-        <circle cx="22" cy="22" r="19.3" fill="url(#rl-pin-housing-${type})" stroke="#7587A2" stroke-width="1.1"/>
-        <circle cx="22" cy="22" r="16.2" fill="url(#rl-pin-core-${type})" stroke="url(#rl-pin-rim-${type})" stroke-width="${rimWidth}"/>
+        <circle cx="22" cy="22" r="19.3" fill="url(#${markerId}-housing)" stroke="#7587A2" stroke-width="1.1"/>
+        <circle cx="22" cy="22" r="16.2" fill="url(#${markerId}-core)" stroke="url(#${markerId}-rim)" stroke-width="${rimWidth}"/>
         <circle cx="22" cy="22" r="13.5" stroke="${accentColor}" stroke-opacity="${innerStrokeOpacity}" stroke-width=".8"/>
         <path d="M12 13.5a13.5 13.5 0 0 1 19-2" stroke="#F6FAFF" stroke-opacity=".4" stroke-width="1.2" stroke-linecap="round"/>
         <g transform="translate(10, 10)">${iconContent}</g>
