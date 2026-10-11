@@ -811,25 +811,43 @@
 }
 
 
-/* Category marker shown during report placement. */
+/* Category marker shown during report placement; its tip is anchored at the map centre. */
+.rl-placement-marker-anchor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 72px;
+  transform: translate(-50%, -68px);
+}
 .rl-placement-marker {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, .55));
-  animation: rl-placement-float 1.8s ease-in-out infinite;
+  pointer-events: none;
+  /* Keep the pin tip fixed to the exact geographic centre while the map moves. */
 }
 .rl-placement-marker > div,
 .rl-placement-marker svg {
-  width: 48px !important;
-  height: 48px !important;
+  width: 64px !important;
+  height: 72px !important;
 }
-@keyframes rl-placement-float {
-  0%, 100% { transform: translateY(-2px); }
-  50% { transform: translateY(-6px); }
+.rl-placement-shadow {
+  position: absolute;
+  left: calc(50% - 16px);
+  top: calc(50% - 3px);
+  width: 32px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.5);
+  filter: blur(2px);
 }
-@media (prefers-reduced-motion: reduce) {
-  .rl-placement-marker { animation: none; }
+.rl-placement-address {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 108px);
+  transform: translateX(-50%);
+  pointer-events: none;
 }

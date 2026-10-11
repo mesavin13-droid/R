@@ -1,6 +1,6 @@
-// ROAD LIVE map markers — compact circular tokens inspired by the supplied marker board.
-// Dark steel housing keeps markers legible on both light and dark map tiles;
-// the rim communicates event state and the icon remains high-contrast.
+// Shared ROAD LIVE map marker visual.
+// Match the category rail: graphite metallic teardrop, circular steel bezel,
+// and a high-contrast category glyph. All event/station/question markers use it.
 import { colors } from '../../theme/tokens';
 
 export function getRoadLivePinSvg(
@@ -11,7 +11,9 @@ export function getRoadLivePinSvg(
   isHighActivity: boolean = false,
   critical: boolean = false
 ): string {
-  const iconColor = colors.ink;
+  // Glyphs are authored in a 24×24 coordinate space and placed in the centre
+  // of the circular head (32,25), matching the category banner.
+  const iconColor = '#EAF1FC';
   let iconContent = '';
 
   if (type === 'crossing' || type === 'road_work') {
@@ -75,45 +77,54 @@ export function getRoadLivePinSvg(
       </g>`;
   }
 
-  const ringGlow = isHighActivity
-    ? `<circle cx="22" cy="22" r="21" fill="none" stroke="${accentColor}" stroke-width="2.3" opacity=".9" class="animate-pulse" filter="drop-shadow(0 0 5px ${accentColor})"/>`
-    : '';
+  // Keep the pin dark for every category, exactly like the banner. Severity and
+  // queue/availability status are encoded by the coloured steel ring, not by
+  // turning the complete pin into a flat bright circle.
+  const ringWidth = critical ? 3 : isHighActivity ? 2.6 : 1.8;
+  const ringColor = accentColor || colors.info;
+  const markerId = `rl-marker-${type}-${subType || 'default'}-${ringColor.replace('#', '')}`.replace(/[^a-z0-9_-]/gi, '-');
+
   const badgeCounter = confirmationCount > 1
-    ? `<g transform="translate(28, 2)">
-        <circle cx="7" cy="7" r="7.2" fill="#080D17" stroke="${accentColor}" stroke-width="1.5"/>
-        <text x="7" y="10.4" text-anchor="middle" fill="#F4F7FF" font-size="8" font-weight="700" font-family="sans-serif">${confirmationCount > 99 ? '99+' : confirmationCount}</text>
+    ? `<g transform="translate(43, 3)">
+        <circle cx="7" cy="7" r="7.5" fill="#080D17" stroke="${ringColor}" stroke-width="1.6"/>
+        <text x="7" y="10.5" text-anchor="middle" fill="#F4F7FF" font-size="8" font-weight="700" font-family="sans-serif">${confirmationCount > 99 ? '99+' : confirmationCount}</text>
       </g>`
     : '';
-  const rimWidth = critical ? 3 : 1.8;
-  const innerStrokeOpacity = critical ? '.95' : '.58';
-  const centerFill = critical ? '#191D2A' : '#101827';
-  // Every marker carries its own SVG ids so simultaneous pins with different
-  // status colours cannot accidentally share another marker's gradient.
-  const markerId = `rl-pin-${type}-${subType || 'default'}-${accentColor.replace('#', '')}-${critical ? 'critical' : 'normal'}`.replace(/[^a-z0-9_-]/gi, '-');
+
+  const glow = isHighActivity
+    ? `<circle cx="32" cy="25" r="22" fill="none" stroke="${ringColor}" stroke-width="1.5" opacity=".42"/>`
+    : '';
 
   return `
-    <div class="relative flex items-center justify-center w-11 h-11 cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95">
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" class="drop-shadow-[0_5px_12px_rgba(0,0,0,0.65)]">
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;width:64px;height:72px;cursor:pointer;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55));">
+      <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
-          <linearGradient id="${markerId}-housing" x1="8" y1="3" x2="37" y2="42" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#536783"/><stop offset=".24" stop-color="#1A2639"/>
-            <stop offset=".72" stop-color="#080D17"/><stop offset="1" stop-color="#3D506A"/>
+          <linearGradient id="${markerId}-housing" x1="8" y1="2" x2="54" y2="68" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#526681"/>
+            <stop offset=".22" stop-color="#1A2639"/>
+            <stop offset=".72" stop-color="#080D17"/>
+            <stop offset="1" stop-color="#344A68"/>
           </linearGradient>
-          <linearGradient id="${markerId}-core" x1="12" y1="7" x2="33" y2="34" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#202F49"/><stop offset="1" stop-color="${centerFill}"/>
+          <linearGradient id="${markerId}-rim" x1="11" y1="4" x2="51" y2="54" gradientUnits="userSpaceOnUse">
+            <stop stop-color="${critical ? ringColor : '#B8CBE6'}"/>
+            <stop offset=".45" stop-color="${ringColor}"/>
+            <stop offset="1" stop-color="${critical ? ringColor : '#415675'}"/>
           </linearGradient>
-          <linearGradient id="${markerId}-rim" x1="7" y1="3" x2="36" y2="40" gradientUnits="userSpaceOnUse">
-            <stop stop-color="${critical ? accentColor : '#AFC4E4'}"/>
-            <stop offset=".45" stop-color="${accentColor}"/>
-            <stop offset="1" stop-color="${critical ? accentColor : '#415675'}"/>
+          <linearGradient id="${markerId}-core" x1="13" y1="7" x2="49" y2="45" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#202F49"/>
+            <stop offset="1" stop-color="#0C1421"/>
           </linearGradient>
         </defs>
-        ${ringGlow}
-        <circle cx="22" cy="22" r="19.3" fill="url(#${markerId}-housing)" stroke="#7587A2" stroke-width="1.1"/>
-        <circle cx="22" cy="22" r="16.2" fill="url(#${markerId}-core)" stroke="url(#${markerId}-rim)" stroke-width="${rimWidth}"/>
-        <circle cx="22" cy="22" r="13.5" stroke="${accentColor}" stroke-opacity="${innerStrokeOpacity}" stroke-width=".8"/>
-        <path d="M12 13.5a13.5 13.5 0 0 1 19-2" stroke="#F6FAFF" stroke-opacity=".4" stroke-width="1.2" stroke-linecap="round"/>
-        <g transform="translate(10, 10)">${iconContent}</g>
+        ${glow}
+        <path d="M32 68S7 43 7 25a25 25 0 1 1 50 0C57 43 32 68 32 68Z"
+          fill="url(#${markerId}-housing)" stroke="#70829C" stroke-width="1.2"/>
+        <circle cx="32" cy="25" r="20" fill="url(#${markerId}-housing)"
+          stroke="url(#${markerId}-rim)" stroke-width="${ringWidth}"/>
+        <circle cx="32" cy="25" r="16.5" fill="url(#${markerId}-core)"
+          stroke="${ringColor}" stroke-opacity=".62" stroke-width=".8"/>
+        <path d="M19 12.5a18 18 0 0 1 23-1.2" fill="none"
+          stroke="#F5F8FF" stroke-opacity=".52" stroke-width="1.1" stroke-linecap="round"/>
+        <g transform="translate(20,13)">${iconContent}</g>
         ${badgeCounter}
       </svg>
     </div>
