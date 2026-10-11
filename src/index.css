@@ -690,3 +690,16 @@
     bottom: 5rem;
   }
 }
+
+
+/* The map brand deck should read as intentional graphite, not grey glass,
+   even when the underlying map tiles are almost white. */
+.rl-map-brand-deck {
+  background: rgba(7, 12, 22, 0.97) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
