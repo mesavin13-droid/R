@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import webpush from 'web-push';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes, UNANSWERED_QUESTION_TTL_MINUTES } from './src/utils/eventTtl';
+import { notifyRadiusFor } from './src/utils/notificationRadius';
 
 dotenv.config();
 
@@ -149,14 +150,6 @@ try {
   console.log('✅ WebPush configured with VAPID details.');
 } catch (err) {
   console.error('❌ Failed to configure WebPush VAPID details:', err);
-}
-
-// Push-radius policy: SOS reaches drivers up to 5 km away, everything else
-// (accidents, crossings, questions) only within 2 km — no city-wide spam.
-const NOTIFY_RADIUS_M = { sos: 5000, standard: 2000 } as const;
-
-function notifyRadiusFor(type: string): number {
-  return type === 'assistance' ? NOTIFY_RADIUS_M.sos : NOTIFY_RADIUS_M.standard;
 }
 
 /** Haversine distance in meters — used to filter push/TG recipients by radius. */
@@ -343,7 +336,12 @@ async function notifyTelegramDrivers(
         if (await sendTelegramNotification(chatId, text)) tgSentCount++;
       }),
     );
-    return { tgSentCount, notifiedCount: nearby.chatIds.length, checked: nearby.checked, stale: nearby.stale };
+    return {
+      tgSentCount,
+      notifiedCount: nearby.chatIds.filter((chatId) => !excludeChatId || chatId !== excludeChatId).length,
+      checked: nearby.checked,
+      stale: nearby.stale,
+    };
   }
   return { tgSentCount: 0, notifiedCount: 0 };
 }
@@ -992,9 +990,17 @@ app.post('/api/drivers/location', rateLimit(60, 60_000), requireTelegramAuth, as
   }, { onConflict: 'telegram_id' });
   if (error) return res.status(500).json({ error: 'Не удалось сохранить позицию' });
 
-  // Also refresh the in-memory push entries of this driver so web-push
-  // filtering works even without re-subscribing.
+  // Persist the same fresh position for Web Push subscriptions as well as
+  // Telegram recipients. Otherwise a server restart would lose the live radius.
   const nowIso = new Date().toISOString();
+  const { error: pushLocationError } = await serverSupabase
+    .from('push_subscriptions')
+    .update({ last_lat: coords.lat, last_lng: coords.lng, updated_at: nowIso })
+    .eq('user_id', session.userId);
+  if (pushLocationError) {
+    console.warn('[Push] Failed to persist subscription coordinates:', pushLocationError.message);
+  }
+
   for (const item of subscriptions.values()) {
     if (item.userId === session.userId) {
       item.lat = coords.lat;
@@ -1009,7 +1015,6 @@ app.post('/api/drivers/location', rateLimit(60, 60_000), requireTelegramAuth, as
 // 5. Broadcast Critical Road Event
 app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, userRateLimit(3, 60 * 60_000), async (req: Request, res: Response) => {
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return res.status(503).json({ error: 'Web Push не настроен на сервере' });
 
   await ensureSubscriptionsLoaded();
   const session = (req as any).telegramSession as TelegramSession;
@@ -1046,18 +1051,30 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
       return res.status(409).json({ error: 'Событие больше не актуально' });
     }
     event = data;
-  } else if (inlineEvent && typeof inlineEvent.userId === 'string' && typeof inlineEvent.id === 'string') {
-    // Question alerts arrive as an inline object (no row to load).
-    if (inlineEvent.userId !== profileId) return res.status(403).json({ error: 'Можно уведомлять только о своих событиях' });
+  } else if (inlineEvent && inlineEvent.type === 'question' && typeof inlineEvent.id === 'string') {
+    // The question is persisted in Supabase: load its location and content from
+    // the database rather than trusting client-supplied coordinates for radius targeting.
+    const { data: question, error: questionError } = await serverSupabase
+      .from('questions')
+      .select('id,user_id,category,question,address,latitude,longitude,status')
+      .eq('id', inlineEvent.id)
+      .maybeSingle();
+
+    if (questionError || !question) return res.status(404).json({ error: 'Вопрос не найден' });
+    if (question.user_id !== profileId) return res.status(403).json({ error: 'Можно уведомлять только о своих вопросах' });
+    if (question.status !== 'open') return res.status(409).json({ error: 'Вопрос больше не актуален' });
+
     event = {
-      id: inlineEvent.id,
-      user_id: inlineEvent.userId,
-      title: String(inlineEvent.title || 'Новое уведомление').slice(0, 200),
-      address: String(inlineEvent.address || '').slice(0, 255),
-      description: String(inlineEvent.description || '').slice(0, 1000),
+      id: question.id,
+      user_id: question.user_id,
+      title: `Вопрос водителя (${String(question.category || 'дорожный').slice(0, 100)})`,
+      address: String(question.address || '').slice(0, 255),
+      description: String(question.question || '').slice(0, 1000),
       type: 'question',
       sub_type: 'question',
-      status: 'active',
+      status: question.status,
+      latitude: question.latitude,
+      longitude: question.longitude,
     };
   } else {
     return res.status(400).json({ error: 'eventId обязателен' });
@@ -1074,11 +1091,11 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
   const radiusM = notifyRadiusFor(event.type);
   const eventLat = Number((event as any).latitude);
   const eventLng = Number((event as any).longitude);
-  const inlineLat = Number((inlineEvent as any)?.latitude ?? (inlineEvent as any)?.lat);
-  const inlineLng = Number((inlineEvent as any)?.longitude ?? (inlineEvent as any)?.lng ?? (inlineEvent as any)?.lon);
+  // The center must come from the persisted event/question, never from a
+  // client-provided fallback coordinate.
   const center = Number.isFinite(eventLat) && Number.isFinite(eventLng)
     ? { lat: eventLat, lng: eventLng }
-    : (Number.isFinite(inlineLat) && Number.isFinite(inlineLng) ? { lat: inlineLat, lng: inlineLng } : null);
+    : null;
 
   // No valid position → nobody is notified. Broadcasting without
   // coordinates would spam the whole city — forbidden.
@@ -1126,6 +1143,23 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
   // Telegram Bot notifications run regardless of Web Push subscriber count —
   // but only to drivers inside the radius (fresh positions, 30-min TTL).
   const tgResult = await notifyTelegramDrivers(session.tgId, tgText, center, radiusM);
+
+  // Telegram alerts work independently of Web Push configuration. If VAPID
+  // is absent, do not fail the nearby Telegram send above.
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    return res.json({
+      success: true,
+      sentCount: 0,
+      failureCount: 0,
+      skippedFar: subscriptions.size,
+      radiusM,
+      totalSubscribers: subscriptions.size,
+      isCritical,
+      tgSentCount: tgResult.tgSentCount,
+      tgNotifiedCount: tgResult.notifiedCount ?? 0,
+      webPushConfigured: false,
+    });
+  }
 
   const endpoints = Array.from(subscriptions.keys());
   if (endpoints.length === 0) {
