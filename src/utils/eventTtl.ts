@@ -3,7 +3,7 @@
  * New reports get a short verification window; a confirmation by another
  * driver then extends the event to its category-specific lifetime.
  */
-export function getEventTtlMinutes(type: string, subType?: string): number {
+export function getEventTtlMinutes(type: string, subType?: string | null): number {
   switch (type) {
     case 'crossing': return 20;
     case 'accident': return subType === 'road_blocked' ? 60 : 45;
