@@ -17,7 +17,7 @@ export function getEventTtlMinutes(type: string, subType?: string | null): numbe
   }
 }
 
-export function getUnconfirmedEventTtlMinutes(type: string, subType?: string): number {
+export function getUnconfirmedEventTtlMinutes(type: string, subType?: string | null): number {
   switch (type) {
     case 'crossing': return 8;
     case 'accident': return subType === 'road_blocked' ? 20 : 15;
