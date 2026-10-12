@@ -2,6 +2,7 @@ import { AssistanceOffer, AssistanceOfferKind, EventComment, EventConfirmation, 
 import { localRealtime } from '../lib/supabase';
 import { NotificationService } from './notificationService';
 import { TelegramService } from './telegramService';
+import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes } from '../utils/eventTtl';
 
 const STORAGE_KEY = 'roadlive_events_v2';
 const ARCHIVE_KEY = 'roadlive_archived_events_v2';
@@ -117,28 +118,14 @@ export class EventService {
     }
   }
 
-  /**
-   * Determine TTL in minutes based on event type
-   */
+  /** Category lifetime after a real confirmation from another driver. */
   static getTTLMinutes(type: EventType, subType?: string): number {
-    switch (type) {
-      case 'crossing':
-        return 20; // 20 mins after last confirmation
-      case 'accident':
-        return subType === 'road_blocked' ? 60 : 45;
-      case 'patrol':
-        return 25;
-      case 'fuel':
-        return 25;
-      case 'traffic_light':
-        return 90;
-      case 'road':
-        return subType === 'repair' || subType === 'pothole' ? 2880 : 360; // 2 days for holes/repairs
-      case 'hazard':
-        return 40;
-      default:
-        return 30;
-    }
+    return getEventTtlMinutes(type, subType);
+  }
+
+  /** Short initial window before the community has confirmed a new report. */
+  static getUnconfirmedTTLMinutes(type: EventType, subType?: string): number {
+    return getUnconfirmedEventTtlMinutes(type, subType);
   }
 
   /**
@@ -323,7 +310,7 @@ export class EventService {
     }
 
     const now = new Date();
-    const ttlMins = this.getTTLMinutes(data.type, data.subType);
+    const ttlMins = this.getUnconfirmedTTLMinutes(data.type, data.subType);
     const expiresAt = new Date(now.getTime() + ttlMins * 60 * 1000).toISOString();
 
     let distanceFromAuthor = 0;
@@ -416,6 +403,12 @@ export class EventService {
       let distanceMeters: number | undefined;
       let isNearby = true;
       const currentEvent = this.events.find((e) => e.id === eventId);
+      if (currentEvent?.userId === user.id) {
+        throw new Error('Свою отметку нельзя подтвердить самостоятельно — дождитесь другого водителя');
+      }
+      if (currentEvent && Date.parse(currentEvent.expiresAt) <= Date.now()) {
+        throw new Error('Срок актуальности этой отметки истёк');
+      }
       if (currentEvent && userLocation) {
         distanceMeters = this.calculateDistanceMeters(
           currentEvent.latitude,
@@ -443,6 +436,14 @@ export class EventService {
     }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
+    if (event.userId === user.id) {
+      throw new Error('Свою отметку нельзя подтвердить самостоятельно — дождитесь другого водителя');
+    }
+    if (Date.parse(event.expiresAt) <= Date.now()) {
+      event.status = 'expired';
+      this.persist();
+      throw new Error('Срок актуальности этой отметки истёк');
+    }
 
     let distanceMeters: number | undefined;
     let isNearby = true;
