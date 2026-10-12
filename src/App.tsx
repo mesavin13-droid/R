@@ -74,7 +74,7 @@ export default function App() {
 
   // User & Geolocation
   const [currentUser, setCurrentUser] = useState<UserProfile>(UserService.getCurrentUser());
-  const { coords: userCoords, refreshLocation } = useGeolocation();
+  const { coords: userCoords, refreshLocation, permissionGranted } = useGeolocation();
 
   // Load Data
   const reloadData = useCallback(async () => {
@@ -203,28 +203,66 @@ export default function App() {
     setActiveTab('chat');
   }, []);
 
-  // Push-radius heartbeat: report the driver's position so the server only
-  // notifies nearby drivers (SOS 5 km, everything else 2 km). Throttled to
-  // at most once per 5 minutes / 200 m to save battery.
+  // Nearby-alert heartbeat. Only send real GPS positions (never map-center
+  // fallbacks). Position updates arrive continuously from watchPosition; the
+  // heartbeat also refreshes every 4 minutes while the Mini App is foregrounded.
   const lastHeartbeatRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const currentCoordsRef = useRef(userCoords);
+  const heartbeatInFlightRef = useRef(false);
+  const sendHeartbeatRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
-    if (!userCoords || !isTelegramAuthenticated) return;
-    const last = lastHeartbeatRef.current;
-    const now = Date.now();
-    if (last) {
-      const movedM = EventService.calculateDistanceMeters(
-        last.lat, last.lng, userCoords.lat, userCoords.lng,
-      );
-      if (now - last.at < 5 * 60_000 && movedM < 200) return;
+    currentCoordsRef.current = userCoords;
+    sendHeartbeatRef.current?.();
+  }, [userCoords]);
+
+  useEffect(() => {
+    if (!permissionGranted || !isTelegramAuthenticated) {
+      sendHeartbeatRef.current = null;
+      return;
     }
-    lastHeartbeatRef.current = { lat: userCoords.lat, lng: userCoords.lng, at: now };
-    fetch('/api/drivers/location', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ coords: { lat: userCoords.lat, lng: userCoords.lng } }),
-    }).catch(() => {});
-  }, [userCoords, isTelegramAuthenticated]);
+
+    let active = true;
+    const sendHeartbeat = async () => {
+      const coords = currentCoordsRef.current;
+      if (!active || !coords || heartbeatInFlightRef.current) return;
+
+      const now = Date.now();
+      const last = lastHeartbeatRef.current;
+      const movedM = last
+        ? EventService.calculateDistanceMeters(last.lat, last.lng, coords.lat, coords.lng)
+        : Number.POSITIVE_INFINITY;
+      // Refresh on movement of 150 m, or at least every 4 minutes even if the
+      // vehicle is stopped. This keeps recipients' proximity data fresh.
+      if (last && now - last.at < 4 * 60_000 && movedM < 150) return;
+
+      heartbeatInFlightRef.current = true;
+      try {
+        const response = await fetch('/api/drivers/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ coords: { lat: coords.lat, lng: coords.lng } }),
+        });
+        if (response.ok && active) {
+          lastHeartbeatRef.current = { lat: coords.lat, lng: coords.lng, at: Date.now() };
+        }
+      } catch {
+        // The next movement or scheduled heartbeat retries without blocking the map.
+      } finally {
+        heartbeatInFlightRef.current = false;
+      }
+    };
+
+    sendHeartbeatRef.current = () => { void sendHeartbeat(); };
+    void sendHeartbeat();
+    const heartbeatTimer = window.setInterval(() => { void sendHeartbeat(); }, 4 * 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(heartbeatTimer);
+      sendHeartbeatRef.current = null;
+    };
+  }, [isTelegramAuthenticated, permissionGranted]);
 
   useEffect(() => {
     reloadData();

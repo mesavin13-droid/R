@@ -4,16 +4,8 @@ import { TelegramService } from './telegramService';
 const NOTIFS_KEY = 'roadlive_notifs_v1';
 const PUSH_SUB_KEY = 'roadlive_push_subscribed';
 
-export const NOTIFY_RADIUS_M = {
-  /** SOS / помощь — доедут за ~10 минут по городу. */
-  sos: 5000,
-  /** Всё остальное (ДТП, переезды, вопросы) — только кто реально рядом. */
-  standard: 2000,
-} as const;
-
-export function notifyRadiusFor(type: string): number {
-  return type === 'assistance' ? NOTIFY_RADIUS_M.sos : NOTIFY_RADIUS_M.standard;
-}
+import { NOTIFY_RADIUS_M } from '../utils/notificationRadius';
+export { NOTIFY_RADIUS_M, notifyRadiusFor } from '../utils/notificationRadius';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
