@@ -188,22 +188,31 @@ export class EventService {
     this.initialize();
     this.refreshEventStatuses();
 
-    const hideOldEvents = localStorage.getItem('roadlive_hide_old_events') !== 'false';
-    const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+    const now = Date.now();
 
     return this.events.filter((ev) => {
       if (ev.cityId !== cityId) return false;
       if (ev.status === 'hidden' || ev.status === 'expired' || ev.status === 'resolved') return false;
 
-      // Filter out events older than 4 hours if hideOldEvents (Smart Cleanliness) settings is enabled
-      // EXCEPT critical accidents (ДТП) which must stay visible!
-      if (hideOldEvents) {
-        const isCriticalAccident = ev.type === 'accident';
-        if (!isCriticalAccident) {
-          const lastActivityTime = ev.updatedAt ? new Date(ev.updatedAt).getTime() : new Date(ev.createdAt).getTime();
-          if (lastActivityTime < fourHoursAgo) {
-            return false;
-          }
+      // Honour the same per-category expiration policy as the server instead of
+      // an unrelated four-hour cap. This matters for confirmed road repairs.
+      const expiresAt = Date.parse(ev.expiresAt || '');
+      if (Number.isFinite(expiresAt) && expiresAt <= now) {
+        ev.status = 'expired';
+        return false;
+      }
+      if (!Number.isFinite(expiresAt)) {
+        const createdAt = Date.parse(ev.createdAt || '');
+        if (!Number.isFinite(createdAt)) return false;
+        const hasCommunityConfirmation = (ev.confirmations || []).some(
+          (confirmation) => confirmation.action === 'confirm' && confirmation.userId !== ev.userId
+        );
+        const ttlMinutes = hasCommunityConfirmation
+          ? this.getTTLMinutes(ev.type, ev.subType)
+          : this.getUnconfirmedTTLMinutes(ev.type, ev.subType);
+        if (now >= createdAt + ttlMinutes * 60_000) {
+          ev.status = 'expired';
+          return false;
         }
       }
 
