@@ -165,8 +165,10 @@ export class EventService {
     if (TelegramService.isTelegramWebApp()) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const params = new URLSearchParams({ cityId });
+      // Event reports must never be read from a stale browser/CDN cache.
       const response = await fetch(`/api/events?${params.toString()}`, {
         credentials: 'include',
+        cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !Array.isArray(payload?.events)) {

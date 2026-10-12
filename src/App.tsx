@@ -76,13 +76,19 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile>(UserService.getCurrentUser());
   const { coords: userCoords, refreshLocation, permissionGranted } = useGeolocation();
 
+  // Prevent an older in-flight poll from replacing a newer event list.
+  const dataLoadSequenceRef = useRef(0);
+
   // Load Data
   const reloadData = useCallback(async () => {
+    const loadSequence = ++dataLoadSequenceRef.current;
     const loadedEvents = await EventService.getEventsAsync().catch((error) => {
       console.warn('Could not load events:', error);
       return EventService.getEvents();
     });
-    setEvents(loadedEvents);
+    if (loadSequence === dataLoadSequenceRef.current) {
+      setEvents(loadedEvents);
+    }
     // Stations now live in Supabase, so the list is only available after the
     // network read resolves. Read them after the await, not before.
     await StationService.initialize().catch((error) => {
@@ -730,9 +736,14 @@ export default function App() {
           setIsPinPickerMode(true);
         }}
         onEventCreated={(ev) => {
+          // Render the marker immediately after the API confirms persistence.
+          // The sequence guard prevents a request started before this event from
+          // wiping it from the map when that older response arrives late.
+          dataLoadSequenceRef.current += 1;
+          setEvents((prev) => [ev, ...prev.filter((event) => event.id !== ev.id)]);
           setSelectedEvent(ev);
           setSelectedReportType(null);
-          reloadData();
+          void reloadData();
         }}
       />
 

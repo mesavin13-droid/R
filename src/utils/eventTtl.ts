@@ -18,16 +18,18 @@ export function getEventTtlMinutes(type: string, subType?: string | null): numbe
 }
 
 export function getUnconfirmedEventTtlMinutes(type: string, subType?: string | null): number {
+  // Unconfirmed markers still expire, but not so quickly that they disappear
+  // before other nearby drivers can see the report and respond.
   switch (type) {
-    case 'crossing': return 8;
-    case 'accident': return subType === 'road_blocked' ? 20 : 15;
-    case 'patrol': return 8;
-    case 'fuel': return 10;
-    case 'traffic_light': return 30;
-    case 'road': return subType === 'repair' || subType === 'pothole' ? 120 : 30;
-    case 'hazard': return 10;
-    case 'assistance': return 20;
-    default: return 10;
+    case 'crossing': return 20;
+    case 'accident': return subType === 'road_blocked' ? 30 : 20;
+    case 'patrol': return 15;
+    case 'fuel': return 20;
+    case 'traffic_light': return 45;
+    case 'road': return subType === 'repair' || subType === 'pothole' ? 120 : 60;
+    case 'hazard': return 20;
+    case 'assistance': return 30;
+    default: return 30;
   }
 }
 

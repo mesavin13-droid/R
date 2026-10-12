@@ -92,6 +92,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   const yandexGeoObjectsRef = useRef<any>(null);
   const yandexUserPlacemarkRef = useRef<any>(null);
   const [mapNow, setMapNow] = useState<number>(Date.now());
+  // Do not stamp marker data as rendered until the async Yandex map is ready.
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setMapNow(Date.now()), 15_000);
@@ -262,6 +264,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           yandexMapRef.current.destroy();
           yandexMapRef.current = null;
         }
+        setMapReady(false);
 
         const map = new ymaps.Map(
           mapContainerRef.current,
@@ -305,6 +308,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
         yandexGeoObjectsRef.current = geoObjectsGroup;
         yandexMapRef.current = map;
+        // This triggers a render pass for data that arrived before Yandex Maps.
+        setMapReady(true);
       })
       .catch((err) => {
         console.error('Yandex Maps failed to load:', err);
@@ -415,6 +420,13 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       visibleQuestions.map((q) => [q.id, q.latitude, q.longitude, q.answersCount, q.question, q.status, q.createdAt]),
       sponsoredBanners.map((ad) => [ad.id, ad.latitude, ad.longitude, ad.title, ad.subtitle, ad.bannerColor, ad.icon, ad.customLogoUrl, ad.isActive]),
     ]);
+
+    // If events loaded before the async map script, keep the old hash untouched.
+    // Otherwise the equal-hash optimization would skip the first real render and
+    // markers would appear only after some unrelated data changed.
+    if (!mapReady || !yandexMapRef.current || !yandexGeoObjectsRef.current || !window.ymaps) {
+      return;
+    }
 
     if (prevDataHashRef.current === currentDataHash) {
       return;
@@ -646,7 +658,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         group.add(placemark);
       });
     }
-  }, [events, stations, questions, sponsoredBanners, mapNow]);
+  }, [events, stations, questions, sponsoredBanners, mapNow, mapReady]);
 
   // Handle Zoom In / Out
   const handleZoomIn = () => {
