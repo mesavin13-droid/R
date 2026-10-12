@@ -380,10 +380,13 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           }
         );
         placemark.events.add('click', () => {
-          yandexMapRef.current?.panTo([userCoords.lat, userCoords.lng], {
-            flying: true,
-            duration: 450,
-          });
+          const currentCoords = yandexUserPlacemarkRef.current?.geometry?.getCoordinates?.();
+          if (currentCoords && yandexMapRef.current) {
+            yandexMapRef.current.panTo(currentCoords, {
+              flying: true,
+              duration: 450,
+            });
+          }
         });
         yandexMapRef.current.geoObjects.add(placemark);
         yandexUserPlacemarkRef.current = placemark;
