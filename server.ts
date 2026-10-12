@@ -1544,8 +1544,9 @@ app.post('/api/events', rateLimit(30, 60_000), requireTelegramAuth, userRateLimi
       district_id: districtId,
       expires_at: expiresAt,
       status: 'active',
-      confirmation_count: 1,
-      confidence_score: 1.00,
+      // Do not count the author's publication as an independent confirmation.
+      confirmation_count: 0,
+      confidence_score: 0.00,
       last_confirmed_at: now.toISOString(),
     })
     .select('*')
