@@ -1704,9 +1704,12 @@ app.post('/api/events/:eventId/confirmation', requireTelegramAuth, userRateLimit
 
   const { count: confirms } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'confirm');
   const { count: disputes } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'dispute');
-  const confirmationCount = Math.max(1, confirms || 0);
+  const confirmationCount = Math.max(0, confirms || 0);
   const disputeCount = Math.max(0, disputes || 0);
-  const confidence = Math.min(1, Math.round((confirmationCount / (confirmationCount + disputeCount)) * 100) / 100);
+  const totalVotes = confirmationCount + disputeCount;
+  const confidence = totalVotes > 0
+    ? Math.min(1, Math.round((confirmationCount / totalVotes) * 100) / 100)
+    : 0;
   const ttlMinutes = getEventTtlMinutes(event.type, event.sub_type);
   const now = new Date();
   const updates: any = {
