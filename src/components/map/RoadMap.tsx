@@ -197,7 +197,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   // Map-only lifecycle filtering: old events disappear at expiresAt even if
   // the user leaves the map open and no new API poll happens.
   const visibleEvents = events.filter((ev) => {
-    if (ev.status === 'hidden' || ev.status === 'expired' || ev.status === 'resolved' || ev.status === 'archived') {
+    if (ev.status === 'hidden' || ev.status === 'expired' || ev.status === 'resolved') {
       return false;
     }
     const expiresAt = Date.parse(ev.expiresAt || '');
