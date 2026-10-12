@@ -302,7 +302,9 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         map.events.add('click', (e: any) => {
           if (!isPinPickerModeRef.current) return;
           const coords = e.get('coords');
-          map.panTo(coords, { flying: true, duration: 400 });
+          // In picker mode the user taps the exact point to report. Do not pan
+          // the map afterwards: that animation fires boundschange and used to
+          // overwrite the tapped coordinates with the map's final center.
           setPickerCoords({ lat: coords[0], lng: coords[1] });
         });
 
@@ -614,9 +616,10 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         clusterPlacemarks.push(placemark);
       });
 
-      // Add clustered items to group
-      clusterer.add(clusterPlacemarks);
-      group.add(clusterer);
+      // Add interactive pins directly. The clusterer was intercepting taps
+      // on nearby markers (zooming the map instead of opening the selected
+      // event), which made pins appear non-clickable on mobile.
+      clusterPlacemarks.forEach((placemark) => group.add(placemark));
 
       // Render EXACT 2GIS-STYLE SPONSORED LOGO PINS on Yandex Maps
       sponsoredBanners.forEach((ad) => {
