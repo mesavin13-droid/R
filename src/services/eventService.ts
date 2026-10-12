@@ -325,10 +325,6 @@ export class EventService {
       isWithin1000m = distanceFromAuthor <= 1000;
     }
 
-    const initialConfidence = isWithin1000m
-      ? 0.95
-      : Math.max(0.35, +(0.85 - (distanceFromAuthor / 5000) * 0.35).toFixed(2));
-
     const newEvent: RoadEvent = {
       id: `ev-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: user.id,
@@ -346,9 +342,10 @@ export class EventService {
       address: data.address,
       direction: data.direction,
       imageUrl: data.imageUrl,
-      confirmationCount: 1,
+      // The author's own report is not a community confirmation.
+      confirmationCount: 0,
       disputeCount: 0,
-      confidenceScore: initialConfidence,
+      confidenceScore: 0,
       isRemoteReport: !isWithin1000m,
       distanceFromAuthorMeters: distanceFromAuthor,
       createdAt: now.toISOString(),
@@ -356,21 +353,8 @@ export class EventService {
       lastConfirmedAt: now.toISOString(),
       expiresAt,
       comments: [],
-      confirmations: [
-        {
-          id: `cf-init-${Date.now()}`,
-          eventId: '',
-          userId: user.id,
-          userName: user.fullName,
-          action: 'confirm',
-          isNearby: isWithin1000m,
-          distanceMeters: distanceFromAuthor,
-          createdAt: now.toISOString(),
-        },
-      ],
+      confirmations: [],
     };
-
-    newEvent.confirmations![0].eventId = newEvent.id;
 
     this.events.unshift(newEvent);
     this.persist();
