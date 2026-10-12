@@ -12,7 +12,7 @@ import { get3DAdSvg } from '../ads/adVisuals';
 import { colors } from '../../theme/tokens';
 import { FloatingMapAdSticker } from '../ads/FloatingMapAdSticker';
 import { getRoadLivePinSvg } from './markerVisuals';
-import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes, ANSWERED_QUESTION_MAP_TTL_MINUTES, UNANSWERED_QUESTION_TTL_MINUTES, FUEL_QUEUE_TTL_MINUTES } from '../../utils/eventTtl';
+import { getUnconfirmedEventTtlMinutes, ANSWERED_QUESTION_MAP_TTL_MINUTES, UNANSWERED_QUESTION_TTL_MINUTES, FUEL_QUEUE_TTL_MINUTES } from '../../utils/eventTtl';
 
 interface RoadMapProps {
   events: RoadEvent[];
