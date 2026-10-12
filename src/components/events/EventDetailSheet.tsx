@@ -681,23 +681,30 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
             </div>
           )}
 
-          {/* Action Buttons */}
+          {/* Only another driver can validate a report; self-confirmation must not extend its lifetime. */}
           <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handleConfirmClick}
-              className={`flex items-center justify-center gap-2 py-3 px-3 rounded-2xl font-medium text-xs transition active:scale-95 ${
-                hasConfirmed
-                  ? 'bg-success/20 text-success border border-success/40'
-                  : 'bg-accent hover:bg-accent-strong text-white shadow-xs'
-              } ${isConfirmingAnim ? 'scale-105' : ''}`}
-            >
-              <Check className="w-4 h-4" />
-              <span>
-                {hasConfirmed
-                  ? (event.type === 'assistance' ? '✓ Откликнулся' : '✓ Подтверждено')
-                  : (event.type === 'assistance' ? 'Откликнуться' : 'Подтверждаю')}
-              </span>
-            </button>
+            {isAuthor ? (
+              <div className="col-span-1 flex items-center gap-2 px-3 py-2 rounded-2xl bg-warning/10 border border-warning/20 text-warning text-[11px] leading-snug">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>Ждём подтверждения другого водителя</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleConfirmClick}
+                className={`flex items-center justify-center gap-2 py-3 px-3 rounded-2xl font-medium text-xs transition active:scale-95 ${
+                  hasConfirmed
+                    ? 'bg-success/20 text-success border border-success/40'
+                    : 'bg-accent hover:bg-accent-strong text-white shadow-xs'
+                } ${isConfirmingAnim ? 'scale-105' : ''}`}
+              >
+                <Check className="w-4 h-4" />
+                <span>
+                  {hasConfirmed
+                    ? (event.type === 'assistance' ? '✓ Откликнулся' : '✓ Подтверждено')
+                    : (event.type === 'assistance' ? 'Откликнуться' : 'Подтверждаю')}
+                </span>
+              </button>
+            )}
 
             <button
               onClick={() => {
