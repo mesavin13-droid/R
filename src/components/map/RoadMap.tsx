@@ -561,7 +561,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             // The same category-shaped pin as road events: latitude/longitude
             // attaches to the pointed tip, while the active area covers the head.
             iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 21 },
+            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
             zIndex: 400,
           }
         );
