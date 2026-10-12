@@ -515,7 +515,7 @@ export class EventService {
     if (existing) {
       if (existing.action === 'dispute') return event;
       existing.action = 'dispute';
-      event.confirmationCount = Math.max(1, event.confirmationCount - 1);
+      event.confirmationCount = Math.max(0, event.confirmationCount - 1);
       event.disputeCount += 1;
     } else {
       if (!event.confirmations) event.confirmations = [];
