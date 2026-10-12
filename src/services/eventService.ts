@@ -12,16 +12,18 @@ export class EventService {
   private static events: RoadEvent[] = [];
 
   private static fromServerEvent(row: any): RoadEvent {
-    // The client treats drivers as `tg-<telegram_id>` while the DB stores
-    // profile UUIDs; the server enriches rows with `author_tg_id`/`helper_tg_id`
-    // so identity checks (own event, helper, notifications) work client-side.
+    // The database stores profile UUIDs; enriched list responses also provide
+    // Telegram IDs. Mutation responses are intentionally lean, so preserve the
+    // already-known browser identity when the row does not include enrichment.
+    const rowId = String(row.id ?? '');
+    const cached = this.events.find((event) => event.id === rowId);
     const authorTgId = row.author_tg_id ? String(row.author_tg_id) : '';
     const helperTgId = row.helper_tg_id ? String(row.helper_tg_id) : '';
     return {
-      id: row.id,
-      userId: authorTgId ? `tg-${authorTgId}` : row.user_id ? String(row.user_id) : 'unknown',
-      authorName: row.author_name || 'Водитель',
-      authorLevel: row.author_level || 'Новичок',
+      id: rowId,
+      userId: authorTgId ? `tg-${authorTgId}` : cached?.userId || (row.user_id ? String(row.user_id) : 'unknown'),
+      authorName: row.author_name || cached?.authorName || 'Водитель',
+      authorLevel: row.author_level || cached?.authorLevel || 'Новичок',
       cityId: row.city_id,
       districtId: row.district_id || undefined,
       type: row.type,
@@ -48,8 +50,8 @@ export class EventService {
       creatorConfirmedResolved: Boolean(row.creator_confirmed_resolved),
       helperConfirmedResolved: Boolean(row.helper_confirmed_resolved),
       offersCount: row.offers_count != null ? Number(row.offers_count) : undefined,
-      comments: [],
-      confirmations: [],
+      comments: Array.isArray(row.comments) ? row.comments : cached?.comments || [],
+      confirmations: Array.isArray(row.confirmations) ? row.confirmations : cached?.confirmations || [],
     };
   }
 
@@ -311,6 +313,11 @@ export class EventService {
         throw new Error(payload?.error || 'Не удалось сохранить событие');
       }
       const serverEvent = this.fromServerEvent(payload.event);
+      // This create response is not enriched by the list endpoint yet. Keep the
+      // current driver's identity so the event card recognizes its own author.
+      serverEvent.userId = user.id;
+      serverEvent.authorName = user.fullName;
+      serverEvent.authorLevel = user.level;
       localRealtime.broadcast('events_channel', { type: 'INSERT', event: serverEvent });
       NotificationService.broadcastCriticalEvent(serverEvent).catch((err) => {
         console.warn('Could not broadcast push notification:', err);
