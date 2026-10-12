@@ -12,6 +12,7 @@ import { get3DAdSvg } from '../ads/adVisuals';
 import { colors } from '../../theme/tokens';
 import { FloatingMapAdSticker } from '../ads/FloatingMapAdSticker';
 import { getRoadLivePinSvg } from './markerVisuals';
+import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes, ANSWERED_QUESTION_MAP_TTL_MINUTES, UNANSWERED_QUESTION_TTL_MINUTES, FUEL_QUEUE_TTL_MINUTES } from '../../utils/eventTtl';
 
 interface RoadMapProps {
   events: RoadEvent[];
@@ -90,6 +91,29 @@ export const RoadMap: React.FC<RoadMapProps> = ({
   const yandexMapRef = useRef<any>(null);
   const yandexGeoObjectsRef = useRef<any>(null);
   const yandexUserPlacemarkRef = useRef<any>(null);
+  const [mapNow, setMapNow] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setMapNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  // Always call the most recent callbacks from Yandex's long-lived marker DOM.
+  // Without refs, markers can retain stale React closures after UI changes.
+  const latestMapCallbacksRef = useRef({
+    onSelectEvent,
+    onSelectStation,
+    onSelectQuestion,
+    onCloseAdBanner,
+    onSelectSponsoredPlace,
+  });
+  latestMapCallbacksRef.current = {
+    onSelectEvent,
+    onSelectStation,
+    onSelectQuestion,
+    onCloseAdBanner,
+    onSelectSponsoredPlace,
+  };
 
   // Performance Hash Tracker to prevent layout thrashing
   const prevDataHashRef = useRef<string>('');
@@ -170,44 +194,56 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
   const isWithin1000m = userCoords ? distanceFromUserMeters <= 1000 : true;
 
-  // DOM Click Delegation for 2GIS-style Ad Pins
+  // Map-only lifecycle filtering: old events disappear at expiresAt even if
+  // the user leaves the map open and no new API poll happens.
+  const visibleEvents = events.filter((ev) => {
+    if (ev.status === 'hidden' || ev.status === 'expired' || ev.status === 'resolved' || ev.status === 'archived') {
+      return false;
+    }
+    const expiresAt = Date.parse(ev.expiresAt || '');
+    if (Number.isFinite(expiresAt)) return expiresAt > mapNow;
+
+    // Older local records may not have expiresAt. Do not keep them indefinitely.
+    const createdAt = Date.parse(ev.createdAt || '');
+    return Number.isFinite(createdAt) &&
+      mapNow < createdAt + getUnconfirmedEventTtlMinutes(ev.type, ev.subType) * 60_000;
+  });
+
+  const visibleQuestions = questions.filter((q) => {
+    if (q.status !== 'open') return false;
+    const createdAt = Date.parse(q.createdAt || '');
+    if (!Number.isFinite(createdAt)) return false;
+    const ttlMinutes = q.answersCount > 0
+      ? ANSWERED_QUESTION_MAP_TTL_MINUTES
+      : UNANSWERED_QUESTION_TTL_MINUTES;
+    return mapNow < createdAt + ttlMinutes * 60_000;
+  });
+
+  // DOM Click Delegation for the close control on sponsored pins.
+  // The sponsored pin's own Yandex click event opens its detail card.
   useEffect(() => {
     const container = mapContainerRef.current;
     if (!container) return;
 
     const handleAdClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      
-      // 1. Click on Close Button '×'
-      const closeBtn = target.closest('.twogis-close-ad-btn') as HTMLElement;
-      if (closeBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        const adId = closeBtn.getAttribute('data-adid');
-        if (adId && onCloseAdBanner) {
-          onCloseAdBanner(adId);
-        }
-        return;
-      }
 
-      // 2. Click on Ad Pin Body
-      const pinContainer = target.closest('.twogis-map-ad-pin') as HTMLElement;
-      if (pinContainer) {
-        e.preventDefault();
-        e.stopPropagation();
-        const adId = pinContainer.getAttribute('data-adid');
-        if (adId && onSelectSponsoredPlace) {
-          const banner = sponsoredBanners.find((b) => b.id === adId);
-          if (banner) onSelectSponsoredPlace(banner);
-        }
-      }
+      // This element belongs to the sponsored marker; prevent its own click
+      // from opening the detail card before the close action is handled.
+      const closeBtn = target.closest('.twogis-close-ad-btn') as HTMLElement;
+      if (!closeBtn) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      const adId = closeBtn.getAttribute('data-adid');
+      if (adId) latestMapCallbacksRef.current.onCloseAdBanner?.(adId);
     };
 
     container.addEventListener('click', handleAdClick, true);
     return () => {
       container.removeEventListener('click', handleAdClick, true);
     };
-  }, [sponsoredBanners, onCloseAdBanner, onSelectSponsoredPlace]);
+  }, [sponsoredBanners]);
 
   // Initialize Map Engine
   useEffect(() => {
@@ -343,6 +379,12 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             zIndex: 1000,
           }
         );
+        placemark.events.add('click', () => {
+          yandexMapRef.current?.panTo([userCoords.lat, userCoords.lng], {
+            flying: true,
+            duration: 450,
+          });
+        });
         yandexMapRef.current.geoObjects.add(placemark);
         yandexUserPlacemarkRef.current = placemark;
       }
@@ -354,12 +396,21 @@ export const RoadMap: React.FC<RoadMapProps> = ({
     // Include every field that changes a rendered pin, its position, or its
     // hint. Otherwise a status/subtype/coordinate edit can leave stale marker SVG.
     const currentDataHash = JSON.stringify([
-      events.map((e) => [
-        e.id, e.type, e.subType, e.latitude, e.longitude, e.status,
-        e.confirmationCount, e.comments?.length || 0, e.title,
+      visibleEvents.map((e) => [
+        e.id, e.userId, e.type, e.subType, e.latitude, e.longitude, e.status,
+        e.confirmationCount, e.disputeCount, e.confidenceScore, e.comments?.length || 0,
+        e.title, e.description, e.address, e.direction, e.imageUrl,
+        e.createdAt, e.updatedAt, e.lastConfirmedAt, e.expiresAt,
+        e.helperUserId, e.helperName, e.offersCount,
       ]),
-      stations.map((s) => [s.id, s.latitude, s.longitude, s.queueStatus, s.name]),
-      questions.map((q) => [q.id, q.latitude, q.longitude, q.answersCount, q.question]),
+      stations.map((s) => {
+        const lastReportedAt = Date.parse(s.lastReportedAt || '');
+        const queueIsFresh = Number.isFinite(lastReportedAt) &&
+          mapNow - lastReportedAt <= FUEL_QUEUE_TTL_MINUTES * 60_000;
+        return [s.id, s.latitude, s.longitude, s.queueStatus, s.name, s.address, queueIsFresh];
+      }),
+      visibleQuestions.map((q) => [q.id, q.latitude, q.longitude, q.answersCount, q.question, q.status, q.createdAt]),
+      sponsoredBanners.map((ad) => [ad.id, ad.latitude, ad.longitude, ad.title, ad.subtitle, ad.bannerColor, ad.icon, ad.customLogoUrl, ad.isActive]),
     ]);
 
     if (prevDataHashRef.current === currentDataHash) {
@@ -408,7 +459,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
       const clusterPlacemarks: any[] = [];
 
       // Render Events
-      events.forEach((ev) => {
+      visibleEvents.forEach((ev) => {
         let badgeColor: string = colors.accent;
         let badgeIcon = '🚗';
 
@@ -471,13 +522,13 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           {
             iconLayout: layout,
             iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 21 },
+            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
             zIndex: ev.status === 'active' ? 500 : 300,
           }
         );
 
         placemark.events.add('click', () => {
-          onSelectEvent(ev);
+          latestMapCallbacksRef.current.onSelectEvent(ev);
         });
 
         clusterPlacemarks.push(placemark);
@@ -485,12 +536,16 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       // Render Stations
       stations.forEach((st) => {
-        const queueColor =
-          st.queueStatus === 'none'
+        const lastQueueReport = Date.parse(st.lastReportedAt || '');
+        const queueIsFresh = Number.isFinite(lastQueueReport) &&
+          mapNow - lastQueueReport <= FUEL_QUEUE_TTL_MINUTES * 60_000;
+        const queueColor = !queueIsFresh
+          ? colors.muted
+          : st.queueStatus === 'none'
             ? colors.success
             : st.queueStatus === 'small'
-            ? colors.warningStrong
-            : colors.danger;
+              ? colors.warningStrong
+              : colors.danger;
 
         const stationHtml = getRoadLivePinSvg('station', 'station', queueColor, 0, false);
 
@@ -512,14 +567,14 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         );
 
         placemark.events.add('click', () => {
-          onSelectStation(st);
+          latestMapCallbacksRef.current.onSelectStation(st);
         });
 
         group.add(placemark);
       });
 
       // Render Questions
-      questions.forEach((q) => {
+      visibleQuestions.forEach((q) => {
         const questionHtml = getRoadLivePinSvg('question', 'question', colors.purple, 0, false);
 
         const layout = ymaps.templateLayoutFactory.createClass(
@@ -532,13 +587,13 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           {
             iconLayout: layout,
             iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 20 },
+            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
             zIndex: 450,
           }
         );
 
         placemark.events.add('click', () => {
-          onSelectQuestion(q);
+          latestMapCallbacksRef.current.onSelectQuestion(q);
         });
 
         clusterPlacemarks.push(placemark);
@@ -576,15 +631,19 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           { hintContent: `⭐ ${ad.title}` },
           {
             iconLayout: layout,
-            iconShape: { type: 'Circle', coordinates: [0, 0], radius: 24 },
+            iconShape: { type: 'Circle', coordinates: [0, 0], radius: 36 },
             zIndex: 650,
           }
         );
 
+        placemark.events.add('click', () => {
+          latestMapCallbacksRef.current.onSelectSponsoredPlace?.(ad);
+        });
+
         group.add(placemark);
       });
     }
-  }, [events, stations, questions, sponsoredBanners]);
+  }, [events, stations, questions, sponsoredBanners, mapNow]);
 
   // Handle Zoom In / Out
   const handleZoomIn = () => {
