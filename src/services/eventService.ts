@@ -2,6 +2,7 @@ import { AssistanceOffer, AssistanceOfferKind, EventComment, EventConfirmation, 
 import { localRealtime } from '../lib/supabase';
 import { NotificationService } from './notificationService';
 import { TelegramService } from './telegramService';
+import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes } from '../utils/eventTtl';
 
 const STORAGE_KEY = 'roadlive_events_v2';
 const ARCHIVE_KEY = 'roadlive_archived_events_v2';
@@ -11,16 +12,18 @@ export class EventService {
   private static events: RoadEvent[] = [];
 
   private static fromServerEvent(row: any): RoadEvent {
-    // The client treats drivers as `tg-<telegram_id>` while the DB stores
-    // profile UUIDs; the server enriches rows with `author_tg_id`/`helper_tg_id`
-    // so identity checks (own event, helper, notifications) work client-side.
+    // The database stores profile UUIDs; enriched list responses also provide
+    // Telegram IDs. Mutation responses are intentionally lean, so preserve the
+    // already-known browser identity when the row does not include enrichment.
+    const rowId = String(row.id ?? '');
+    const cached = this.events.find((event) => event.id === rowId);
     const authorTgId = row.author_tg_id ? String(row.author_tg_id) : '';
     const helperTgId = row.helper_tg_id ? String(row.helper_tg_id) : '';
     return {
-      id: row.id,
-      userId: authorTgId ? `tg-${authorTgId}` : row.user_id ? String(row.user_id) : 'unknown',
-      authorName: row.author_name || 'Водитель',
-      authorLevel: row.author_level || 'Новичок',
+      id: rowId,
+      userId: authorTgId ? `tg-${authorTgId}` : cached?.userId || (row.user_id ? String(row.user_id) : 'unknown'),
+      authorName: row.author_name || cached?.authorName || 'Водитель',
+      authorLevel: row.author_level || cached?.authorLevel || 'Новичок',
       cityId: row.city_id,
       districtId: row.district_id || undefined,
       type: row.type,
@@ -47,8 +50,8 @@ export class EventService {
       creatorConfirmedResolved: Boolean(row.creator_confirmed_resolved),
       helperConfirmedResolved: Boolean(row.helper_confirmed_resolved),
       offersCount: row.offers_count != null ? Number(row.offers_count) : undefined,
-      comments: [],
-      confirmations: [],
+      comments: Array.isArray(row.comments) ? row.comments : cached?.comments || [],
+      confirmations: Array.isArray(row.confirmations) ? row.confirmations : cached?.confirmations || [],
     };
   }
 
@@ -117,28 +120,14 @@ export class EventService {
     }
   }
 
-  /**
-   * Determine TTL in minutes based on event type
-   */
+  /** Category lifetime after a real confirmation from another driver. */
   static getTTLMinutes(type: EventType, subType?: string): number {
-    switch (type) {
-      case 'crossing':
-        return 20; // 20 mins after last confirmation
-      case 'accident':
-        return subType === 'road_blocked' ? 60 : 45;
-      case 'patrol':
-        return 25;
-      case 'fuel':
-        return 25;
-      case 'traffic_light':
-        return 90;
-      case 'road':
-        return subType === 'repair' || subType === 'pothole' ? 2880 : 360; // 2 days for holes/repairs
-      case 'hazard':
-        return 40;
-      default:
-        return 30;
-    }
+    return getEventTtlMinutes(type, subType);
+  }
+
+  /** Short initial window before the community has confirmed a new report. */
+  static getUnconfirmedTTLMinutes(type: EventType, subType?: string): number {
+    return getUnconfirmedEventTtlMinutes(type, subType);
   }
 
   /**
@@ -201,22 +190,31 @@ export class EventService {
     this.initialize();
     this.refreshEventStatuses();
 
-    const hideOldEvents = localStorage.getItem('roadlive_hide_old_events') !== 'false';
-    const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+    const now = Date.now();
 
     return this.events.filter((ev) => {
       if (ev.cityId !== cityId) return false;
       if (ev.status === 'hidden' || ev.status === 'expired' || ev.status === 'resolved') return false;
 
-      // Filter out events older than 4 hours if hideOldEvents (Smart Cleanliness) settings is enabled
-      // EXCEPT critical accidents (ДТП) which must stay visible!
-      if (hideOldEvents) {
-        const isCriticalAccident = ev.type === 'accident';
-        if (!isCriticalAccident) {
-          const lastActivityTime = ev.updatedAt ? new Date(ev.updatedAt).getTime() : new Date(ev.createdAt).getTime();
-          if (lastActivityTime < fourHoursAgo) {
-            return false;
-          }
+      // Honour the same per-category expiration policy as the server instead of
+      // an unrelated four-hour cap. This matters for confirmed road repairs.
+      const expiresAt = Date.parse(ev.expiresAt || '');
+      if (Number.isFinite(expiresAt) && expiresAt <= now) {
+        ev.status = 'expired';
+        return false;
+      }
+      if (!Number.isFinite(expiresAt)) {
+        const createdAt = Date.parse(ev.createdAt || '');
+        if (!Number.isFinite(createdAt)) return false;
+        const hasCommunityConfirmation = (ev.confirmations || []).some(
+          (confirmation) => confirmation.action === 'confirm' && confirmation.userId !== ev.userId
+        );
+        const ttlMinutes = hasCommunityConfirmation
+          ? this.getTTLMinutes(ev.type, ev.subType)
+          : this.getUnconfirmedTTLMinutes(ev.type, ev.subType);
+        if (now >= createdAt + ttlMinutes * 60_000) {
+          ev.status = 'expired';
+          return false;
         }
       }
 
@@ -315,6 +313,11 @@ export class EventService {
         throw new Error(payload?.error || 'Не удалось сохранить событие');
       }
       const serverEvent = this.fromServerEvent(payload.event);
+      // This create response is not enriched by the list endpoint yet. Keep the
+      // current driver's identity so the event card recognizes its own author.
+      serverEvent.userId = user.id;
+      serverEvent.authorName = user.fullName;
+      serverEvent.authorLevel = user.level;
       localRealtime.broadcast('events_channel', { type: 'INSERT', event: serverEvent });
       NotificationService.broadcastCriticalEvent(serverEvent).catch((err) => {
         console.warn('Could not broadcast push notification:', err);
@@ -323,7 +326,7 @@ export class EventService {
     }
 
     const now = new Date();
-    const ttlMins = this.getTTLMinutes(data.type, data.subType);
+    const ttlMins = this.getUnconfirmedTTLMinutes(data.type, data.subType);
     const expiresAt = new Date(now.getTime() + ttlMins * 60 * 1000).toISOString();
 
     let distanceFromAuthor = 0;
@@ -337,10 +340,6 @@ export class EventService {
       );
       isWithin1000m = distanceFromAuthor <= 1000;
     }
-
-    const initialConfidence = isWithin1000m
-      ? 0.95
-      : Math.max(0.35, +(0.85 - (distanceFromAuthor / 5000) * 0.35).toFixed(2));
 
     const newEvent: RoadEvent = {
       id: `ev-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -359,9 +358,10 @@ export class EventService {
       address: data.address,
       direction: data.direction,
       imageUrl: data.imageUrl,
-      confirmationCount: 1,
+      // The author's own report is not a community confirmation.
+      confirmationCount: 0,
       disputeCount: 0,
-      confidenceScore: initialConfidence,
+      confidenceScore: 0,
       isRemoteReport: !isWithin1000m,
       distanceFromAuthorMeters: distanceFromAuthor,
       createdAt: now.toISOString(),
@@ -369,21 +369,8 @@ export class EventService {
       lastConfirmedAt: now.toISOString(),
       expiresAt,
       comments: [],
-      confirmations: [
-        {
-          id: `cf-init-${Date.now()}`,
-          eventId: '',
-          userId: user.id,
-          userName: user.fullName,
-          action: 'confirm',
-          isNearby: isWithin1000m,
-          distanceMeters: distanceFromAuthor,
-          createdAt: now.toISOString(),
-        },
-      ],
+      confirmations: [],
     };
-
-    newEvent.confirmations![0].eventId = newEvent.id;
 
     this.events.unshift(newEvent);
     this.persist();
@@ -416,6 +403,12 @@ export class EventService {
       let distanceMeters: number | undefined;
       let isNearby = true;
       const currentEvent = this.events.find((e) => e.id === eventId);
+      if (currentEvent?.userId === user.id) {
+        throw new Error('Свою отметку нельзя подтвердить самостоятельно — дождитесь другого водителя');
+      }
+      if (currentEvent && Date.parse(currentEvent.expiresAt) <= Date.now()) {
+        throw new Error('Срок актуальности этой отметки истёк');
+      }
       if (currentEvent && userLocation) {
         distanceMeters = this.calculateDistanceMeters(
           currentEvent.latitude,
@@ -443,6 +436,14 @@ export class EventService {
     }
     const event = this.events.find((e) => e.id === eventId);
     if (!event) throw new Error('Событие не найдено');
+    if (event.userId === user.id) {
+      throw new Error('Свою отметку нельзя подтвердить самостоятельно — дождитесь другого водителя');
+    }
+    if (Date.parse(event.expiresAt) <= Date.now()) {
+      event.status = 'expired';
+      this.persist();
+      throw new Error('Срок актуальности этой отметки истёк');
+    }
 
     let distanceMeters: number | undefined;
     let isNearby = true;
@@ -514,7 +515,7 @@ export class EventService {
     if (existing) {
       if (existing.action === 'dispute') return event;
       existing.action = 'dispute';
-      event.confirmationCount = Math.max(1, event.confirmationCount - 1);
+      event.confirmationCount = Math.max(0, event.confirmationCount - 1);
       event.disputeCount += 1;
     } else {
       if (!event.confirmations) event.confirmations = [];

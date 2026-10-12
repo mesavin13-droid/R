@@ -6,6 +6,7 @@ import path from 'path';
 import crypto from 'crypto';
 import webpush from 'web-push';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes, UNANSWERED_QUESTION_TTL_MINUTES } from './src/utils/eventTtl';
 
 dotenv.config();
 
@@ -1406,6 +1407,26 @@ app.get('/api/questions', requireTelegramAuth, async (req: Request, res: Respons
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище вопросов не настроено' });
   const cityId = await resolveCityId(typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01');
   if (!cityId) return res.status(400).json({ error: 'Неизвестный город' });
+
+  const questionNow = Date.now();
+  const oneHourAgo = new Date(questionNow - UNANSWERED_QUESTION_TTL_MINUTES * 60_000).toISOString();
+  const sixHoursAgo = new Date(questionNow - 6 * 60 * 60_000).toISOString();
+  // Closed questions are kept in the list/history but disappear from the map.
+  const closeOldQuestions = await serverSupabase.from('questions')
+    .update({ status: 'closed' })
+    .eq('city_id', cityId)
+    .eq('status', 'open')
+    .lte('created_at', sixHoursAgo);
+  if (closeOldQuestions.error) console.warn('[Questions] old question cleanup failed:', closeOldQuestions.error.message);
+
+  const closeUnansweredQuestions = await serverSupabase.from('questions')
+    .update({ status: 'closed' })
+    .eq('city_id', cityId)
+    .eq('status', 'open')
+    .eq('answers_count', 0)
+    .lte('created_at', oneHourAgo);
+  if (closeUnansweredQuestions.error) console.warn('[Questions] unanswered question cleanup failed:', closeUnansweredQuestions.error.message);
+
   const { data, error } = await serverSupabase.from('questions').select('id,user_id,city_id,district_id,category,question,latitude,longitude,address,answers_count,status,created_at').eq('city_id', cityId).order('created_at', { ascending: false }).limit(500);
   if (error) return res.status(500).json({ error: 'Не удалось загрузить вопросы' });
   const ids = (data || []).map((q: any) => q.id);
@@ -1501,12 +1522,9 @@ app.post('/api/events', rateLimit(30, 60_000), requireTelegramAuth, userRateLimi
   const profileId = await getOrCreateTelegramProfile(session);
   if (!profileId) return res.status(503).json({ error: 'Не удалось определить профиль водителя' });
 
-  const ttlMinutes =
-    input.type === 'crossing' ? 20 :
-    input.type === 'accident' ? (input.sub_type === 'road_blocked' ? 60 : 45) :
-    input.type === 'patrol' || input.type === 'fuel' || input.type === 'hazard' ? 25 :
-    input.type === 'traffic_light' ? 90 :
-    input.type === 'road' ? ((input.sub_type === 'repair' || input.sub_type === 'pothole') ? 2880 : 360) : 30;
+  // Give each unverified report a short community-validation window.
+  // A confirmation by another driver extends it to the normal category lifetime.
+  const ttlMinutes = getUnconfirmedEventTtlMinutes(input.type, input.sub_type);
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60_000).toISOString();
@@ -1526,8 +1544,9 @@ app.post('/api/events', rateLimit(30, 60_000), requireTelegramAuth, userRateLimi
       district_id: districtId,
       expires_at: expiresAt,
       status: 'active',
-      confirmation_count: 1,
-      confidence_score: 1.00,
+      // Do not count the author's publication as an independent confirmation.
+      confirmation_count: 0,
+      confidence_score: 0.00,
       last_confirmed_at: now.toISOString(),
     })
     .select('*')
@@ -1545,13 +1564,30 @@ app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) 
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище событий не настроено' });
   const cityId = await resolveCityId(typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01');
   if (!cityId) return res.status(400).json({ error: 'Неизвестный город' });
+  const eventReadNow = new Date().toISOString();
+
+  // Expiration must be enforced on the server, not only in the client map.
+  // This sweep also marks stale active rows so they cannot be revived by a
+  // later page reload or by an API mutation.
+  const expiredSweep = await serverSupabase
+    .from('events')
+    .update({ status: 'expired', updated_at: eventReadNow })
+    .eq('city_id', cityId)
+    .in('status', ['active', 'expiring'])
+    .lte('expires_at', eventReadNow);
+  if (expiredSweep.error) {
+    console.warn('[Events] expiration sweep failed:', expiredSweep.error.message);
+  }
+
   const { data, error } = await serverSupabase
     .from('events')
     .select('*')
     .eq('city_id', cityId)
+    .gt('expires_at', eventReadNow)
     .neq('status', 'hidden')
     .neq('status', 'expired')
     .neq('status', 'resolved')
+    .neq('status', 'archived')
     .order('created_at', { ascending: false })
     .limit(500);
   if (error) return res.status(500).json({ error: 'Не удалось загрузить события' });
@@ -1628,8 +1664,17 @@ app.post('/api/events/:eventId/confirmation', requireTelegramAuth, userRateLimit
   const profileId = await resolveEventProfile(session);
   const { data: event, error: eventError } = await serverSupabase.from('events').select('*').eq('id', eventId).maybeSingle();
   if (eventError || !event) return res.status(404).json({ error: 'Событие не найдено' });
-  if (event.status === 'hidden' || event.status === 'expired' || event.status === 'resolved') {
+  if (event.status === 'hidden' || event.status === 'expired' || event.status === 'resolved' || event.status === 'archived') {
     return res.status(409).json({ error: 'Событие больше не актуально' });
+  }
+
+  const expiresAtMs = Date.parse(event.expires_at || '');
+  if (Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now()) {
+    await serverSupabase.from('events').update({
+      status: 'expired',
+      updated_at: new Date().toISOString(),
+    }).eq('id', eventId).in('status', ['active', 'expiring']);
+    return res.status(409).json({ error: 'Срок актуальности события истёк' });
   }
 
   const { data: existing } = await serverSupabase
@@ -1639,6 +1684,9 @@ app.post('/api/events/:eventId/confirmation', requireTelegramAuth, userRateLimit
     .eq('user_id', profileId)
     .maybeSingle();
 
+  if (action === 'confirm' && event.user_id === profileId) {
+    return res.status(409).json({ error: 'Нельзя подтвердить собственную отметку — дождитесь другого водителя' });
+  }
   if (existing?.action === action) return res.json({ event });
 
   if (existing) {
@@ -1656,15 +1704,13 @@ app.post('/api/events/:eventId/confirmation', requireTelegramAuth, userRateLimit
 
   const { count: confirms } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'confirm');
   const { count: disputes } = await serverSupabase.from('event_confirmations').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('action', 'dispute');
-  const confirmationCount = Math.max(1, confirms || 0);
+  const confirmationCount = Math.max(0, confirms || 0);
   const disputeCount = Math.max(0, disputes || 0);
-  const confidence = Math.min(1, Math.round((confirmationCount / (confirmationCount + disputeCount)) * 100) / 100);
-  const ttlMinutes =
-    event.type === 'crossing' ? 20 :
-    event.type === 'accident' ? (event.sub_type === 'road_blocked' ? 60 : 45) :
-    event.type === 'patrol' || event.type === 'fuel' || event.type === 'hazard' ? 25 :
-    event.type === 'traffic_light' ? 90 :
-    event.type === 'road' ? ((event.sub_type === 'repair' || event.sub_type === 'pothole') ? 2880 : 360) : 30;
+  const totalVotes = confirmationCount + disputeCount;
+  const confidence = totalVotes > 0
+    ? Math.min(1, Math.round((confirmationCount / totalVotes) * 100) / 100)
+    : 0;
+  const ttlMinutes = getEventTtlMinutes(event.type, event.sub_type);
   const now = new Date();
   const updates: any = {
     confirmation_count: confirmationCount,
@@ -1676,6 +1722,9 @@ app.post('/api/events/:eventId/confirmation', requireTelegramAuth, userRateLimit
     updates.last_confirmed_at = now.toISOString();
     updates.expires_at = new Date(now.getTime() + ttlMinutes * 60_000).toISOString();
     updates.status = 'active';
+  } else if (disputeCount >= 3 && disputeCount > confirmationCount) {
+    // Several independent reports that the marker is no longer valid resolve it early.
+    updates.status = 'resolved';
   }
   const updated = await serverSupabase.from('events').update(updates).eq('id', eventId).select('*').single();
   if (updated.error || !updated.data) return res.status(500).json({ error: 'Не удалось обновить событие' });
