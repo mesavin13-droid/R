@@ -35,10 +35,16 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
   ];
 
   const handlePublishSos = async () => {
+    if (!userCoords || !Number.isFinite(userCoords.lat) || !Number.isFinite(userCoords.lng) || Math.abs(userCoords.lat)>85 || Math.abs(userCoords.lng)>180) {
+      alert('Не удалось определить координаты. Разрешите доступ к геолокации и повторите попытку. SOS не опубликован.');
+      return;
+    }
+    const confirmed = window.confirm(`Отправить SOS по координатам ${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}? Другие водители увидят эту точку.`);
+    if (!confirmed) return;
     setIsSubmitting(true);
     try {
       const option = sosOptions.find((o) => o.id === selectedSubtype) || sosOptions[0];
-      const coords = userCoords || { lat: 55.0084, lng: 82.9357 };
+      const coords = userCoords;
       const address = await GeocodingService.reverse(coords.lat, coords.lng);
 
       const title = `${option.title} ${option.icon}`;
@@ -84,7 +90,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
                 Срочный SOS-запрос помощи
               </h3>
               <p className="text-[11px] text-danger font-medium">
-                Мгновенно уведомит водителей поблизости
+                Водители рядом увидят запрос при работающих уведомлениях
               </p>
             </div>
           </div>
@@ -145,14 +151,19 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-graphite border border-white/5 text-[11px] text-muted">
             <MapPin className="w-3.5 h-3.5 text-danger shrink-0" />
             <span className="truncate">
-              {userCoords ? `Точка GPS: ${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)}` : 'Локация: По центру карты'}
+              {userCoords ? `Точка GPS: ${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}` : 'GPS недоступен — отправка SOS заблокирована'}
             </span>
           </div>
 
+          {!userCoords && (
+            <p role="alert" className="text-xs text-danger bg-danger/10 border border-danger/30 rounded-xl p-3">
+              Для публикации SOS необходимо разрешить доступ к геолокации. Центр карты не используется как подмена GPS. При непосредственной опасности звоните <a href="tel:112" className="underline font-bold">112</a>.
+            </p>
+          )}
           {/* Critical SOS Send Button */}
           <button
             onClick={handlePublishSos}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !userCoords}
             className="w-full py-3 px-4 rounded-2xl bg-danger hover:bg-danger-strong text-white font-bold text-sm shadow-[0_8px_24px_rgba(255,59,48,0.4)] transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? (
