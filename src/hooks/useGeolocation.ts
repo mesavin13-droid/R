@@ -41,12 +41,12 @@ export function useGeolocation() {
       const denied = err.code === err.PERMISSION_DENIED;
       return {
         ...prev,
-        coords: denied ? null : prev.coords,
+        coords: null,
         error: denied
           ? 'Разрешите доступ к геолокации, чтобы получать уведомления рядом'
-          : prev.coords ? prev.error : 'Не удалось определить местоположение',
+          : 'GPS временно недоступен. Оповещения по радиусу приостановлены до получения новой точки.',
         isLoading: false,
-        permissionGranted: denied ? false : prev.permissionGranted,
+        permissionGranted: false,
       };
     });
   }, []);
@@ -56,6 +56,7 @@ export function useGeolocation() {
       setState((prev) => ({
         ...prev,
         isLoading: false,
+        coords: null,
         error: 'Геолокация не поддерживается вашим браузером',
         permissionGranted: false,
       }));
