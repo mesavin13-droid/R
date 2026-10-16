@@ -62,7 +62,7 @@ export function useGeolocation() {
       }));
       return;
     }
-    setState((prev) => ({ ...prev, isLoading: true }));
+    setState((prev) => ({ ...prev, coords: null, isLoading: true }));
     navigator.geolocation.getCurrentPosition(onPosition, onError, GEO_OPTIONS);
   }, [onPosition, onError]);
 
@@ -71,6 +71,7 @@ export function useGeolocation() {
       setState((prev) => ({
         ...prev,
         isLoading: false,
+        coords: null,
         error: 'Геолокация не поддерживается вашим браузером',
         permissionGranted: false,
       }));
