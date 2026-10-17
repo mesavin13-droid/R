@@ -37,6 +37,7 @@ export default function App() {
   const [splashFinished, setSplashFinished] = useState(false);
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(() => TelegramService.isTelegramClient());
   const [isTelegramAuthenticated, setIsTelegramAuthenticated] = useState(false);
+  const [webLoginStatus, setWebLoginStatus] = useState<'checking'|'available'|'unavailable'|'authenticated'>('checking');
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const [staffRole, setStaffRole] = useState<'driver' | 'moderator' | 'admin' | 'owner'>('driver');
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
@@ -105,9 +106,29 @@ export default function App() {
     const isTg = TelegramService.isTelegramClient();
     TelegramService.ready();
 
-    if (!isTg) return () => {
-      cancelled = true;
-    };
+    if (!isTg) {
+      // Safari/PWA has no Telegram.WebApp.initData. Restore an existing
+      // server-verified cookie or offer Telegram OIDC authorization.
+      Promise.all([
+        TelegramService.standaloneLoginEnabled().catch(() => false),
+        TelegramService.getStandaloneSession().catch(() => null),
+      ]).then(([enabled, auth]) => {
+        if (cancelled) return;
+        if (!auth) {
+          setWebLoginStatus(enabled ? 'available' : 'unavailable');
+          return;
+        }
+        const synced = UserService.syncTelegramUser(auth.user, auth.role ?? 'driver');
+        setCurrentUser(synced);
+        setStaffRole(auth.role ?? 'driver');
+        setIsAdminAuthorized(Boolean(auth.isAdmin));
+        setIsTelegramAuthenticated(true);
+        setWebLoginStatus('authenticated');
+      }).catch(() => {
+        if (!cancelled) setWebLoginStatus('unavailable');
+      });
+      return () => { cancelled = true; };
+    }
 
     setIsTelegramWebApp(true);
     setTelegramAuthError(null);
@@ -354,7 +375,7 @@ export default function App() {
   const displayStations = selectedCategory === 'all' || selectedCategory === 'station' ? stations : [];
   const displayQuestions = selectedCategory === 'all' || selectedCategory === 'question' ? questions : [];
 
-  if (!isTelegramWebApp) {
+  if (!isTelegramWebApp && !isTelegramAuthenticated) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-graphite text-center select-none">
         <div className="w-full max-w-sm p-8 bg-surface-800/60 backdrop-blur-3xl border border-white/[0.06] rounded-[32px] shadow-[0_24px_64px_rgba(0,0,0,0.8)] space-y-6 flex flex-col items-center animate-in zoom-in-95 duration-300">
@@ -367,11 +388,14 @@ export default function App() {
           <div className="space-y-2">
             <h1 className="text-xl font-black text-white tracking-tight uppercase">ROADLIVE</h1>
             <p className="text-xs text-muted leading-relaxed">
-              Приложение спроектировано исключительно для работы внутри мессенджера Telegram в качестве Mini App.
+              {webLoginStatus === 'checking' ? 'Проверяем вход через Telegram…' : webLoginStatus === 'available' ? 'Войдите через Telegram. После входа ROAD LIVE можно установить на главный экран для Web Push.' : 'Вход из браузера пока не настроен. Откройте ROAD LIVE через Telegram Mini App.'}
             </p>
           </div>
 
           <div className="w-full space-y-2.5 pt-4">
+            {webLoginStatus === 'available' && (
+              <a href="/api/auth/telegram/login" className="block w-full py-3.5 bg-telegram text-white font-extrabold text-xs rounded-2xl">Войти через Telegram</a>
+            )}
             <a
               href="https://t.me"
               target="_blank"
@@ -384,7 +408,7 @@ export default function App() {
 
           <div className="pt-2">
             <span className="text-[10px] text-faintest uppercase tracking-widest font-bold">
-              Only Telegram WebApp Mode
+              Telegram Login · Web Push / PWA
             </span>
           </div>
         </div>
