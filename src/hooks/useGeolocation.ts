@@ -20,7 +20,7 @@ const GEO_OPTIONS: PositionOptions = {
   maximumAge: 15000,
 };
 
-export function useGeolocation() {
+export function useGeolocation(autoStart = true) {
   const [state, setState] = useState<GeoLocationState>({
     // Never pretend the driver is at a hard-coded city center. Radius alerts
     // must use a real GPS fix or the server will target the wrong people.
@@ -90,9 +90,15 @@ export function useGeolocation() {
     }
     setState((prev) => ({ ...prev, coords: null, positionAt: null, accuracyM: null, isLoading: true }));
     navigator.geolocation.getCurrentPosition(onPosition, onError, GEO_OPTIONS);
-  }, [onPosition, onError]);
+  }, [onPosition, onError, autoStart]);
 
   useEffect(() => {
+    // Public map visitors can browse without a surprise browser GPS prompt.
+    // A guest can still request a one-off fix with the "Моё место" button.
+    if (!autoStart) {
+      setState(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
     if (!navigator.geolocation) {
       setState((prev) => ({
         ...prev,
