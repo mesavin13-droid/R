@@ -11,7 +11,7 @@ import { UserService } from '../../services/userService';
 import { get3DAdSvg } from '../ads/adVisuals';
 import { colors } from '../../theme/tokens';
 import { FloatingMapAdSticker } from '../ads/FloatingMapAdSticker';
-import { getRoadLivePinSvg } from './markerVisuals';
+import { getRoadLivePinSvg, ROAD_PIN_WIDTH, ROAD_PIN_HEIGHT } from './markerVisuals';
 import { getUnconfirmedEventTtlMinutes, ANSWERED_QUESTION_MAP_TTL_MINUTES, UNANSWERED_QUESTION_TTL_MINUTES, FUEL_QUEUE_TTL_MINUTES } from '../../utils/eventTtl';
 
 interface RoadMapProps {
@@ -536,8 +536,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           { hintContent: ev.title },
           {
             iconLayout: layout,
-            iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
+            iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
+            iconShape: { type: 'Circle', coordinates: [0, -22], radius: 14 },
             zIndex: ev.status === 'active' ? 500 : 300,
           }
         );
@@ -575,8 +575,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             iconLayout: layout,
             // The same category-shaped pin as road events: latitude/longitude
             // attaches to the pointed tip, while the active area covers the head.
-            iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
+            iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
+            iconShape: { type: 'Circle', coordinates: [0, -22], radius: 14 },
             zIndex: 400,
           }
         );
@@ -601,8 +601,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
           { hintContent: q.question },
           {
             iconLayout: layout,
-            iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
+            iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
+            iconShape: { type: 'Circle', coordinates: [0, -22], radius: 14 },
             zIndex: 450,
           }
         );
