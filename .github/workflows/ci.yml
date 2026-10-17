@@ -27,3 +27,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Guest map and Telegram write-access tests
+        run: npm run test:access
