@@ -490,7 +490,7 @@ export default function App() {
         <TopHeader
           selectedCategory={selectedCategory}
           onSelectCategory={(cat) => setSelectedCategory(cat)}
-          currentUser={currentUser}
+          currentUser={isTelegramAuthenticated ? currentUser : { ...currentUser, id: 'guest', fullName: 'Гость', role: 'driver', rating: 0 }}
           onOpenProfile={() => isTelegramAuthenticated ? setActiveTab('profile') : askForLogin()}
           onOpenAdmin={() => isTelegramAuthenticated ? setIsAdminOpen(true) : askForLogin()}
           onOpenAbout={() => setIsAboutOpen(true)}
