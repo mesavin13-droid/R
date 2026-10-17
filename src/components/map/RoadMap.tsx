@@ -14,6 +14,13 @@ import { FloatingMapAdSticker } from '../ads/FloatingMapAdSticker';
 import { getRoadLivePinSvg, ROAD_PIN_WIDTH, ROAD_PIN_HEIGHT } from './markerVisuals';
 import { getUnconfirmedEventTtlMinutes, ANSWERED_QUESTION_MAP_TTL_MINUTES, UNANSWERED_QUESTION_TTL_MINUTES, FUEL_QUEUE_TTL_MINUTES } from '../../utils/eventTtl';
 
+// Yandex hintContent can be interpreted as markup. Titles are user-provided;
+// escape them before giving them to the map engine, including on public maps.
+const safeMapHint = (value: unknown): string =>
+  String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[char] || ''));
+
 interface RoadMapProps {
   events: RoadEvent[];
   stations: FuelStation[];
@@ -533,7 +540,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
         const placemark = new ymaps.Placemark(
           [ev.latitude, ev.longitude],
-          { hintContent: ev.title },
+          { hintContent: safeMapHint(ev.title) },
           {
             iconLayout: layout,
             iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
@@ -570,7 +577,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
         const placemark = new ymaps.Placemark(
           [st.latitude, st.longitude],
-          { hintContent: st.name },
+          { hintContent: safeMapHint(st.name) },
           {
             iconLayout: layout,
             // The same category-shaped pin as road events: latitude/longitude
@@ -598,7 +605,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
         const placemark = new ymaps.Placemark(
           [q.latitude, q.longitude],
-          { hintContent: q.question },
+          { hintContent: safeMapHint(q.question) },
           {
             iconLayout: layout,
             iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
