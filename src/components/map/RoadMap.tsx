@@ -11,8 +11,15 @@ import { UserService } from '../../services/userService';
 import { get3DAdSvg } from '../ads/adVisuals';
 import { colors } from '../../theme/tokens';
 import { FloatingMapAdSticker } from '../ads/FloatingMapAdSticker';
-import { getRoadLivePinSvg } from './markerVisuals';
+import { getRoadLivePinSvg, ROAD_PIN_WIDTH, ROAD_PIN_HEIGHT } from './markerVisuals';
 import { getUnconfirmedEventTtlMinutes, ANSWERED_QUESTION_MAP_TTL_MINUTES, UNANSWERED_QUESTION_TTL_MINUTES, FUEL_QUEUE_TTL_MINUTES } from '../../utils/eventTtl';
+
+// Yandex hintContent can be interpreted as markup. Titles are user-provided;
+// escape them before giving them to the map engine, including on public maps.
+const safeMapHint = (value: unknown): string =>
+  String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[char] || ''));
 
 interface RoadMapProps {
   events: RoadEvent[];
@@ -441,8 +448,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       // Reuse the category banner's teardrop silhouette for grouped markers too.
       const clusterIconLayout = ymaps.templateLayoutFactory.createClass(
-        `<div style="position:relative;width:64px;height:72px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55));">
-          <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        `<div style="position:relative;width:40px;height:46px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 5px rgba(0,0,0,.48));">
+          <svg width="40" height="46" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="rl-cluster-housing" x1="8" y1="2" x2="54" y2="68" gradientUnits="userSpaceOnUse">
                 <stop stop-color="#526681"/><stop offset=".22" stop-color="#1A2639"/><stop offset=".72" stop-color="#080D17"/><stop offset="1" stop-color="#344A68"/>
@@ -462,9 +469,9 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       const clusterer = new ymaps.Clusterer({
         clusterIconLayout,
-        clusterIconImageSize: [64, 72],
+        clusterIconImageSize: [40, 46],
         // The geographic point is the lower tip of the pin, not its centre.
-        clusterIconImageOffset: [-32, -68],
+        clusterIconImageOffset: [-20, -44],
         gridSize: 64,
         margin: 10,
         clusterDisableClickZoom: false,
@@ -533,11 +540,11 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
         const placemark = new ymaps.Placemark(
           [ev.latitude, ev.longitude],
-          { hintContent: ev.title },
+          { hintContent: safeMapHint(ev.title) },
           {
             iconLayout: layout,
-            iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
+            iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
+            iconShape: { type: 'Circle', coordinates: [0, -22], radius: 14 },
             zIndex: ev.status === 'active' ? 500 : 300,
           }
         );
@@ -570,13 +577,13 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
         const placemark = new ymaps.Placemark(
           [st.latitude, st.longitude],
-          { hintContent: st.name },
+          { hintContent: safeMapHint(st.name) },
           {
             iconLayout: layout,
             // The same category-shaped pin as road events: latitude/longitude
             // attaches to the pointed tip, while the active area covers the head.
-            iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
+            iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
+            iconShape: { type: 'Circle', coordinates: [0, -22], radius: 14 },
             zIndex: 400,
           }
         );
@@ -598,11 +605,11 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
         const placemark = new ymaps.Placemark(
           [q.latitude, q.longitude],
-          { hintContent: q.question },
+          { hintContent: safeMapHint(q.question) },
           {
             iconLayout: layout,
-            iconOffset: [-32, -68],
-            iconShape: { type: 'Circle', coordinates: [0, -43], radius: 25 },
+            iconOffset: [-ROAD_PIN_WIDTH / 2, -(ROAD_PIN_HEIGHT - 1)],
+            iconShape: { type: 'Circle', coordinates: [0, -22], radius: 14 },
             zIndex: 450,
           }
         );

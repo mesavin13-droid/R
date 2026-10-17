@@ -164,13 +164,20 @@ function distanceMeters(aLat: number, aLng: number, bLat: number, bLng: number):
 }
 
 function parseClientCoords(value: unknown): { lat: number; lng: number } | null {
-  if (!value || typeof value !== 'object') return null;
-  const lat = Number((value as any).lat);
-  const lng = Number((value as any).lng ?? (value as any).lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return { lat, lng };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const rawLat = (value as { lat?: unknown }).lat;
+  const rawLng = (value as { lng?: unknown; lon?: unknown }).lng ??
+                 (value as { lon?: unknown }).lon;
+  // Number(null), Number('') and Number(false) become 0; never treat them as GPS.
+  if (typeof rawLat !== 'number' || typeof rawLng !== 'number') return null;
+  if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return null;
+  if (rawLat < -85 || rawLat > 85 || rawLng < -180 || rawLng > 180) return null;
+  return { lat: rawLat, lng: rawLng };
 }
+
+// Heartbeats arrive at least every 4 minutes while the app is active. Do not
+// deliver road alerts using a position older than two heartbeat intervals.
+const DRIVER_LOCATION_FRESH_MS = 8 * 60_000;
 
 // In-Memory & File-backed Push Subscriptions
 interface StoredSubscription {
@@ -207,8 +214,8 @@ async function loadSubscriptions() {
         subscription: row.subscription as webpush.PushSubscription,
         userId: row.user_id,
         districtId: row.district_id || undefined,
-        lat: Number.isFinite(Number(row.last_lat)) ? Number(row.last_lat) : undefined,
-        lng: Number.isFinite(Number(row.last_lng)) ? Number(row.last_lng) : undefined,
+        lat: row.last_lat !== null && row.last_lat !== undefined && Number.isFinite(Number(row.last_lat)) ? Number(row.last_lat) : undefined,
+        lng: row.last_lng !== null && row.last_lng !== undefined && Number.isFinite(Number(row.last_lng)) ? Number(row.last_lng) : undefined,
         updatedAt: row.updated_at || row.created_at,
         createdAt: row.created_at,
       },
@@ -263,7 +270,7 @@ const TELEGRAM_API_BASE = TELEGRAM_BOT_TOKEN
   ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
   : '';
 
-/** Last known driver positions, keyed by tg id. Fresh = updated within 30 min. */
+/** Last known driver positions, keyed by tg id. Must be refreshed at least every 8 min. */
 async function listNearbyTelegramDrivers(
   lat: number,
   lng: number,
@@ -277,7 +284,7 @@ async function listNearbyTelegramDrivers(
     console.error('[TG Push] Failed to list driver locations:', error.message);
     return { chatIds: [], checked: 0, stale: 0 };
   }
-  const freshMs = 30 * 60_000;
+  const freshMs = DRIVER_LOCATION_FRESH_MS;
   const now = Date.now();
   const chatIds: number[] = [];
   let stale = 0;
@@ -286,9 +293,9 @@ async function listNearbyTelegramDrivers(
     const rLat = Number((row as any).last_lat);
     const rLng = Number((row as any).last_lng);
     if (!Number.isFinite(chatId) || chatId <= 0) continue;
-    if (!Number.isFinite(rLat) || !Number.isFinite(rLng)) { stale++; continue; }
+    if ((row as any).last_lat == null || (row as any).last_lng == null || !Number.isFinite(rLat) || !Number.isFinite(rLng)) { stale++; continue; }
     const updatedAt = (row as any).updated_at ? Date.parse((row as any).updated_at) : NaN;
-    if (!Number.isFinite(updatedAt) || now - updatedAt > freshMs) { stale++; continue; }
+    if (!Number.isFinite(updatedAt) || updatedAt > now + 60_000 || now - updatedAt > freshMs) { stale++; continue; }
     if (distanceMeters(lat, lng, rLat, rLng) <= radiusM) chatIds.push(chatId);
   }
   return { chatIds, checked: (data || []).length, stale };
@@ -778,6 +785,182 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), async (req: Request, res: 
   }
 });
 
+
+// --- TELEGRAM WEB / PWA OIDC LOGIN ---
+// For installed PWAs where Telegram.WebApp.initData is not present.
+// Configured separately from Mini App credentials; both issue the same
+// authenticated, HttpOnly ROAD LIVE session after server-side verification.
+const TELEGRAM_LOGIN_CLIENT_ID = (process.env.TELEGRAM_LOGIN_CLIENT_ID || '').trim();
+const TELEGRAM_LOGIN_CLIENT_SECRET = (process.env.TELEGRAM_LOGIN_CLIENT_SECRET || '').trim();
+const TELEGRAM_LOGIN_REDIRECT_URI = (process.env.TELEGRAM_LOGIN_REDIRECT_URI || '').trim();
+const telegramWebLoginConfigured = Boolean(
+  /^\d+$/.test(TELEGRAM_LOGIN_CLIENT_ID) && TELEGRAM_LOGIN_CLIENT_SECRET &&
+  TELEGRAM_BOT_TOKEN && /^https:\/\//.test(TELEGRAM_LOGIN_REDIRECT_URI)
+);
+
+type TelegramOidcState = {
+  state: string;
+  nonce: string;
+  verifier: string;
+  expiresAt: number;
+};
+
+function oidcStateToken(payload: TelegramOidcState): string {
+  const data = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const mac = crypto.createHmac('sha256', sessionSecret())
+    .update('roadlive-telegram-oidc:' + data).digest('base64url');
+  return data + '.' + mac;
+}
+
+function verifiedOidcState(cookieValue: string): TelegramOidcState | null {
+  const [data, mac] = cookieValue.split('.');
+  if (!data || !mac) return null;
+  const expected = crypto.createHmac('sha256', sessionSecret())
+    .update('roadlive-telegram-oidc:' + data).digest('base64url');
+  try {
+    if (expected.length !== mac.length ||
+        !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(mac))) return null;
+    const state = JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as TelegramOidcState;
+    if (typeof state.state !== 'string' || typeof state.nonce !== 'string' ||
+        typeof state.verifier !== 'string' ||
+        !Number.isFinite(state.expiresAt) || Date.now() > state.expiresAt) return null;
+    return state;
+  } catch { return null; }
+}
+
+async function verifyTelegramOidcJwt(jwt: string, nonce: string): Promise<TelegramAuthUser> {
+  const parts = jwt.split('.');
+  if (parts.length !== 3 || jwt.length > 12_000) throw new Error('Invalid Telegram ID token');
+  const [head, body, signature] = parts;
+  const header = JSON.parse(Buffer.from(head, 'base64url').toString('utf8'));
+  const claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string') {
+    throw new Error('Unsupported Telegram JWT signature algorithm');
+  }
+  const keyResponse = await fetch('https://oauth.telegram.org/.well-known/jwks.json', {
+    signal: AbortSignal.timeout(7000),
+  });
+  if (!keyResponse.ok) throw new Error('Could not fetch Telegram signing keys');
+  const jwks = await keyResponse.json() as { keys?: Array<Record<string, any>> };
+  const jwk = (jwks.keys || []).find(key =>
+    key.kid === header.kid && key.kty === 'RSA' &&
+    (!key.alg || key.alg === 'RS256') && (!key.use || key.use === 'sig')
+  );
+  if (!jwk) throw new Error('Unknown Telegram signing key');
+  const publicKey = crypto.createPublicKey({ key: jwk as any, format: 'jwk' });
+  if (!crypto.verify('RSA-SHA256', Buffer.from(head + '.' + body),
+                     publicKey, Buffer.from(signature, 'base64url'))) {
+    throw new Error('Invalid Telegram ID token signature');
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const audienceValid = claims.aud === TELEGRAM_LOGIN_CLIENT_ID ||
+    (Array.isArray(claims.aud) && claims.aud.includes(TELEGRAM_LOGIN_CLIENT_ID));
+  if (claims.iss !== 'https://oauth.telegram.org' || !audienceValid ||
+      typeof claims.exp !== 'number' || claims.exp <= now ||
+      typeof claims.iat !== 'number' || claims.iat > now + 60 ||
+      claims.nonce !== nonce) {
+    throw new Error('Telegram ID token validation failed');
+  }
+  const id = Number(claims.sub);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid Telegram user ID');
+  const firstName = typeof claims.given_name === 'string' ? claims.given_name :
+    typeof claims.name === 'string' ? claims.name.split(' ')[0] : 'Водитель';
+  return {
+    id,
+    first_name: firstName.slice(0, 80),
+    ...(typeof claims.family_name === 'string' ? { last_name: claims.family_name.slice(0, 80) } : {}),
+    ...(typeof claims.preferred_username === 'string' ? { username: claims.preferred_username.slice(0, 80) } : {}),
+  };
+}
+
+app.get('/api/auth/telegram/web-config', (_req: Request, res: Response) => {
+  res.json({ enabled: telegramWebLoginConfigured });
+});
+
+app.get('/api/auth/telegram/login', rateLimit(20, 60_000), (_req: Request, res: Response) => {
+  if (!telegramWebLoginConfigured) {
+    return res.status(503).send('Вход через Telegram для сайта пока не настроен.');
+  }
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const state = crypto.randomBytes(32).toString('base64url');
+  const nonce = crypto.randomBytes(32).toString('base64url');
+  const payload = oidcStateToken({ state, nonce, verifier, expiresAt: Date.now() + 10 * 60_000 });
+  res.cookie('roadlive_oidc', payload, {
+    httpOnly: true, secure: isProd, sameSite: 'lax',
+    maxAge: 10 * 60_000, path: '/api/auth/telegram/callback',
+  });
+  const url = new URL('https://oauth.telegram.org/auth');
+  url.searchParams.set('client_id', TELEGRAM_LOGIN_CLIENT_ID);
+  url.searchParams.set('redirect_uri', TELEGRAM_LOGIN_REDIRECT_URI);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid profile');
+  url.searchParams.set('state', state);
+  url.searchParams.set('nonce', nonce);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+  res.redirect(302, url.toString());
+});
+
+app.get('/api/auth/telegram/callback', rateLimit(20, 60_000), async (req: Request, res: Response) => {
+  if (!telegramWebLoginConfigured) return res.status(503).send('Telegram Login не настроен.');
+  const match = (req.headers.cookie || '').match(/(?:^|;\s*)roadlive_oidc=([^;]+)/);
+  const stateCookie = match ? verifiedOidcState(decodeURIComponent(match[1])) : null;
+  res.clearCookie('roadlive_oidc', {
+    httpOnly: true, secure: isProd, sameSite: 'lax',
+    path: '/api/auth/telegram/callback',
+  });
+  const requestedState = req.query.state;
+  const code = req.query.code;
+  if (!stateCookie || typeof requestedState !== 'string' ||
+      requestedState !== stateCookie.state || typeof code !== 'string' ||
+      code.length > 4000 || !code) {
+    return res.status(401).send('Не удалось подтвердить сеанс Telegram. Повторите вход.');
+  }
+  try {
+    const authorization = Buffer.from(
+      TELEGRAM_LOGIN_CLIENT_ID + ':' + TELEGRAM_LOGIN_CLIENT_SECRET
+    ).toString('base64');
+    const exchange = await fetch('https://oauth.telegram.org/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: 'Basic ' + authorization,
+      },
+      signal: AbortSignal.timeout(8000),
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: TELEGRAM_LOGIN_REDIRECT_URI,
+        client_id: TELEGRAM_LOGIN_CLIENT_ID,
+        code_verifier: stateCookie.verifier,
+      }),
+    });
+    if (!exchange.ok) throw new Error('Telegram token exchange failed');
+    const tokens = await exchange.json() as { id_token?: unknown };
+    if (typeof tokens.id_token !== 'string') throw new Error('Telegram ID token is missing');
+    const user = await verifyTelegramOidcJwt(tokens.id_token, stateCookie.nonce);
+    const ban = await resolveBanState(user.id);
+    if (ban.banned) return res.status(403).send('Доступ заблокирован администратором.');
+    const role = await resolveStaffRole(user.id);
+    const now = Math.floor(Date.now() / 1000);
+    const session: TelegramSession = {
+      tgId: user.id, userId: 'tg-' + user.id, user, role,
+      iat: now, exp: now + TELEGRAM_SESSION_TTL_SECONDS,
+    };
+    res.cookie('roadlive_session', encodeSession(session), {
+      httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax',
+      maxAge: TELEGRAM_SESSION_TTL_SECONDS * 1000, path: '/',
+    });
+    await getOrCreateTelegramProfile(session).catch(error =>
+      console.warn('[OIDC] profile provisioning failed:', error?.message || error));
+    res.redirect(302, '/');
+  } catch (error: any) {
+    console.warn('[OIDC] login failed:', error?.message || error);
+    res.status(401).send('Вход через Telegram не подтверждён. Повторите попытку.');
+  }
+});
+
 app.post('/api/auth/logout', (_req: Request, res: Response) => {
   const isProd = process.env.NODE_ENV === 'production';
   // Mirror the login cookie attributes so the browser actually clears it.
@@ -808,6 +991,7 @@ app.get('/api/auth/me', requireTelegramAuth, async (req: Request, res: Response)
   const role = await resolveStaffRole(session.tgId);
   res.json({
     authenticated: true,
+    user: session.user,
     userId: session.userId,
     telegramId: session.tgId,
     expiresAt: session.exp,
@@ -1187,7 +1371,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     // skip. Nobody outside the radius ever gets the push.
     if (!Number.isFinite(item.lat as number) || !Number.isFinite(item.lng as number)) { skippedFar++; return; }
     const updatedAt = item.updatedAt ? Date.parse(item.updatedAt) : NaN;
-    if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > 30 * 60_000) { skippedFar++; return; }
+    if (!Number.isFinite(updatedAt) || updatedAt > Date.now() + 60_000 || Date.now() - updatedAt > DRIVER_LOCATION_FRESH_MS) { skippedFar++; return; }
     if (distanceMeters(center.lat, center.lng, item.lat as number, item.lng as number) > radiusM) { skippedFar++; return; }
 
     try {
@@ -1437,6 +1621,32 @@ function sanitizeQuestionAnswer(input: any) {
   const content = typeof input.content === 'string' ? input.content.trim().slice(0, 1000) : '';
   return content ? { content } : null;
 }
+// Anonymous map questions: only active public text/location, never author
+// profile IDs, answers, helper contacts, private chat data or moderation notes.
+app.get('/api/public/questions', rateLimit(100, 60_000), async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!serverSupabase) return res.status(503).json({ error: 'Вопросы временно недоступны' });
+  const cityId = await resolveCityId(
+    typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01'
+  );
+  if (!cityId) return res.status(400).json({ error: 'Неизвестный город' });
+  const cutoff = new Date(Date.now() - 6 * 60 * 60_000).toISOString();
+  const { data, error } = await serverSupabase.from('questions')
+    .select('id,category,question,latitude,longitude,address,answers_count,status,created_at')
+    .eq('city_id', cityId)
+    .eq('status', 'open')
+    .gt('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(300);
+  if (error) return res.status(503).json({ error: 'Не удалось загрузить вопросы' });
+  return res.json({
+    questions: (data || []).map((q: any) => ({
+      ...q, user_id: null, author_name: 'Водитель',
+      city_id: 'nsk-city-01', answers: [],
+    })),
+  });
+});
+
 app.get('/api/questions', requireTelegramAuth, async (req: Request, res: Response) => {
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище вопросов не настроено' });
   const cityId = await resolveCityId(typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01');
@@ -1592,6 +1802,45 @@ app.post('/api/events', rateLimit(30, 60_000), requireTelegramAuth, userRateLimi
   }
 
   res.status(201).json({ event: data });
+});
+
+// Public map: read-only, privacy-minimized road reports.
+// Anonymous visitors can browse the map, but no author IDs, Telegram IDs,
+// personal profiles, SOS coordinates, offers, or write endpoints are exposed.
+app.get('/api/public/events', rateLimit(100, 60_000), async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!serverSupabase) return res.status(503).json({ error: 'Карта временно недоступна' });
+  const cityId = await resolveCityId(
+    typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01'
+  );
+  if (!cityId) return res.status(400).json({ error: 'Неизвестный город' });
+  const now = new Date().toISOString();
+  // Select a strict allowlist instead of select('*'), so new private fields
+  // cannot accidentally appear in this public endpoint after a migration.
+  const { data, error } = await serverSupabase.from('events')
+    .select('id,city_id,type,sub_type,status,title,description,address,latitude,longitude,direction,confirmation_count,dispute_count,confidence_score,created_at,updated_at,last_confirmed_at,expires_at')
+    .eq('city_id', cityId)
+    .gt('expires_at', now)
+    .in('status', ['active','expiring'])
+    .neq('type', 'assistance')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) {
+    console.warn('[PublicMap] Could not load road reports:', error.message);
+    return res.status(503).json({ error: 'Не удалось загрузить дорожные события' });
+  }
+  return res.json({
+    events: (data || []).map((ev: any) => ({
+      ...ev,
+      // Public viewers see road reports without identities or private helpers.
+      city_id: 'nsk-city-01',
+      author_name: 'Водитель',
+      author_level: 'Участник',
+      author_tg_id: null,
+      helper_tg_id: null,
+      offers_count: 0,
+    })),
+  });
 });
 
 app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) => {

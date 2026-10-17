@@ -7,6 +7,7 @@ import { HolidayDecorator } from '../common/HolidayDecorator';
 import { EventType, UserProfile, SponsoredBanner, RoadEvent } from '../../types';
 import { AdService } from '../../services/adService';
 import { CriticalSosBanner } from '../events/CriticalSosBanner';
+import { roadMarkerIconIndex } from '../map/markerVisuals';
 import { colors } from '../../theme/tokens';
 
 interface TopHeaderProps {
@@ -164,6 +165,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           const isSelected = selectedCategory === cat.id;
           const IconComp = cat.icon;
           const pinId = cat.id.replace(/[^a-z0-9_-]/gi, '-');
+          const spriteIndex = roadMarkerIconIndex(cat.id, cat.id === 'road' ? 'repair' : '');
           return (
             <button
               key={cat.id}
@@ -176,7 +178,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               className={`rl-category-filter ${isSelected ? 'rl-category-filter-active' : ''}`}
             >
               <span className="rl-category-pin">
-                <svg className="rl-category-pin-shell" viewBox="0 0 64 72" aria-hidden="true">
+                {spriteIndex !== null && (
+                  <span aria-hidden="true"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+                    style={{
+                      width: 48, height: 58, zIndex: 2,
+                      backgroundImage: "url('/markers/roadlive-sprite.webp')",
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '384px 58px',
+                      backgroundPosition: `-${spriteIndex * 48}px 0`,
+                      filter: 'drop-shadow(0 3px 4px rgba(0,0,0,.48))',
+                    }}
+                  />
+                )}
+                <svg className="rl-category-pin-shell" style={spriteIndex !== null ? { opacity: 0 } : undefined} viewBox="0 0 64 72" aria-hidden="true">
                   <defs>
                     <linearGradient id={`rl-category-housing-${pinId}`} x1="8" y1="2" x2="54" y2="68" gradientUnits="userSpaceOnUse">
                       <stop stopColor="#526681" />
@@ -196,7 +211,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   <path d="M19 12.5a18 18 0 0 1 23-1.2" fill="none" stroke="#F5F8FF" strokeOpacity=".52" strokeWidth="1.1" strokeLinecap="round" />
                   <path d="M20 48 32 64 44 48" fill="none" stroke="#03070D" strokeOpacity=".55" strokeWidth="1.2" />
                 </svg>
-                <IconComp className="rl-category-pin-icon" style={{ color: "#EAF1FC" }} aria-hidden="true" />
+                <IconComp className="rl-category-pin-icon" style={{ color: "#EAF1FC", opacity: spriteIndex !== null ? 0 : 1 }} aria-hidden="true" />
                 {isSelected && <span className="rl-category-pin-glow" aria-hidden="true" />}
               </span>
               <span className="rl-category-filter-label">{cat.label}</span>

@@ -52,19 +52,18 @@ export class QuestionService {
   }
 
   static async getQuestionsAsync(cityId = 'nsk-city-01'): Promise<DriverQuestion[]> {
-    if (TelegramService.isTelegramWebApp()) {
-      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
-      const response = await fetch(`/api/questions?cityId=${encodeURIComponent(cityId)}`, {
-        credentials: 'include',
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !Array.isArray(payload.questions)) {
-        throw new Error(payload?.error || 'Не удалось загрузить вопросы');
-      }
-      this.questions = payload.questions.map(fromServerQuestion);
-      return this.questions;
+    const authorized = Boolean(TelegramService.getCachedAuthoritativeIdentity());
+    const url = authorized ? '/api/questions' : '/api/public/questions';
+    const response = await fetch(`${url}?cityId=${encodeURIComponent(cityId)}`, {
+      credentials: authorized ? 'include' : 'omit',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !Array.isArray(payload.questions)) {
+      throw new Error(payload?.error || 'Не удалось загрузить вопросы');
     }
-    return this.getQuestions();
+    this.questions = payload.questions.map(fromServerQuestion);
+    return this.questions;
   }
 
   static getQuestions(filter: 'all' | 'new' | 'unanswered' | 'popular' | 'my' = 'all', currentUserId?: string): DriverQuestion[] {
@@ -85,7 +84,10 @@ export class QuestionService {
 
   static async deleteQuestion(questionId: string, userId: string): Promise<boolean> {
     this.initialize();
-    if (TelegramService.isTelegramWebApp()) {
+    if (!TelegramService.getCachedAuthoritativeIdentity()) {
+      throw new Error('Для действий войдите через Telegram');
+    }
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()?.userId || TelegramService.getCachedAuthoritativeIdentity()?.userId !== userId) {
         throw new Error('Действие запрещено');
       }
@@ -108,7 +110,10 @@ export class QuestionService {
     category: string; question: string; latitude: number; longitude: number; address: string; cityId?: string; districtId?: string;
   }, user: UserProfile): Promise<DriverQuestion> {
     this.initialize();
-    if (TelegramService.isTelegramWebApp()) {
+    if (!TelegramService.getCachedAuthoritativeIdentity()) {
+      throw new Error('Для действий войдите через Telegram');
+    }
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       const identity = TelegramService.getCachedAuthoritativeIdentity();
       if (!identity || identity.userId !== user.id) throw new Error('Пользователь не совпадает с Telegram-сессией');
       const response = await fetch('/api/questions', {
@@ -137,7 +142,10 @@ export class QuestionService {
 
   static async answerQuestion(questionId: string, content: string, user: UserProfile): Promise<QuestionAnswer> {
     this.initialize();
-    if (TelegramService.isTelegramWebApp()) {
+    if (!TelegramService.getCachedAuthoritativeIdentity()) {
+      throw new Error('Для действий войдите через Telegram');
+    }
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       const identity = TelegramService.getCachedAuthoritativeIdentity();
       if (!identity || identity.userId !== user.id) throw new Error('Пользователь не совпадает с Telegram-сессией');
       const response = await fetch(`/api/questions/${encodeURIComponent(questionId)}/answers`, {
@@ -173,7 +181,10 @@ export class QuestionService {
 
   static async markAnswerHelpful(questionId: string, answerId: string): Promise<void> {
     this.initialize();
-    if (TelegramService.isTelegramWebApp()) {
+    if (!TelegramService.getCachedAuthoritativeIdentity()) {
+      throw new Error('Для действий войдите через Telegram');
+    }
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       const response = await fetch(`/api/questions/${encodeURIComponent(questionId)}/helpful`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -195,7 +206,10 @@ export class QuestionService {
 
   static async deleteAnswer(questionId: string, answerId: string, userId: string): Promise<boolean> {
     this.initialize();
-    if (TelegramService.isTelegramWebApp()) {
+    if (!TelegramService.getCachedAuthoritativeIdentity()) {
+      throw new Error('Для действий войдите через Telegram');
+    }
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       const identity = TelegramService.getCachedAuthoritativeIdentity();
       if (!identity || identity.userId !== userId) throw new Error('Действие запрещено');
       const response = await fetch(`/api/questions/${encodeURIComponent(questionId)}/answers/${encodeURIComponent(answerId)}`, {

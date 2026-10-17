@@ -89,6 +89,31 @@ export class TelegramService {
     return data as TelegramAuthResponse;
   }
 
+  /** Reuse the Telegram-verified HttpOnly session after opening a standalone PWA. */
+  static async getStandaloneSession(): Promise<TelegramAuthResponse | null> {
+    const response = await fetch('/api/auth/me', { credentials: 'include' });
+    if (!response.ok) return null;
+    const data = await response.json().catch(() => null);
+    if (!data?.authenticated || !data?.user || typeof data.user.id !== 'number') {
+      return null;
+    }
+    verifiedIdentity = {
+      userId: `tg-${data.user.id}`,
+      role: readRole(data.role),
+      isAdmin: Boolean(data.isAdmin),
+      isOwner: Boolean(data.isOwner),
+      expiresAt: Number(data.expiresAt || 0),
+    };
+    return data as TelegramAuthResponse;
+  }
+
+  static async standaloneLoginEnabled(): Promise<boolean> {
+    const response = await fetch('/api/auth/telegram/web-config', { credentials: 'same-origin' });
+    if (!response.ok) return false;
+    const data = await response.json().catch(() => null);
+    return data?.enabled === true;
+  }
+
   static clearSession(): void {
     if (typeof window !== 'undefined') {
       fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
