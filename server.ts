@@ -785,6 +785,182 @@ app.post('/api/telegram/auth', rateLimit(20, 60_000), async (req: Request, res: 
   }
 });
 
+
+// --- TELEGRAM WEB / PWA OIDC LOGIN ---
+// For installed PWAs where Telegram.WebApp.initData is not present.
+// Configured separately from Mini App credentials; both issue the same
+// authenticated, HttpOnly ROAD LIVE session after server-side verification.
+const TELEGRAM_LOGIN_CLIENT_ID = (process.env.TELEGRAM_LOGIN_CLIENT_ID || '').trim();
+const TELEGRAM_LOGIN_CLIENT_SECRET = (process.env.TELEGRAM_LOGIN_CLIENT_SECRET || '').trim();
+const TELEGRAM_LOGIN_REDIRECT_URI = (process.env.TELEGRAM_LOGIN_REDIRECT_URI || '').trim();
+const telegramWebLoginConfigured = Boolean(
+  /^\d+$/.test(TELEGRAM_LOGIN_CLIENT_ID) && TELEGRAM_LOGIN_CLIENT_SECRET &&
+  TELEGRAM_BOT_TOKEN && /^https:\/\//.test(TELEGRAM_LOGIN_REDIRECT_URI)
+);
+
+type TelegramOidcState = {
+  state: string;
+  nonce: string;
+  verifier: string;
+  expiresAt: number;
+};
+
+function oidcStateToken(payload: TelegramOidcState): string {
+  const data = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const mac = crypto.createHmac('sha256', sessionSecret())
+    .update('roadlive-telegram-oidc:' + data).digest('base64url');
+  return data + '.' + mac;
+}
+
+function verifiedOidcState(cookieValue: string): TelegramOidcState | null {
+  const [data, mac] = cookieValue.split('.');
+  if (!data || !mac) return null;
+  const expected = crypto.createHmac('sha256', sessionSecret())
+    .update('roadlive-telegram-oidc:' + data).digest('base64url');
+  try {
+    if (expected.length !== mac.length ||
+        !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(mac))) return null;
+    const state = JSON.parse(Buffer.from(data, 'base64url').toString('utf8')) as TelegramOidcState;
+    if (typeof state.state !== 'string' || typeof state.nonce !== 'string' ||
+        typeof state.verifier !== 'string' ||
+        !Number.isFinite(state.expiresAt) || Date.now() > state.expiresAt) return null;
+    return state;
+  } catch { return null; }
+}
+
+async function verifyTelegramOidcJwt(jwt: string, nonce: string): Promise<TelegramAuthUser> {
+  const parts = jwt.split('.');
+  if (parts.length !== 3 || jwt.length > 12_000) throw new Error('Invalid Telegram ID token');
+  const [head, body, signature] = parts;
+  const header = JSON.parse(Buffer.from(head, 'base64url').toString('utf8'));
+  const claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+  if (header.alg !== 'RS256' || typeof header.kid !== 'string') {
+    throw new Error('Unsupported Telegram JWT signature algorithm');
+  }
+  const keyResponse = await fetch('https://oauth.telegram.org/.well-known/jwks.json', {
+    signal: AbortSignal.timeout(7000),
+  });
+  if (!keyResponse.ok) throw new Error('Could not fetch Telegram signing keys');
+  const jwks = await keyResponse.json() as { keys?: Array<Record<string, any>> };
+  const jwk = (jwks.keys || []).find(key =>
+    key.kid === header.kid && key.kty === 'RSA' &&
+    (!key.alg || key.alg === 'RS256') && (!key.use || key.use === 'sig')
+  );
+  if (!jwk) throw new Error('Unknown Telegram signing key');
+  const publicKey = crypto.createPublicKey({ key: jwk as any, format: 'jwk' });
+  if (!crypto.verify('RSA-SHA256', Buffer.from(head + '.' + body),
+                     publicKey, Buffer.from(signature, 'base64url'))) {
+    throw new Error('Invalid Telegram ID token signature');
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const audienceValid = claims.aud === TELEGRAM_LOGIN_CLIENT_ID ||
+    (Array.isArray(claims.aud) && claims.aud.includes(TELEGRAM_LOGIN_CLIENT_ID));
+  if (claims.iss !== 'https://oauth.telegram.org' || !audienceValid ||
+      typeof claims.exp !== 'number' || claims.exp <= now ||
+      typeof claims.iat !== 'number' || claims.iat > now + 60 ||
+      claims.nonce !== nonce) {
+    throw new Error('Telegram ID token validation failed');
+  }
+  const id = Number(claims.sub);
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid Telegram user ID');
+  const firstName = typeof claims.given_name === 'string' ? claims.given_name :
+    typeof claims.name === 'string' ? claims.name.split(' ')[0] : 'Водитель';
+  return {
+    id,
+    first_name: firstName.slice(0, 80),
+    ...(typeof claims.family_name === 'string' ? { last_name: claims.family_name.slice(0, 80) } : {}),
+    ...(typeof claims.preferred_username === 'string' ? { username: claims.preferred_username.slice(0, 80) } : {}),
+  };
+}
+
+app.get('/api/auth/telegram/web-config', (_req: Request, res: Response) => {
+  res.json({ enabled: telegramWebLoginConfigured });
+});
+
+app.get('/api/auth/telegram/login', rateLimit(20, 60_000), (_req: Request, res: Response) => {
+  if (!telegramWebLoginConfigured) {
+    return res.status(503).send('Вход через Telegram для сайта пока не настроен.');
+  }
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const state = crypto.randomBytes(32).toString('base64url');
+  const nonce = crypto.randomBytes(32).toString('base64url');
+  const payload = oidcStateToken({ state, nonce, verifier, expiresAt: Date.now() + 10 * 60_000 });
+  res.cookie('roadlive_oidc', payload, {
+    httpOnly: true, secure: isProd, sameSite: 'lax',
+    maxAge: 10 * 60_000, path: '/api/auth/telegram/callback',
+  });
+  const url = new URL('https://oauth.telegram.org/auth');
+  url.searchParams.set('client_id', TELEGRAM_LOGIN_CLIENT_ID);
+  url.searchParams.set('redirect_uri', TELEGRAM_LOGIN_REDIRECT_URI);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid profile');
+  url.searchParams.set('state', state);
+  url.searchParams.set('nonce', nonce);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+  res.redirect(302, url.toString());
+});
+
+app.get('/api/auth/telegram/callback', rateLimit(20, 60_000), async (req: Request, res: Response) => {
+  if (!telegramWebLoginConfigured) return res.status(503).send('Telegram Login не настроен.');
+  const match = (req.headers.cookie || '').match(/(?:^|;\s*)roadlive_oidc=([^;]+)/);
+  const stateCookie = match ? verifiedOidcState(decodeURIComponent(match[1])) : null;
+  res.clearCookie('roadlive_oidc', {
+    httpOnly: true, secure: isProd, sameSite: 'lax',
+    path: '/api/auth/telegram/callback',
+  });
+  const requestedState = req.query.state;
+  const code = req.query.code;
+  if (!stateCookie || typeof requestedState !== 'string' ||
+      requestedState !== stateCookie.state || typeof code !== 'string' ||
+      code.length > 4000 || !code) {
+    return res.status(401).send('Не удалось подтвердить сеанс Telegram. Повторите вход.');
+  }
+  try {
+    const authorization = Buffer.from(
+      TELEGRAM_LOGIN_CLIENT_ID + ':' + TELEGRAM_LOGIN_CLIENT_SECRET
+    ).toString('base64');
+    const exchange = await fetch('https://oauth.telegram.org/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: 'Basic ' + authorization,
+      },
+      signal: AbortSignal.timeout(8000),
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: TELEGRAM_LOGIN_REDIRECT_URI,
+        client_id: TELEGRAM_LOGIN_CLIENT_ID,
+        code_verifier: stateCookie.verifier,
+      }),
+    });
+    if (!exchange.ok) throw new Error('Telegram token exchange failed');
+    const tokens = await exchange.json() as { id_token?: unknown };
+    if (typeof tokens.id_token !== 'string') throw new Error('Telegram ID token is missing');
+    const user = await verifyTelegramOidcJwt(tokens.id_token, stateCookie.nonce);
+    const ban = await resolveBanState(user.id);
+    if (ban.banned) return res.status(403).send('Доступ заблокирован администратором.');
+    const role = await resolveStaffRole(user.id);
+    const now = Math.floor(Date.now() / 1000);
+    const session: TelegramSession = {
+      tgId: user.id, userId: 'tg-' + user.id, user, role,
+      iat: now, exp: now + TELEGRAM_SESSION_TTL_SECONDS,
+    };
+    res.cookie('roadlive_session', encodeSession(session), {
+      httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax',
+      maxAge: TELEGRAM_SESSION_TTL_SECONDS * 1000, path: '/',
+    });
+    await getOrCreateTelegramProfile(session).catch(error =>
+      console.warn('[OIDC] profile provisioning failed:', error?.message || error));
+    res.redirect(302, '/');
+  } catch (error: any) {
+    console.warn('[OIDC] login failed:', error?.message || error);
+    res.status(401).send('Вход через Telegram не подтверждён. Повторите попытку.');
+  }
+});
+
 app.post('/api/auth/logout', (_req: Request, res: Response) => {
   const isProd = process.env.NODE_ENV === 'production';
   // Mirror the login cookie attributes so the browser actually clears it.
@@ -815,6 +991,7 @@ app.get('/api/auth/me', requireTelegramAuth, async (req: Request, res: Response)
   const role = await resolveStaffRole(session.tgId);
   res.json({
     authenticated: true,
+    user: session.user,
     userId: session.userId,
     telegramId: session.tgId,
     expiresAt: session.exp,
