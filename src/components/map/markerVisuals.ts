@@ -3,6 +3,44 @@
 // and a high-contrast category glyph. All event/station/question markers use it.
 import { colors } from '../../theme/tokens';
 
+// Eight original glossy icons from ROAD LIVE. Static sprite, 8 cells × 28 px,
+// no remote image hosts or base64 JavaScript payloads. The pin tip is at y=34.
+const SPRITE_URL = '/markers/roadlive-sprite.webp';
+export const ROAD_PIN_WIDTH = 28;
+export const ROAD_PIN_HEIGHT = 34;
+
+export function roadMarkerIconIndex(type: string, subType: string): number | null {
+  const sub = (subType || '').toLowerCase();
+  if (type === 'accident') return 0; // red collision
+  if (type === 'patrol') return /radar|camera|speed/.test(sub) ? 6 : 1;
+  if (type === 'road') return /repair|work|construction/.test(sub) ? 2 :
+    /traffic|jam|queue/.test(sub) ? 7 : /breakdown/.test(sub) ? 3 : 4;
+  if (type === 'hazard') return /truck|broken|breakdown/.test(sub) ? 3 :
+    /tow|evac/.test(sub) ? 5 : 4;
+  if (type === 'assistance') return /tow|snow_mud/.test(sub) ? 5 :
+    /wheel|battery/.test(sub) ? 3 : null; // ordinary SOS keeps its distinct lifebuoy
+  if (type === 'traffic_light') return 4;
+  if (type === 'crossing') return /large_queue/.test(sub) ? 7 : null;
+  if (type === 'fuel') return /large/.test(sub) ? 7 : null;
+  if (type === 'other') return /traffic|jam/.test(sub) ? 7 : 4;
+  return null;
+}
+
+function glossyPin(index: number, confirmations: number, critical: boolean): string {
+  const safeCount = Number.isFinite(confirmations) ? Math.max(0, Math.floor(confirmations)) : 0;
+  // Image source is a bundled first-party asset; background-position indexes
+  // the exact 8 source images without changing their category colors.
+  return `<span aria-hidden="true" style="position:relative;display:block;width:28px;height:34px;cursor:pointer;
+    background-image:url('${SPRITE_URL}');background-size:224px 34px;
+    background-repeat:no-repeat;background-position:-${index * 28}px 0;
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.42))">
+    ${safeCount > 1 ? `<span style="position:absolute;top:-4px;right:-7px;
+      min-width:15px;height:15px;padding:0 2px;border-radius:9px;
+      background:${critical ? '#E53935' : '#172131'};border:1px solid #fff6;
+      color:white;font:700 9px/13px system-ui;text-align:center">${safeCount > 99 ? '99+' : safeCount}</span>` : ''}
+  </span>`;
+}
+
 export function getRoadLivePinSvg(
   type: string,
   subType: string,
@@ -11,6 +49,9 @@ export function getRoadLivePinSvg(
   isHighActivity: boolean = false,
   critical: boolean = false
 ): string {
+  const spriteIndex = roadMarkerIconIndex(type, subType);
+  if (spriteIndex !== null) return glossyPin(spriteIndex, confirmationCount, critical);
+
   // Glyphs are authored in a 24×24 coordinate space and placed in the centre
   // of the circular head (32,25), matching the category banner.
   const iconColor = '#EAF1FC';
@@ -96,8 +137,8 @@ export function getRoadLivePinSvg(
     : '';
 
   return `
-    <div style="position:relative;display:flex;align-items:center;justify-content:center;width:64px;height:72px;cursor:pointer;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55));">
-      <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;width:28px;height:34px;cursor:pointer;filter:drop-shadow(0 3px 4px rgba(0,0,0,.42));">
+      <svg width="28" height="34" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
           <linearGradient id="${markerId}-housing" x1="8" y1="2" x2="54" y2="68" gradientUnits="userSpaceOnUse">
             <stop stop-color="#526681"/>
