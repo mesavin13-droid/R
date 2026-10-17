@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 
 // Run the actual Express application without starting the websocket listener,
 // production Vite middleware, or requiring a service-role key.
@@ -49,7 +49,7 @@ test('unauthenticated writes and private data endpoints are forbidden', async ()
   }
 });
 
-test.after(async () => {
+after(async () => {
   await new Promise<void>((resolve, reject) =>
     httpServer.close(err => err ? reject(err) : resolve()),
   );
