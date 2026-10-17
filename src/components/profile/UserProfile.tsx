@@ -8,6 +8,7 @@ import { UserService } from '../../services/userService';
 import { EventService } from '../../services/eventService';
 import { QuestionService } from '../../services/questionService';
 import { HolidayDecorator } from '../common/HolidayDecorator';
+import { WebPushPanel } from './WebPushPanel';
 import { computeBadges, computeTrust } from '../../theme/badges';
 
 interface UserProfileModalProps {
@@ -258,6 +259,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
         {activeTab === 'stats' && (
           <div className="space-y-4">
+            <WebPushPanel />
             {/* Quick About Service Banner */}
             <div 
               onClick={() => setActiveTab('about')}
