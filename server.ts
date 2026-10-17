@@ -1778,6 +1778,45 @@ app.post('/api/events', rateLimit(30, 60_000), requireTelegramAuth, userRateLimi
   res.status(201).json({ event: data });
 });
 
+// Public map: read-only, privacy-minimized road reports.
+// Anonymous visitors can browse the map, but no author IDs, Telegram IDs,
+// personal profiles, SOS coordinates, offers, or write endpoints are exposed.
+app.get('/api/public/events', rateLimit(100, 60_000), async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!serverSupabase) return res.status(503).json({ error: 'Карта временно недоступна' });
+  const cityId = await resolveCityId(
+    typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01'
+  );
+  if (!cityId) return res.status(400).json({ error: 'Неизвестный город' });
+  const now = new Date().toISOString();
+  // Select a strict allowlist instead of select('*'), so new private fields
+  // cannot accidentally appear in this public endpoint after a migration.
+  const { data, error } = await serverSupabase.from('events')
+    .select('id,city_id,type,sub_type,status,title,description,address,latitude,longitude,direction,confirmation_count,dispute_count,confidence_score,created_at,updated_at,last_confirmed_at,expires_at')
+    .eq('city_id', cityId)
+    .gt('expires_at', now)
+    .in('status', ['active','expiring'])
+    .neq('type', 'assistance')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) {
+    console.warn('[PublicMap] Could not load road reports:', error.message);
+    return res.status(503).json({ error: 'Не удалось загрузить дорожные события' });
+  }
+  return res.json({
+    events: (data || []).map((ev: any) => ({
+      ...ev,
+      // Public viewers see road reports without identities or private helpers.
+      city_id: 'nsk-city-01',
+      author_name: 'Водитель',
+      author_level: 'Участник',
+      author_tg_id: null,
+      helper_tg_id: null,
+      offers_count: 0,
+    })),
+  });
+});
+
 app.get('/api/events', requireTelegramAuth, async (req: Request, res: Response) => {
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище событий не настроено' });
   const cityId = await resolveCityId(typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01');
