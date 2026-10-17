@@ -80,7 +80,6 @@ export class EventService {
    * from being accepted by mutation helpers.
    */
   private static assertMutationIdentity(userId: string, adminOnly = false): void {
-    if (!TelegramService.isTelegramWebApp()) return;
 
     const identity = TelegramService.getCachedAuthoritativeIdentity();
     if (!identity) {
@@ -162,27 +161,26 @@ export class EventService {
   }
 
   static async getEventsAsync(cityId = 'nsk-city-01', bbox?: [number, number, number, number]): Promise<RoadEvent[]> {
-    if (TelegramService.isTelegramWebApp()) {
-      if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
-      const params = new URLSearchParams({ cityId });
-      // Event reports must never be read from a stale browser/CDN cache.
-      const response = await fetch(`/api/events?${params.toString()}`, {
-        credentials: 'include',
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !Array.isArray(payload?.events)) {
-        throw new Error(payload?.error || 'Не удалось загрузить события');
-      }
-      const serverEvents: RoadEvent[] = payload.events.map((row: any) => this.fromServerEvent(row));
-      this.events = serverEvents;
-      return serverEvents.filter((ev) => {
-        if (!bbox) return true;
-        const [south, west, north, east] = bbox;
-        return ev.latitude >= south && ev.latitude <= north && ev.longitude >= west && ev.longitude <= east;
-      });
+    // One live dataset for both audiences. Guests receive a public, sanitized
+    // projection; authenticated Telegram/PWA users receive the full event DTO.
+    const authorized = Boolean(TelegramService.getCachedAuthoritativeIdentity());
+    const params = new URLSearchParams({ cityId });
+    const url = authorized ? '/api/events' : '/api/public/events';
+    const response = await fetch(`${url}?${params.toString()}`, {
+      credentials: authorized ? 'include' : 'omit',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !Array.isArray(payload?.events)) {
+      throw new Error(payload?.error || 'Не удалось загрузить события');
     }
-    return this.getEvents(cityId, bbox);
+    const serverEvents: RoadEvent[] = payload.events.map((row: any) => this.fromServerEvent(row));
+    this.events = serverEvents;
+    return serverEvents.filter((ev) => {
+      if (!bbox) return true;
+      const [south, west, north, east] = bbox;
+      return ev.latitude >= south && ev.latitude <= north && ev.longitude >= west && ev.longitude <= east;
+    });
   }
 
   /**
@@ -267,13 +265,11 @@ export class EventService {
     // In the real Telegram app, identity must come from the server-verified
     // Telegram session. Never trust a localStorage profile/userId for authorship.
     const authoritative = await TelegramService.getAuthoritativeIdentity();
-    if (TelegramService.isTelegramWebApp()) {
-      if (!authoritative) {
-        throw new Error('Сессия Telegram недействительна или истекла');
-      }
-      if (authoritative.userId !== user.id) {
-        throw new Error('Пользователь события не совпадает с авторизованным Telegram-пользователем');
-      }
+    if (!authoritative) {
+      throw new Error('Для публикации войдите через Telegram');
+    }
+    if (authoritative.userId !== user.id) {
+      throw new Error('Пользователь события не совпадает с Telegram-аккаунтом');
     }
 
     if (!Number.isFinite(data.latitude) || data.latitude < -90 || data.latitude > 90) {
@@ -301,7 +297,7 @@ export class EventService {
 
     // In Telegram mode, persistence is server-authoritative. The browser never
     // inserts road events directly into Supabase or treats localStorage as truth.
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
 
       const response = await fetch('/api/events', {
@@ -399,7 +395,7 @@ export class EventService {
     this.initialize();
     this.assertMutationIdentity(user.id);
 
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
 
       let distanceMeters: number | undefined;
@@ -550,7 +546,7 @@ export class EventService {
     this.initialize();
     this.assertMutationIdentity(user.id);
 
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/comments`, {
         method: 'POST',
@@ -605,7 +601,7 @@ export class EventService {
   ): boolean {
     this.initialize();
     const identity = TelegramService.getCachedAuthoritativeIdentity();
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!identity || !identity.isAdmin) throw new Error('Недостаточно прав администратора');
       fetch(`/api/admin/events/${encodeURIComponent(eventId)}/moderate`, {
         method: 'POST',
@@ -614,7 +610,7 @@ export class EventService {
         body: JSON.stringify({ action }),
       }).catch((err) => console.warn('[Events] Server moderation failed:', err));
     }
-    if (TelegramService.isTelegramWebApp() && (!identity || !identity.isAdmin)) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity()) && (!identity || !identity.isAdmin)) {
       throw new Error('Недостаточно прав администратора');
     }
     const idx = this.events.findIndex((e) => e.id === eventId);
@@ -720,7 +716,7 @@ export class EventService {
   static deleteEvent(eventId: string, userId: string): boolean {
     this.initialize();
     this.assertMutationIdentity(userId);
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       fetch(`/api/events/${encodeURIComponent(eventId)}/delete`, {
         method: 'POST',
@@ -745,7 +741,7 @@ export class EventService {
   static async respondToAssistance(eventId: string, user: UserProfile): Promise<RoadEvent> {
     this.initialize();
     this.assertMutationIdentity(user.id);
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/assistance`, {
         method: 'POST',
@@ -791,7 +787,7 @@ export class EventService {
    */
   static async fetchOffers(eventId: string): Promise<AssistanceOffer[]> {
     this.initialize();
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/offers`, {
         credentials: 'include',
@@ -826,7 +822,7 @@ export class EventService {
   ): Promise<AssistanceOffer> {
     this.initialize();
     this.assertMutationIdentity(user.id);
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/offers`, {
         method: 'POST',
@@ -873,7 +869,7 @@ export class EventService {
   static async acceptOffer(eventId: string, offerId: string, userId: string): Promise<RoadEvent> {
     this.initialize();
     this.assertMutationIdentity(userId);
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(
         `/api/events/${encodeURIComponent(eventId)}/offers/${encodeURIComponent(offerId)}/accept`,
@@ -922,7 +918,7 @@ export class EventService {
   static async declineOffer(eventId: string, offerId: string, userId: string): Promise<AssistanceOffer[]> {
     this.initialize();
     this.assertMutationIdentity(userId);
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(
         `/api/events/${encodeURIComponent(eventId)}/offers/${encodeURIComponent(offerId)}/decline`,
@@ -957,7 +953,7 @@ export class EventService {
   static async withdrawOffer(eventId: string, offerId: string, userId: string): Promise<AssistanceOffer[]> {
     this.initialize();
     this.assertMutationIdentity(userId);
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(
         `/api/events/${encodeURIComponent(eventId)}/offers/${encodeURIComponent(offerId)}/withdraw`,
@@ -996,7 +992,7 @@ export class EventService {
   static async confirmResolved(eventId: string, userId: string): Promise<RoadEvent> {
     this.initialize();
     this.assertMutationIdentity(userId);
-    if (TelegramService.isTelegramWebApp()) {
+    if (Boolean(TelegramService.getCachedAuthoritativeIdentity())) {
       if (!TelegramService.getCachedAuthoritativeIdentity()) throw new Error('Сессия Telegram отсутствует');
       const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/resolved`, {
         method: 'POST',
