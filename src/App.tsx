@@ -38,6 +38,8 @@ export default function App() {
   const [isTelegramWebApp, setIsTelegramWebApp] = useState(() => TelegramService.isTelegramClient());
   const [isTelegramAuthenticated, setIsTelegramAuthenticated] = useState(false);
   const [webLoginStatus, setWebLoginStatus] = useState<'checking'|'available'|'unavailable'|'authenticated'>('checking');
+  const [guestLoginPrompt, setGuestLoginPrompt] = useState(false);
+  const [selectedPublicQuestion, setSelectedPublicQuestion] = useState<DriverQuestion | null>(null);
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const [staffRole, setStaffRole] = useState<'driver' | 'moderator' | 'admin' | 'owner'>('driver');
   const [telegramAuthError, setTelegramAuthError] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export default function App() {
 
   // User & Geolocation
   const [currentUser, setCurrentUser] = useState<UserProfile>(UserService.getCurrentUser());
-  const { coords: userCoords, refreshLocation, permissionGranted, positionAt: gpsPositionAt, accuracyM: gpsAccuracyM } = useGeolocation();
+  const { coords: userCoords, refreshLocation, permissionGranted, positionAt: gpsPositionAt, accuracyM: gpsAccuracyM } = useGeolocation(isTelegramAuthenticated);
 
   // Prevent an older in-flight poll from replacing a newer event list.
   const dataLoadSequenceRef = useRef(0);
@@ -85,7 +87,7 @@ export default function App() {
     const loadSequence = ++dataLoadSequenceRef.current;
     const loadedEvents = await EventService.getEventsAsync().catch((error) => {
       console.warn('Could not load events:', error);
-      return EventService.getEvents();
+      return isTelegramAuthenticated ? EventService.getEvents() : [];
     });
     if (loadSequence === dataLoadSequenceRef.current) {
       setEvents(loadedEvents);
@@ -96,9 +98,9 @@ export default function App() {
       console.warn('Could not load stations:', error);
     });
     setStations(StationService.getStations());
-    const loadedQuestions = await QuestionService.getQuestionsAsync().catch((error) => { console.warn('Could not load questions:', error); return QuestionService.getQuestions(); });
+    const loadedQuestions = await QuestionService.getQuestionsAsync().catch((error) => { console.warn('Could not load questions:', error); return isTelegramAuthenticated ? QuestionService.getQuestions() : []; });
     setQuestions(loadedQuestions);
-  }, []);
+  }, [isTelegramAuthenticated]);
 
   // Telegram Auto-authorization. Never trust initDataUnsafe for identity.
   useEffect(() => {
@@ -314,7 +316,7 @@ export default function App() {
       EventService.archiveOldEvents();
       void EventService.getEventsAsync()
         .then(setEvents)
-        .catch(() => setEvents(EventService.getEvents()));
+        .catch(() => setEvents(isTelegramAuthenticated ? EventService.getEvents() : []));
     }, 15000);
 
     // Realtime listeners
@@ -350,7 +352,9 @@ export default function App() {
       clearInterval(interval);
       unsubEvents();
     };
-  }, [reloadData, currentUser.id]);
+  }, [reloadData, currentUser.id, isTelegramAuthenticated]);
+
+  const askForLogin = () => setGuestLoginPrompt(true);
 
   const handleSelectLocation = (lat: number, lng: number) => {
     setTargetLocation({ lat, lng });
@@ -374,47 +378,6 @@ export default function App() {
 
   const displayStations = selectedCategory === 'all' || selectedCategory === 'station' ? stations : [];
   const displayQuestions = selectedCategory === 'all' || selectedCategory === 'question' ? questions : [];
-
-  if (!isTelegramWebApp && !isTelegramAuthenticated) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-graphite text-center select-none">
-        <div className="w-full max-w-sm p-8 bg-surface-800/60 backdrop-blur-3xl border border-white/[0.06] rounded-[32px] shadow-[0_24px_64px_rgba(0,0,0,0.8)] space-y-6 flex flex-col items-center animate-in zoom-in-95 duration-300">
-          {/* Icon with pulsing rings */}
-          <div className="relative w-20 h-20 rounded-full bg-telegram/10 flex items-center justify-center border border-telegram/20">
-            <div className="absolute inset-0 rounded-full border border-telegram/30 animate-ping opacity-75" />
-            <span className="text-4xl text-telegram">✈️</span>
-          </div>
-
-          <div className="space-y-2">
-            <h1 className="text-xl font-black text-white tracking-tight uppercase">ROADLIVE</h1>
-            <p className="text-xs text-muted leading-relaxed">
-              {webLoginStatus === 'checking' ? 'Проверяем вход через Telegram…' : webLoginStatus === 'available' ? 'Войдите через Telegram. После входа ROAD LIVE можно установить на главный экран для Web Push.' : 'Вход из браузера пока не настроен. Откройте ROAD LIVE через Telegram Mini App.'}
-            </p>
-          </div>
-
-          <div className="w-full space-y-2.5 pt-4">
-            {webLoginStatus === 'available' && (
-              <a href="/api/auth/telegram/login" className="block w-full py-3.5 bg-telegram text-white font-extrabold text-xs rounded-2xl">Войти через Telegram</a>
-            )}
-            <a
-              href="https://t.me"
-              target="_blank"
-              rel="noreferrer"
-              className="block w-full py-3.5 bg-white/5 hover:bg-white/10 active:scale-95 text-white font-extrabold text-xs rounded-2xl transition border border-white/10 tracking-wider uppercase"
-            >
-              Открыть бота в Telegram 💬
-            </a>
-          </div>
-
-          <div className="pt-2">
-            <span className="text-[10px] text-faintest uppercase tracking-widest font-bold">
-              Telegram Login · Web Push / PWA
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (isTelegramWebApp && !isTelegramAuthenticated && !telegramAuthError) {
     // The account is created on the server from Telegram data during this same
@@ -471,6 +434,15 @@ export default function App() {
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-graphite flex flex-col font-sans select-none text-ink">
       {/* 1.2s Automotive Splash Screen */}
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      {!isTelegramAuthenticated && !isTelegramWebApp && (
+        <div className="absolute left-3 right-3 bottom-20 z-40 pointer-events-none flex justify-center">
+          <button type="button" onClick={askForLogin}
+            className="pointer-events-auto rounded-full bg-surface-800/95 backdrop-blur-xl border border-accent/50 px-4 py-2.5 text-white text-xs shadow-xl flex items-center gap-2">
+            <span className="text-success text-base">●</span>
+            Гостевой просмотр · Войти через Telegram →
+          </button>
+        </div>
+      )}
 
       {/* Critical Road Incident Toast Banner (Dark Glass Capsule) */}
       {criticalBanner && (
@@ -519,8 +491,8 @@ export default function App() {
           selectedCategory={selectedCategory}
           onSelectCategory={(cat) => setSelectedCategory(cat)}
           currentUser={currentUser}
-          onOpenProfile={() => setActiveTab('profile')}
-          onOpenAdmin={() => setIsAdminOpen(true)}
+          onOpenProfile={() => isTelegramAuthenticated ? setActiveTab('profile') : askForLogin()}
+          onOpenAdmin={() => isTelegramAuthenticated ? setIsAdminOpen(true) : askForLogin()}
           onOpenAbout={() => setIsAboutOpen(true)}
           sponsoredBanners={sponsoredBanners}
           onSelectSponsoredPlace={(ad) => setSelectedSponsoredPlace(ad)}
@@ -551,18 +523,20 @@ export default function App() {
               setSelectedEvent(null);
               setSelectedStation(st);
             }}
-            onSelectQuestion={() => {
+            onSelectQuestion={(question) => {
               setSelectedEvent(null);
               setSelectedStation(null);
-              setActiveTab('questions');
+              if (!isTelegramAuthenticated) setSelectedPublicQuestion(question);
+              else setActiveTab('questions');
             }}
             onOpenCreateEvent={() => {
+              if (!isTelegramAuthenticated) return askForLogin();
               setPinPickerTarget('event');
               setActiveTab('map');
               setIsReportTypePickerOpen(true);
             }}
-            onOpenAskQuestion={() => setIsAskQuestionOpen(true)}
-            onOpenRoute={() => setActiveTab('route')}
+            onOpenAskQuestion={() => isTelegramAuthenticated ? setIsAskQuestionOpen(true) : askForLogin()}
+            onOpenRoute={() => isTelegramAuthenticated ? setActiveTab('route') : askForLogin()}
             onRecenter={handleRecenter}
             targetLocation={targetLocation}
             isPinPickerMode={isPinPickerMode}
@@ -707,7 +681,7 @@ export default function App() {
       </main>
 
       {/* Selected Event Details Sheet */}
-      {selectedEvent && (
+      {selectedEvent && isTelegramAuthenticated && (
         <EventDetailSheet
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
@@ -722,7 +696,7 @@ export default function App() {
       )}
 
       {/* Selected Station Details Sheet */}
-      {selectedStation && (
+      {selectedStation && isTelegramAuthenticated && (
         <StationSheet
           station={selectedStation}
           onClose={() => setSelectedStation(null)}
@@ -734,11 +708,72 @@ export default function App() {
         />
       )}
 
+      {!isTelegramAuthenticated && selectedEvent && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-end justify-center" onClick={() => setSelectedEvent(null)}>
+          <div role="dialog" aria-modal="true" aria-label="Просмотр события"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-xl bg-surface-800 border border-white/10 rounded-t-3xl p-5 pb-8 text-white space-y-3 shadow-2xl">
+            <div className="flex justify-between gap-3 items-center"><b className="text-lg">{selectedEvent.title}</b>
+              <button onClick={() => setSelectedEvent(null)} className="text-xl px-2" aria-label="Закрыть">×</button></div>
+            <p className="text-sm text-muted">{selectedEvent.address}</p>
+            <p className="text-sm leading-relaxed">{selectedEvent.description}</p>
+            <p className="text-xs text-muted">Просмотр доступен всем. Подтверждение и комментарии — после входа.</p>
+            <button onClick={() => { setSelectedEvent(null); askForLogin(); }} className="w-full py-3 rounded-xl bg-telegram font-bold">Войти через Telegram</button>
+          </div>
+        </div>
+      )}
+      {!isTelegramAuthenticated && selectedStation && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-end justify-center" onClick={() => setSelectedStation(null)}>
+          <div role="dialog" aria-modal="true" aria-label="Просмотр АЗС"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-xl bg-surface-800 rounded-t-3xl p-5 pb-8 text-white space-y-3">
+            <div className="flex justify-between"><b className="text-lg">{selectedStation.name}</b>
+              <button onClick={() => setSelectedStation(null)} aria-label="Закрыть" className="text-xl px-2">×</button></div>
+            <p className="text-sm text-muted">{selectedStation.address}</p>
+            <p className="text-xs text-muted">Сообщить об очереди можно после входа через Telegram.</p>
+            <button onClick={() => { setSelectedStation(null); askForLogin(); }} className="w-full py-3 rounded-xl bg-telegram font-bold">Войти через Telegram</button>
+          </div>
+        </div>
+      )}
+      {!isTelegramAuthenticated && selectedPublicQuestion && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-end justify-center" onClick={() => setSelectedPublicQuestion(null)}>
+          <div role="dialog" aria-modal="true" aria-label="Вопрос водителя"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-xl bg-surface-800 rounded-t-3xl p-5 pb-8 text-white space-y-3">
+            <div className="flex justify-between"><b className="text-base">Вопрос на карте</b>
+              <button onClick={() => setSelectedPublicQuestion(null)} aria-label="Закрыть" className="text-xl px-2">×</button></div>
+            <p>{selectedPublicQuestion.question}</p>
+            <p className="text-sm text-muted">{selectedPublicQuestion.address}</p>
+            <p className="text-xs text-muted">Ответы доступны после авторизации через Telegram.</p>
+            <button onClick={() => { setSelectedPublicQuestion(null); askForLogin(); }} className="w-full py-3 rounded-xl bg-telegram font-bold">Войти через Telegram</button>
+          </div>
+        </div>
+      )}
+      {!isTelegramAuthenticated && guestLoginPrompt && (
+        <div className="fixed inset-0 z-[70] bg-black/75 flex items-center justify-center p-5" onClick={() => setGuestLoginPrompt(false)}>
+          <div role="dialog" aria-modal="true" aria-label="Войти для участия"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-sm bg-surface-800 rounded-3xl border border-white/10 p-6 text-white space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold">Участвуйте в ROAD LIVE</h2>
+              <button onClick={() => setGuestLoginPrompt(false)} aria-label="Закрыть" className="px-2 text-xl">×</button>
+            </div>
+            <p className="text-sm text-muted">Карту можно смотреть без регистрации. Для публикации меток, SOS, подтверждений, ответов и чата нужен вход через Telegram.</p>
+            {webLoginStatus === 'available' ? (
+              <a href="/api/auth/telegram/login" className="block text-center bg-telegram rounded-xl p-3 font-bold">Войти через Telegram</a>
+            ) : (
+              <p className="text-sm text-warning">Вход через браузер ещё не активирован. Откройте ROAD LIVE из Telegram Mini App; для входа через сайт потребуется настройка Telegram Login в BotFather.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Choose the report category before moving its matching marker on the map. */}
       <ReportTypePicker
         isOpen={isReportTypePickerOpen}
         onClose={() => setIsReportTypePickerOpen(false)}
         onSelect={(type) => {
+          if (!isTelegramAuthenticated) return askForLogin();
           setSelectedReportType(type);
           setPinPickerTarget('event');
           setIsReportTypePickerOpen(false);
@@ -844,16 +879,23 @@ export default function App() {
 
       {/* Premium Glass Bottom Navigation Bar (Hidden during Pin Placement) */}
       {!isPinPickerMode && (
-        <BottomNav
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setActiveTab(tab);
-            setSelectedEvent(null);
-            setSelectedStation(null);
-          }}
-          onSosClick={() => setIsQuickSosOpen(true)}
-          questionsBadgeCount={questions.filter((q) => q.answersCount === 0).length}
-        />
+        isTelegramAuthenticated ? (
+          <BottomNav
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setActiveTab(tab);
+              setSelectedEvent(null);
+              setSelectedStation(null);
+            }}
+            onSosClick={() => setIsQuickSosOpen(true)}
+            questionsBadgeCount={questions.filter((q) => q.answersCount === 0).length}
+          />
+        ) : (
+          <nav aria-label="Гостевая навигация" className="relative z-40 w-full flex justify-between items-center gap-2 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-surface-800 border-t border-white/10">
+            <button type="button" onClick={() => setActiveTab('map')} className="px-5 py-2 rounded-xl bg-white/10 text-sm font-bold text-white">Карта</button>
+            <button type="button" onClick={askForLogin} className="px-5 py-2 rounded-xl bg-telegram text-sm font-bold text-white">Войти через Telegram</button>
+          </nav>
+        )
       )}
     </div>
   );
