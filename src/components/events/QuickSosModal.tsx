@@ -9,6 +9,8 @@ interface QuickSosModalProps {
   onClose: () => void;
   currentUser: UserProfile;
   userCoords: { lat: number; lng: number } | null;
+  gpsPositionAt: number | null;
+  gpsAccuracyM: number | null;
   onSosCreated: (event: RoadEvent) => void;
 }
 
@@ -17,11 +19,18 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
   onClose,
   currentUser,
   userCoords,
+  gpsPositionAt,
+  gpsAccuracyM,
   onSosCreated,
 }) => {
   const [selectedSubtype, setSelectedSubtype] = useState<string>('battery');
   const [customComment, setCustomComment] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const now = Date.now();
+  const canPublishAtRender = Boolean(userCoords && gpsPositionAt &&
+    now - gpsPositionAt <= 120_000 && gpsPositionAt <= now + 60_000 &&
+    gpsAccuracyM !== null && gpsAccuracyM > 0 && gpsAccuracyM <= 1000);
 
   if (!isOpen) return null;
 
@@ -35,7 +44,11 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
   ];
 
   const handlePublishSos = async () => {
-    if (!userCoords || !Number.isFinite(userCoords.lat) || !Number.isFinite(userCoords.lng) || Math.abs(userCoords.lat)>85 || Math.abs(userCoords.lng)>180) {
+    const now = Date.now();
+    if (!userCoords || !gpsPositionAt || gpsAccuracyM === null || gpsAccuracyM <= 0 || gpsAccuracyM > 1000 ||
+        now - gpsPositionAt > 120_000 || gpsPositionAt > now + 60_000 ||
+        !Number.isFinite(userCoords.lat) || !Number.isFinite(userCoords.lng) ||
+        Math.abs(userCoords.lat)>85 || Math.abs(userCoords.lng)>180) {
       alert('Не удалось определить координаты. Разрешите доступ к геолокации и повторите попытку. SOS не опубликован.');
       return;
     }
@@ -151,11 +164,11 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-graphite border border-white/5 text-[11px] text-muted">
             <MapPin className="w-3.5 h-3.5 text-danger shrink-0" />
             <span className="truncate">
-              {userCoords ? `Точка GPS: ${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}` : 'GPS недоступен — отправка SOS заблокирована'}
+              {canPublishAtRender && userCoords ? `GPS ±${Math.round(gpsAccuracyM!)} м · ${userCoords.lat.toFixed(5)}, ${userCoords.lng.toFixed(5)}` : 'Нужна свежая точная GPS-позиция — SOS пока недоступен'}
             </span>
           </div>
 
-          {!userCoords && (
+          {!canPublishAtRender && (
             <p role="alert" className="text-xs text-danger bg-danger/10 border border-danger/30 rounded-xl p-3">
               Для публикации SOS необходимо разрешить доступ к геолокации. Центр карты не используется как подмена GPS. При непосредственной опасности звоните <a href="tel:112" className="underline font-bold">112</a>.
             </p>
@@ -163,7 +176,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
           {/* Critical SOS Send Button */}
           <button
             onClick={handlePublishSos}
-            disabled={isSubmitting || !userCoords}
+            disabled={isSubmitting || !canPublishAtRender}
             className="w-full py-3 px-4 rounded-2xl bg-danger hover:bg-danger-strong text-white font-bold text-sm shadow-[0_8px_24px_rgba(255,59,48,0.4)] transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? (
