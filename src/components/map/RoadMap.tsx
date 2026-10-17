@@ -441,8 +441,8 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       // Reuse the category banner's teardrop silhouette for grouped markers too.
       const clusterIconLayout = ymaps.templateLayoutFactory.createClass(
-        `<div style="position:relative;width:64px;height:72px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 4px 8px rgba(0,0,0,.55));">
-          <svg width="64" height="72" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        `<div style="position:relative;width:40px;height:46px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 5px rgba(0,0,0,.48));">
+          <svg width="40" height="46" viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="rl-cluster-housing" x1="8" y1="2" x2="54" y2="68" gradientUnits="userSpaceOnUse">
                 <stop stop-color="#526681"/><stop offset=".22" stop-color="#1A2639"/><stop offset=".72" stop-color="#080D17"/><stop offset="1" stop-color="#344A68"/>
@@ -462,9 +462,9 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       const clusterer = new ymaps.Clusterer({
         clusterIconLayout,
-        clusterIconImageSize: [64, 72],
+        clusterIconImageSize: [40, 46],
         // The geographic point is the lower tip of the pin, not its centre.
-        clusterIconImageOffset: [-32, -68],
+        clusterIconImageOffset: [-20, -44],
         gridSize: 64,
         margin: 10,
         clusterDisableClickZoom: false,
