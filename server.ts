@@ -1621,6 +1621,32 @@ function sanitizeQuestionAnswer(input: any) {
   const content = typeof input.content === 'string' ? input.content.trim().slice(0, 1000) : '';
   return content ? { content } : null;
 }
+// Anonymous map questions: only active public text/location, never author
+// profile IDs, answers, helper contacts, private chat data or moderation notes.
+app.get('/api/public/questions', rateLimit(100, 60_000), async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!serverSupabase) return res.status(503).json({ error: 'Вопросы временно недоступны' });
+  const cityId = await resolveCityId(
+    typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01'
+  );
+  if (!cityId) return res.status(400).json({ error: 'Неизвестный город' });
+  const cutoff = new Date(Date.now() - 6 * 60 * 60_000).toISOString();
+  const { data, error } = await serverSupabase.from('questions')
+    .select('id,category,question,latitude,longitude,address,answers_count,status,created_at')
+    .eq('city_id', cityId)
+    .eq('status', 'open')
+    .gt('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(300);
+  if (error) return res.status(503).json({ error: 'Не удалось загрузить вопросы' });
+  return res.json({
+    questions: (data || []).map((q: any) => ({
+      ...q, user_id: null, author_name: 'Водитель',
+      city_id: 'nsk-city-01', answers: [],
+    })),
+  });
+});
+
 app.get('/api/questions', requireTelegramAuth, async (req: Request, res: Response) => {
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище вопросов не настроено' });
   const cityId = await resolveCityId(typeof req.query.cityId === 'string' ? req.query.cityId.slice(0, 100) : 'nsk-city-01');
