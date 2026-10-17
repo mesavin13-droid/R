@@ -74,7 +74,7 @@ export default function App() {
 
   // User & Geolocation
   const [currentUser, setCurrentUser] = useState<UserProfile>(UserService.getCurrentUser());
-  const { coords: userCoords, refreshLocation, permissionGranted } = useGeolocation();
+  const { coords: userCoords, refreshLocation, permissionGranted, positionAt: gpsPositionAt, accuracyM: gpsAccuracyM } = useGeolocation();
 
   // Prevent an older in-flight poll from replacing a newer event list.
   const dataLoadSequenceRef = useRef(0);
@@ -214,13 +214,15 @@ export default function App() {
   // heartbeat also refreshes every 4 minutes while the Mini App is foregrounded.
   const lastHeartbeatRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const currentCoordsRef = useRef(userCoords);
+  const currentFixAtRef = useRef(gpsPositionAt);
   const heartbeatInFlightRef = useRef(false);
   const sendHeartbeatRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     currentCoordsRef.current = userCoords;
+    currentFixAtRef.current = gpsPositionAt;
     sendHeartbeatRef.current?.();
-  }, [userCoords]);
+  }, [userCoords, gpsPositionAt]);
 
   useEffect(() => {
     if (!permissionGranted || !isTelegramAuthenticated) {
@@ -234,6 +236,9 @@ export default function App() {
       if (!active || !coords || heartbeatInFlightRef.current) return;
 
       const now = Date.now();
+      const fixAt = currentFixAtRef.current;
+      // Never turn a cached position into a fresh server heartbeat.
+      if (!fixAt || fixAt > now + 60_000 || now - fixAt > 120_000) return;
       const last = lastHeartbeatRef.current;
       const movedM = last
         ? EventService.calculateDistanceMeters(last.lat, last.lng, coords.lat, coords.lng)
@@ -784,6 +789,8 @@ export default function App() {
         onClose={() => setIsQuickSosOpen(false)}
         currentUser={currentUser}
         userCoords={userCoords}
+        gpsPositionAt={gpsPositionAt}
+        gpsAccuracyM={gpsAccuracyM}
         onSosCreated={(newSos) => {
           setSelectedEvent(newSos);
           setEvents(EventService.getEvents());
