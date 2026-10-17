@@ -164,13 +164,20 @@ function distanceMeters(aLat: number, aLng: number, bLat: number, bLng: number):
 }
 
 function parseClientCoords(value: unknown): { lat: number; lng: number } | null {
-  if (!value || typeof value !== 'object') return null;
-  const lat = Number((value as any).lat);
-  const lng = Number((value as any).lng ?? (value as any).lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return { lat, lng };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const rawLat = (value as { lat?: unknown }).lat;
+  const rawLng = (value as { lng?: unknown; lon?: unknown }).lng ??
+                 (value as { lon?: unknown }).lon;
+  // Number(null), Number('') and Number(false) become 0; never treat them as GPS.
+  if (typeof rawLat !== 'number' || typeof rawLng !== 'number') return null;
+  if (!Number.isFinite(rawLat) || !Number.isFinite(rawLng)) return null;
+  if (rawLat < -85 || rawLat > 85 || rawLng < -180 || rawLng > 180) return null;
+  return { lat: rawLat, lng: rawLng };
 }
+
+// Heartbeats arrive at least every 4 minutes while the app is active. Do not
+// deliver road alerts using a position older than two heartbeat intervals.
+const DRIVER_LOCATION_FRESH_MS = 8 * 60_000;
 
 // In-Memory & File-backed Push Subscriptions
 interface StoredSubscription {
@@ -207,8 +214,8 @@ async function loadSubscriptions() {
         subscription: row.subscription as webpush.PushSubscription,
         userId: row.user_id,
         districtId: row.district_id || undefined,
-        lat: Number.isFinite(Number(row.last_lat)) ? Number(row.last_lat) : undefined,
-        lng: Number.isFinite(Number(row.last_lng)) ? Number(row.last_lng) : undefined,
+        lat: row.last_lat !== null && row.last_lat !== undefined && Number.isFinite(Number(row.last_lat)) ? Number(row.last_lat) : undefined,
+        lng: row.last_lng !== null && row.last_lng !== undefined && Number.isFinite(Number(row.last_lng)) ? Number(row.last_lng) : undefined,
         updatedAt: row.updated_at || row.created_at,
         createdAt: row.created_at,
       },
@@ -263,7 +270,7 @@ const TELEGRAM_API_BASE = TELEGRAM_BOT_TOKEN
   ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
   : '';
 
-/** Last known driver positions, keyed by tg id. Fresh = updated within 30 min. */
+/** Last known driver positions, keyed by tg id. Must be refreshed at least every 8 min. */
 async function listNearbyTelegramDrivers(
   lat: number,
   lng: number,
@@ -277,7 +284,7 @@ async function listNearbyTelegramDrivers(
     console.error('[TG Push] Failed to list driver locations:', error.message);
     return { chatIds: [], checked: 0, stale: 0 };
   }
-  const freshMs = 30 * 60_000;
+  const freshMs = DRIVER_LOCATION_FRESH_MS;
   const now = Date.now();
   const chatIds: number[] = [];
   let stale = 0;
@@ -286,9 +293,9 @@ async function listNearbyTelegramDrivers(
     const rLat = Number((row as any).last_lat);
     const rLng = Number((row as any).last_lng);
     if (!Number.isFinite(chatId) || chatId <= 0) continue;
-    if (!Number.isFinite(rLat) || !Number.isFinite(rLng)) { stale++; continue; }
+    if ((row as any).last_lat == null || (row as any).last_lng == null || !Number.isFinite(rLat) || !Number.isFinite(rLng)) { stale++; continue; }
     const updatedAt = (row as any).updated_at ? Date.parse((row as any).updated_at) : NaN;
-    if (!Number.isFinite(updatedAt) || now - updatedAt > freshMs) { stale++; continue; }
+    if (!Number.isFinite(updatedAt) || updatedAt > now + 60_000 || now - updatedAt > freshMs) { stale++; continue; }
     if (distanceMeters(lat, lng, rLat, rLng) <= radiusM) chatIds.push(chatId);
   }
   return { chatIds, checked: (data || []).length, stale };
@@ -1187,7 +1194,7 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     // skip. Nobody outside the radius ever gets the push.
     if (!Number.isFinite(item.lat as number) || !Number.isFinite(item.lng as number)) { skippedFar++; return; }
     const updatedAt = item.updatedAt ? Date.parse(item.updatedAt) : NaN;
-    if (!Number.isFinite(updatedAt) || Date.now() - updatedAt > 30 * 60_000) { skippedFar++; return; }
+    if (!Number.isFinite(updatedAt) || updatedAt > Date.now() + 60_000 || Date.now() - updatedAt > DRIVER_LOCATION_FRESH_MS) { skippedFar++; return; }
     if (distanceMeters(center.lat, center.lng, item.lat as number, item.lng as number) > radiusM) { skippedFar++; return; }
 
     try {
