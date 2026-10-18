@@ -30,3 +30,6 @@ jobs:
 
       - name: Guest map and Telegram write-access tests
         run: npm run test:access
+
+      - name: Browser guest login detector test
+        run: npm run test:browser-guest
