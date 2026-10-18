@@ -61,7 +61,7 @@ export const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ onClose 
       aria-label="Обучение работе с ROADLIVE"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-300 select-none"
     >
-      <div className="relative w-full max-w-sm bg-surface-800/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex flex-col text-ink transition-all duration-300 scale-100">
+      <div className="rl-dialog-surface relative w-full max-w-sm bg-surface-800/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col text-ink transition-all duration-300 scale-100">
         
         {/* Progress header */}
         <div className="flex items-center justify-between mb-5">
