@@ -119,14 +119,28 @@ export default function App() {
   }, [events]);
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    const questionId = url.searchParams.get('question');
+    if (!questionId || !/^[A-Za-z0-9_-]{1,100}$/.test(questionId)) return;
+    const question = questions.find(item => item.id === questionId);
+    if (!question) return;
+    if (isTelegramAuthenticated) setActiveTab('questions');
+    else setSelectedPublicQuestion(question);
+    url.searchParams.delete('question');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, [questions, isTelegramAuthenticated]);
+
+  useEffect(() => {
     const worker = navigator.serviceWorker;
     if (!worker) return;
     const onNotificationMessage = (message: MessageEvent) => {
       if (message.data?.type !== 'NAVIGATE_TO_EVENT') return;
       const eventId = message.data?.data?.eventId;
-      if (typeof eventId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(eventId)) return;
+      const questionId = message.data?.data?.questionId;
+      const id = typeof questionId === 'string' ? questionId : eventId;
+      if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return;
       const url = new URL(window.location.href);
-      url.searchParams.set('event', eventId);
+      url.searchParams.set(typeof questionId === 'string' ? 'question' : 'event', id);
       window.location.assign(url.pathname + url.search + url.hash);
     };
     worker.addEventListener('message', onNotificationMessage);
