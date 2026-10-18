@@ -15,7 +15,8 @@
     "clean": "rm -rf dist server-dist server.js",
     "lint": "tsc --noEmit",
     "test:access": "tsx --test tests/guest-map-access.test.ts",
-    "test:browser-guest": "tsx --test tests/telegram-client-detection.test.ts"
+    "test:browser-guest": "tsx --test tests/telegram-client-detection.test.ts",
+    "test:mobile-ui": "tsx --test tests/mobile-design.test.ts"
   },
 "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
