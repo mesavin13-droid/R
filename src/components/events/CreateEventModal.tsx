@@ -282,7 +282,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 select-none">
-      <div className="relative w-full max-w-lg graphite-sheet-depth rounded-t-[28px] sm:rounded-[24px] overflow-hidden flex flex-col max-h-[92vh] safe-bottom animate-in slide-in-from-bottom duration-250">
+      <div className="rl-dialog-surface relative w-full max-w-lg graphite-sheet-depth rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col max-h-[92vh] safe-bottom animate-in slide-in-from-bottom duration-250">
         {/* Mobile Drag Handle */}
         <div className="flex justify-center pt-2.5 pb-1 sm:hidden">
           <div className="w-10 h-1 bg-white/20 rounded-full"></div>
