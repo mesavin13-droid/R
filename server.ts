@@ -215,7 +215,7 @@ async function loadSubscriptions() {
 
   const { data, error } = await serverSupabase
     .from('push_subscriptions')
-    .select('endpoint,user_id,subscription,district_id,last_lat,last_lng,gps_at,alert_mode,alert_radius_km,fixed_lat,fixed_lng,created_at');
+    .select('endpoint,telegram_user_id,subscription,district_id,last_lat,last_lng,gps_at,alert_mode,alert_radius_km,fixed_lat,fixed_lng,created_at');
 
   if (error) {
     throw new Error(`Failed to load push subscriptions: ${error.message}`);
@@ -226,7 +226,7 @@ async function loadSubscriptions() {
       row.endpoint,
       {
         subscription: row.subscription as webpush.PushSubscription,
-        userId: row.user_id,
+        userId: row.telegram_user_id || undefined,
         districtId: row.district_id || undefined,
         lat: row.last_lat !== null && row.last_lat !== undefined && Number.isFinite(Number(row.last_lat)) ? Number(row.last_lat) : undefined,
         lng: row.last_lng !== null && row.last_lng !== undefined && Number.isFinite(Number(row.last_lng)) ? Number(row.last_lng) : undefined,
@@ -259,7 +259,7 @@ async function persistPushSubscription(endpoint: string, item: StoredSubscriptio
 
   const { error } = await serverSupabase.from('push_subscriptions').upsert({
     endpoint,
-    user_id: item.userId,
+    telegram_user_id: item.userId,
     subscription: item.subscription,
     district_id: item.districtId || null,
     last_lat: Number.isFinite(item.lat as number) ? item.lat : null,
@@ -279,7 +279,7 @@ async function persistPushSubscription(endpoint: string, item: StoredSubscriptio
 async function deletePushSubscription(endpoint: string, userId?: string): Promise<void> {
   if (!serverSupabase) throw new Error('Server storage is not configured');
   let query = serverSupabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
-  if (userId) query = query.eq('user_id', userId);
+  if (userId) query = query.eq('telegram_user_id', userId);
   const { error } = await query;
   if (error) throw new Error(`Push subscription deletion failed: ${error.message}`);
 }
@@ -1251,7 +1251,7 @@ app.post('/api/drivers/location', rateLimit(60, 60_000), requireTelegramAuth, as
   const { error: pushLocationError } = await serverSupabase
     .from('push_subscriptions')
     .update({ last_lat: coords.lat, last_lng: coords.lng, gps_at: nowIso, updated_at: nowIso })
-    .eq('user_id', session.userId);
+    .eq('telegram_user_id', session.userId);
   if (pushLocationError) {
     console.warn('[Push] Failed to persist subscription coordinates:', pushLocationError.message);
   }
