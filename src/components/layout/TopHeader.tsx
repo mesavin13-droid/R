@@ -109,7 +109,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             aria-label={isGuest ? "Войти через Telegram" : `Профиль водителя ${currentUser.fullName}, рейтинг ${currentUser.rating.toFixed(1)}`}
           >
             <div className="relative">
-              <HolidayDecorator size="sm" />
+              {!isGuest && <HolidayDecorator size="sm" />}
               <div className="w-5 h-5 rounded-full bg-graphite text-white flex items-center justify-center text-[10px] font-bold border border-white/20">
                 {isGuest ? "Г" : currentUser.fullName?.[0] || "В"}
               </div>
