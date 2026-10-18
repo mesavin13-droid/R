@@ -9,6 +9,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes, UNANSWERED_QUESTION_TTL_MINUTES } from './src/utils/eventTtl';
 import { notifyRadiusFor } from './src/utils/notificationRadius';
 import { shouldSendWebPush } from './src/utils/pushAlertRadius';
+import { extractTelegramAccountId } from './src/utils/telegramOidcClaims';
 
 dotenv.config();
 
@@ -886,8 +887,10 @@ async function verifyTelegramOidcJwt(jwt: string, nonce: string): Promise<Telegr
       claims.nonce !== nonce) {
     throw new Error('Telegram ID token validation failed');
   }
-  const id = Number(claims.sub);
-  if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid Telegram user ID');
+  // 'sub' is an opaque OIDC subject; it can exceed JS safe-integer range.
+  // The verified 'id' profile claim is the numeric Telegram account ID used
+  // by Bot API and Telegram Mini App initData.
+  const id = extractTelegramAccountId(claims);
   const firstName = typeof claims.given_name === 'string' ? claims.given_name :
     typeof claims.name === 'string' ? claims.name.split(' ')[0] : 'Водитель';
   return {
