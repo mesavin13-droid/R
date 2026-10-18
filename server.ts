@@ -180,14 +180,27 @@ function parseClientCoords(value: unknown): { lat: number; lng: number } | null 
 const DRIVER_LOCATION_FRESH_MS = 8 * 60_000;
 
 // In-Memory & File-backed Push Subscriptions
+type AlertMode = 'live' | 'fixed';
+type AlertRadiusKm = 5 | 15 | 30 | 50;
+const ALERT_RADIUS_OPTIONS: ReadonlySet<number> = new Set([5, 15, 30, 50]);
+function parseAlertRadius(value: unknown): AlertRadiusKm | null {
+  return typeof value === 'number' && ALERT_RADIUS_OPTIONS.has(value)
+    ? value as AlertRadiusKm : null;
+}
+
 interface StoredSubscription {
   subscription: webpush.PushSubscription;
   userId?: string;
   districtId?: string;
-  /** Last known driver position — updated on every authenticated heartbeat. */
+  /** Fresh moving GPS fix. Never use the record's updated_at as GPS freshness. */
   lat?: number;
   lng?: number;
-  updatedAt?: string;
+  gpsAt?: string;
+  /** Fixed-area alerts are opt-in and work when the PWA is closed. */
+  alertMode: AlertMode;
+  alertRadiusKm: AlertRadiusKm;
+  fixedLat?: number;
+  fixedLng?: number;
   createdAt: string;
 }
 
@@ -201,7 +214,7 @@ async function loadSubscriptions() {
 
   const { data, error } = await serverSupabase
     .from('push_subscriptions')
-    .select('endpoint,user_id,subscription,district_id,last_lat,last_lng,updated_at,created_at');
+    .select('endpoint,user_id,subscription,district_id,last_lat,last_lng,gps_at,alert_mode,alert_radius_km,fixed_lat,fixed_lng,created_at');
 
   if (error) {
     throw new Error(`Failed to load push subscriptions: ${error.message}`);
@@ -216,7 +229,11 @@ async function loadSubscriptions() {
         districtId: row.district_id || undefined,
         lat: row.last_lat !== null && row.last_lat !== undefined && Number.isFinite(Number(row.last_lat)) ? Number(row.last_lat) : undefined,
         lng: row.last_lng !== null && row.last_lng !== undefined && Number.isFinite(Number(row.last_lng)) ? Number(row.last_lng) : undefined,
-        updatedAt: row.updated_at || row.created_at,
+        gpsAt: row.gps_at || undefined,
+        alertMode: row.alert_mode === 'fixed' ? 'fixed' : 'live',
+        alertRadiusKm: parseAlertRadius(row.alert_radius_km) || 5,
+        fixedLat: row.fixed_lat == null ? undefined : Number(row.fixed_lat),
+        fixedLng: row.fixed_lng == null ? undefined : Number(row.fixed_lng),
         createdAt: row.created_at,
       },
     ]),
@@ -246,6 +263,11 @@ async function persistPushSubscription(endpoint: string, item: StoredSubscriptio
     district_id: item.districtId || null,
     last_lat: Number.isFinite(item.lat as number) ? item.lat : null,
     last_lng: Number.isFinite(item.lng as number) ? item.lng : null,
+    gps_at: item.gpsAt || null,
+    alert_mode: item.alertMode,
+    alert_radius_km: item.alertRadiusKm,
+    fixed_lat: item.alertMode === 'fixed' ? item.fixedLat ?? null : null,
+    fixed_lng: item.alertMode === 'fixed' ? item.fixedLng ?? null : null,
     created_at: item.createdAt,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'endpoint' });
@@ -1108,14 +1130,35 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, asyn
   if (existing?.userId && existing.userId !== userId) {
     return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
   }
+  const mode: AlertMode = req.body?.alertMode === 'fixed' ? 'fixed' : 'live';
+  if (req.body?.alertMode != null && req.body.alertMode !== 'fixed' && req.body.alertMode !== 'live') {
+    return res.status(400).json({ error: 'Недопустимый режим уведомлений' });
+  }
+  const radiusKm = req.body?.alertRadiusKm == null ? (existing?.alertRadiusKm ?? 5) :
+    parseAlertRadius(req.body.alertRadiusKm);
+  if (!radiusKm) return res.status(400).json({ error: 'Радиус: 5, 15, 30 или 50 км' });
+
+  const fixedCoords = parseClientCoords(req.body?.fixedCoords);
+  if (mode === 'fixed' && !fixedCoords) {
+    return res.status(400).json({ error: 'Для режима «Мой район» выберите точку на карте или по GPS' });
+  }
+
+  // A fresh location can accompany the subscription. It only sets the moving
+  // center, not the pinned area, and never overwrites historical positions.
+  const liveCoords = parseClientCoords(req.body?.coords);
+  const nowIso = new Date().toISOString();
   const item: StoredSubscription = {
     subscription,
     userId,
-    districtId,
-    lat: parseClientCoords(req.body?.coords)?.lat,
-    lng: parseClientCoords(req.body?.coords)?.lng,
-    updatedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
+    districtId: districtId ?? existing?.districtId,
+    lat: liveCoords?.lat ?? existing?.lat,
+    lng: liveCoords?.lng ?? existing?.lng,
+    gpsAt: liveCoords ? nowIso : existing?.gpsAt,
+    alertMode: mode,
+    alertRadiusKm: radiusKm,
+    fixedLat: fixedCoords?.lat,
+    fixedLng: fixedCoords?.lng,
+    createdAt: existing?.createdAt ?? nowIso,
   };
   try {
     await persistPushSubscription(endpoint, item);
@@ -1130,6 +1173,26 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, asyn
     persistent: true,
     message: 'Успешно подписан на критические уведомления ROADLIVE',
     subscribersCount: subscriptions.size,
+    settings: { alertMode: item.alertMode, alertRadiusKm: item.alertRadiusKm },
+  });
+});
+
+// Read only the signed-in driver's own device settings. Query requires the
+// exact device endpoint; a different owner's endpoint cannot be probed.
+app.get('/api/push/preferences', rateLimit(60, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
+  await ensureSubscriptionsLoaded();
+  const endpoint = typeof req.query.endpoint === 'string' ? req.query.endpoint : '';
+  const item = subscriptions.get(endpoint);
+  if (!endpoint || !item || item.userId !== (req as any).telegramSession.userId) {
+    return res.status(404).json({ error: 'Подписка не найдена' });
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    alertMode: item.alertMode,
+    alertRadiusKm: item.alertRadiusKm,
+    fixedCoords: item.alertMode === 'fixed' && Number.isFinite(item.fixedLat) && Number.isFinite(item.fixedLng)
+      ? { lat: item.fixedLat, lng: item.fixedLng } : null,
+    hasFreshGps: Boolean(item.gpsAt && Date.now() - Date.parse(item.gpsAt) < DRIVER_LOCATION_FRESH_MS),
   });
 });
 
@@ -1179,7 +1242,7 @@ app.post('/api/drivers/location', rateLimit(60, 60_000), requireTelegramAuth, as
   const nowIso = new Date().toISOString();
   const { error: pushLocationError } = await serverSupabase
     .from('push_subscriptions')
-    .update({ last_lat: coords.lat, last_lng: coords.lng, updated_at: nowIso })
+    .update({ last_lat: coords.lat, last_lng: coords.lng, gps_at: nowIso, updated_at: nowIso })
     .eq('user_id', session.userId);
   if (pushLocationError) {
     console.warn('[Push] Failed to persist subscription coordinates:', pushLocationError.message);
@@ -1189,7 +1252,7 @@ app.post('/api/drivers/location', rateLimit(60, 60_000), requireTelegramAuth, as
     if (item.userId === session.userId) {
       item.lat = coords.lat;
       item.lng = coords.lng;
-      item.updatedAt = nowIso;
+      item.gpsAt = nowIso;
     }
   }
 
@@ -1324,12 +1387,14 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     },
   });
 
-  // Telegram Bot notifications run regardless of Web Push subscriber count —
-  // but only to drivers inside the radius (fresh positions, 30-min TTL).
-  const tgResult = await notifyTelegramDrivers(session.tgId, tgText, center, radiusM);
+  // Telegram is the identity provider, not an implicit notification channel.
+  // Direct Bot messages are opt-in via deployment configuration only.
+  const tgResult = process.env.ROADLIVE_ENABLE_TELEGRAM_ALERTS === 'true'
+    ? await notifyTelegramDrivers(session.tgId, tgText, center, radiusM)
+    : { tgSentCount: 0, notifiedCount: 0 };
 
-  // Telegram alerts work independently of Web Push configuration. If VAPID
-  // is absent, do not fail the nearby Telegram send above.
+  // Optional Bot alerts are independent from Web Push; without VAPID, report
+  // the unavailable browser channel rather than claiming a Web Push send.
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     return res.json({
       success: true,
@@ -1367,12 +1432,23 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     const item = subscriptions.get(ep);
     if (!item) return;
     if (item.userId && item.userId === session.userId) return;
-    // Strict radius filter: outside the radius, no/expired position →
-    // skip. Nobody outside the radius ever gets the push.
-    if (!Number.isFinite(item.lat as number) || !Number.isFinite(item.lng as number)) { skippedFar++; return; }
-    const updatedAt = item.updatedAt ? Date.parse(item.updatedAt) : NaN;
-    if (!Number.isFinite(updatedAt) || updatedAt > Date.now() + 60_000 || Date.now() - updatedAt > DRIVER_LOCATION_FRESH_MS) { skippedFar++; return; }
-    if (distanceMeters(center.lat, center.lng, item.lat as number, item.lng as number) > radiusM) { skippedFar++; return; }
+    // Sender cannot choose the recipient's radius. Each device has its own
+    // server-persisted 5/15/30/50-km preference.
+    const radiusForDevice = item.alertRadiusKm * 1000;
+    let receiverLat = item.lat;
+    let receiverLng = item.lng;
+    if (item.alertMode === 'fixed') {
+      receiverLat = item.fixedLat;
+      receiverLng = item.fixedLng;
+    } else {
+      const gpsAt = item.gpsAt ? Date.parse(item.gpsAt) : NaN;
+      if (!Number.isFinite(gpsAt) || gpsAt > Date.now() + 60_000 ||
+          Date.now() - gpsAt > DRIVER_LOCATION_FRESH_MS) { skippedFar++; return; }
+    }
+    if (!Number.isFinite(receiverLat) || !Number.isFinite(receiverLng)) { skippedFar++; return; }
+    if (distanceMeters(center.lat, center.lng, receiverLat!, receiverLng!) > radiusForDevice) {
+      skippedFar++; return;
+    }
 
     try {
       await webpush.sendNotification(item.subscription, payload);
@@ -1399,10 +1475,7 @@ app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, userRateLi
   const { targetEndpoint } = req.body;
   const session = (req as any).telegramSession as TelegramSession;
 
-  const tgDelivered = await sendTelegramNotification(
-    session.tgId,
-    '✅ <b>ROADLIVE: тест уведомлений</b>\nЕсли вы видите это сообщение — уведомления работают. Аналогичные оповещения будут приходить о критических событиях и SOS-запросах водителей.',
-  );
+  const tgDelivered = false; // Web Push test must not silently message Telegram.
 
   const testPayload = JSON.stringify({
     title: '🚨 ROADLIVE: Тестовое критическое оповещение',
