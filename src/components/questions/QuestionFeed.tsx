@@ -92,9 +92,9 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+    <div className="rl-page-shell h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Top Header */}
-      <div className="p-4 sm:p-5 bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
+      <div className="rl-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center justify-between gap-3 mb-3.5 max-w-2xl mx-auto">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center font-bold">
