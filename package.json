@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server-dist server.js",
     "lint": "tsc --noEmit",
-    "test:access": "tsx --test tests/guest-map-access.test.ts"
+    "test:access": "tsx --test tests/guest-map-access.test.ts",
+    "test:browser-guest": "tsx --test tests/telegram-client-detection.test.ts"
   },
 "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
