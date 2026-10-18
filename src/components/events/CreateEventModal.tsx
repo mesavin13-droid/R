@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { EventService } from '../../services/eventService';
 import { GeocodingService } from '../../services/geocodingService';
+import { roadMarkerIconIndex } from '../map/markerVisuals';
 
 
 const EVENT_TYPE_DEFAULTS: Record<EventType, { subType: string; title: string }> = {
@@ -282,7 +283,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 select-none">
-      <div className="relative w-full max-w-lg graphite-sheet-depth rounded-t-[28px] sm:rounded-[24px] overflow-hidden flex flex-col max-h-[92vh] safe-bottom animate-in slide-in-from-bottom duration-250">
+      <div className="rl-dialog-surface relative w-full max-w-lg graphite-sheet-depth rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col max-h-[92vh] safe-bottom animate-in slide-in-from-bottom duration-250">
         {/* Mobile Drag Handle */}
         <div className="flex justify-center pt-2.5 pb-1 sm:hidden">
           <div className="w-10 h-1 bg-white/20 rounded-full"></div>
@@ -433,6 +434,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {categories.map((cat) => {
                       const isSelected = selectedType === cat.type;
+                      const spriteIndex = roadMarkerIconIndex(cat.type, cat.type === 'road' ? 'repair' : '');
                       return (
                         <div
                           key={cat.type}
@@ -441,7 +443,19 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({
                           }`}
                         >
                           <div className="flex items-center gap-2 mb-2.5">
-                            <span className="text-base">{cat.icon}</span>
+                            <span className="rl-report-icon w-9 h-10 flex items-center justify-center shrink-0" aria-hidden="true">
+                              {spriteIndex !== null ? (
+                                <span style={{
+                                  display: 'block', width: 28, height: 34,
+                                  backgroundImage: "url('/markers/roadlive-sprite.webp')",
+                                  backgroundRepeat: 'no-repeat',
+                                  backgroundSize: '224px 34px',
+                                  backgroundPosition: (-spriteIndex * 28) + 'px 0',
+                                }} />
+                              ) : (
+                                <MapPin className="w-5 h-5 text-accent" />
+                              )}
+                            </span>
                             <span className="text-xs font-semibold text-white">{cat.label}</span>
                           </div>
 

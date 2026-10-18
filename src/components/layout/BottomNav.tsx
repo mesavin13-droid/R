@@ -51,7 +51,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         onClick={() => onTabChange(tab.id)}
         aria-current={isActive ? 'page' : undefined}
         aria-label={tab.badge ? `${tab.label}, ${tab.badge} новых` : tab.label}
-        className={`relative flex flex-col items-center justify-center h-full min-h-[48px] min-w-[48px] gap-0.5 rounded-2xl transition-all active:scale-95 ${
+        className={`rl-nav-tab relative flex flex-col items-center justify-center h-full min-h-[48px] min-w-[48px] gap-0.5 rounded-xl transition-all active:scale-95 ${
           isActive ? 'text-white' : 'text-faint hover:text-muted'
         }`}
       >
@@ -86,7 +86,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   return (
     <nav
-      className="fixed bottom-0 sm:bottom-3 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 z-40 sm:max-w-md w-full select-none"
+      className="rl-bottom-nav fixed bottom-0 sm:bottom-3 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 z-40 sm:max-w-md w-full select-none"
       aria-label="Основная навигация RoadOS"
     >
       <div className="relative bg-graphite-900/90 backdrop-blur-2xl border-t sm:border border-white/[0.09] sm:rounded-3xl shadow-[0_16px_44px_rgba(0,0,0,0.65)] px-3 safe-bottom">

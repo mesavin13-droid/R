@@ -91,12 +91,12 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-surface-800 border border-danger/50 rounded-3xl shadow-[0_16px_48px_rgba(255,59,48,0.3)] overflow-hidden flex flex-col">
+      <div className="rl-dialog-surface rl-sos-dialog relative w-full max-w-md bg-surface-800 border border-danger/40 rounded-3xl shadow-xl overflow-hidden flex flex-col">
         {/* Top Critical Alert Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-danger/25 via-surface-800 to-surface-800 border-b border-danger/30 flex items-center justify-between">
+        <div className="rl-dialog-header rl-sos-dialog-header bg-gradient-to-r from-danger/20 via-surface-800 to-surface-800 border-b border-danger/25 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-danger text-white flex items-center justify-center text-lg font-bold shadow-md animate-pulse">
-              🆘
+            <div className="w-9 h-9 shrink-0 rounded-xl bg-danger/20 border border-danger/30 text-danger flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white leading-snug">

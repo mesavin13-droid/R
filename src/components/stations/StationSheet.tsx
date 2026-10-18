@@ -100,7 +100,7 @@ export const StationSheet: React.FC<StationSheetProps> = ({
 
       {/* Expressive Spring Depth Sheet Container */}
       <div
-        className={`relative w-full graphite-sheet-depth rounded-t-[28px] md:rounded-[28px] flex flex-col overflow-hidden pointer-events-auto transition-all duration-250 ease-in ${
+        className={`rl-dialog-surface relative w-full graphite-sheet-depth rounded-t-[24px] md:rounded-[28px] flex flex-col overflow-hidden pointer-events-auto transition-all duration-250 ease-in ${
           isClosing
             ? 'translate-y-full opacity-0'
             : 'animate-sheet-enter'
@@ -115,7 +115,7 @@ export const StationSheet: React.FC<StationSheetProps> = ({
         </div>
 
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-start justify-between gap-3">
+        <div className="rl-dialog-header border-b border-white/[0.08] flex items-start justify-between gap-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1.5">
               <span className="px-2 py-0.5 rounded-lg bg-surface-700 text-muted border border-white/5 text-[10px] font-medium">

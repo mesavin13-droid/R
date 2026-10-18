@@ -434,16 +434,6 @@ export default function App() {
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-graphite flex flex-col font-sans select-none text-ink">
       {/* 1.2s Automotive Splash Screen */}
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-      {!isTelegramAuthenticated && !isTelegramWebApp && (
-        <div className="absolute left-3 right-3 bottom-20 z-40 pointer-events-none flex justify-center">
-          <button type="button" onClick={askForLogin}
-            className="pointer-events-auto rounded-full bg-surface-800/95 backdrop-blur-xl border border-accent/50 px-4 py-2.5 text-white text-xs shadow-xl flex items-center gap-2">
-            <span className="text-success text-base">●</span>
-            Гостевой просмотр · Войти через Telegram →
-          </button>
-        </div>
-      )}
-
       {/* Critical Road Incident Toast Banner (Dark Glass Capsule) */}
       {criticalBanner && (
         <aside
@@ -488,6 +478,7 @@ export default function App() {
       {/* Top Header - Visible on map tab unless in Pin Placement Mode */}
       {activeTab === 'map' && !isPinPickerMode && (
         <TopHeader
+          isGuest={!isTelegramAuthenticated}
           selectedCategory={selectedCategory}
           onSelectCategory={(cat) => setSelectedCategory(cat)}
           currentUser={isTelegramAuthenticated ? currentUser : { ...currentUser, id: 'guest', fullName: 'Гость', role: 'driver', rating: 0 }}
@@ -891,9 +882,9 @@ export default function App() {
             questionsBadgeCount={questions.filter((q) => q.answersCount === 0).length}
           />
         ) : (
-          <nav aria-label="Гостевая навигация" className="relative z-40 w-full flex justify-between items-center gap-2 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-surface-800 border-t border-white/10">
-            <button type="button" onClick={() => setActiveTab('map')} className="px-5 py-2 rounded-xl bg-white/10 text-sm font-bold text-white">Карта</button>
-            <button type="button" onClick={askForLogin} className="px-5 py-2 rounded-xl bg-telegram text-sm font-bold text-white">Войти через Telegram</button>
+          <nav aria-label="Гостевая навигация" className="rl-guest-nav">
+            <button type="button" onClick={() => setActiveTab('map')} className="rl-guest-map-btn">Карта</button>
+            <button type="button" onClick={askForLogin} className="rl-guest-login-btn">Войти через Telegram</button>
           </nav>
         )
       )}

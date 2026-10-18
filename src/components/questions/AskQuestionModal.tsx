@@ -90,9 +90,9 @@ export const AskQuestionModal: React.FC<AskQuestionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 select-none">
-      <div className="relative w-full max-w-md graphite-sheet rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200">
+      <div className="rl-dialog-surface relative w-full max-w-md graphite-sheet rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-200">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between">
+        <div className="rl-dialog-header border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-accent flex items-center justify-center font-bold">
               <HelpCircle className="w-4 h-4" />
