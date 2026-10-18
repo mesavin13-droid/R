@@ -300,7 +300,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
 
       {/* Expressive Spring Depth Sheet Container */}
       <div
-        className={`relative w-full max-h-[85vh] md:max-h-full graphite-sheet-depth rounded-t-[28px] md:rounded-[28px] flex flex-col overflow-hidden pointer-events-auto transition-all duration-250 ease-in ${
+        className={`rl-dialog-surface relative w-full max-h-[85vh] md:max-h-full graphite-sheet-depth rounded-t-[24px] md:rounded-[28px] flex flex-col overflow-hidden pointer-events-auto transition-all duration-250 ease-in ${
           isClosing
             ? 'translate-y-full opacity-0'
             : 'animate-sheet-enter'
@@ -315,7 +315,7 @@ export const EventDetailSheet: React.FC<EventDetailSheetProps> = ({
         </div>
 
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-start justify-between gap-3">
+        <div className="rl-dialog-header border-b border-white/[0.08] flex items-start justify-between gap-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               {getStatusBadge()}
