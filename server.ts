@@ -275,9 +275,11 @@ async function persistPushSubscription(endpoint: string, item: StoredSubscriptio
   if (error) throw new Error(`Push subscription persistence failed: ${error.message}`);
 }
 
-async function deletePushSubscription(endpoint: string): Promise<void> {
+async function deletePushSubscription(endpoint: string, userId?: string): Promise<void> {
   if (!serverSupabase) throw new Error('Server storage is not configured');
-  const { error } = await serverSupabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  let query = serverSupabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  if (userId) query = query.eq('user_id', userId);
+  const { error } = await query;
   if (error) throw new Error(`Push subscription deletion failed: ${error.message}`);
 }
 
@@ -1113,7 +1115,10 @@ function isValidPushSubscription(subscription: any): boolean {
 
 // 3. Register or Update Push Subscription
 app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
-  await ensureSubscriptionsLoaded();
+  // Vercel functions do not share memory. Always validate endpoint ownership
+  // against the database before an upsert can modify an existing subscription.
+  try { await loadSubscriptions(); subscriptionsLoaded = true; }
+  catch { return res.status(503).json({ error: 'Хранилище Web Push временно недоступно' }); }
   const { subscription } = req.body;
   const districtId = typeof req.body?.districtId === 'string' ? req.body.districtId.trim().slice(0, 100) : null;
   const userId = (req as any).telegramSession.userId;
@@ -1180,7 +1185,8 @@ app.post('/api/push/subscribe', rateLimit(30, 60_000), requireTelegramAuth, asyn
 // Read only the signed-in driver's own device settings. Query requires the
 // exact device endpoint; a different owner's endpoint cannot be probed.
 app.get('/api/push/preferences', rateLimit(60, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
-  await ensureSubscriptionsLoaded();
+  try { await loadSubscriptions(); subscriptionsLoaded = true; }
+  catch { return res.status(503).json({ error: 'Хранилище Web Push временно недоступно' }); }
   const endpoint = typeof req.query.endpoint === 'string' ? req.query.endpoint : '';
   const item = subscriptions.get(endpoint);
   if (!endpoint || !item || item.userId !== (req as any).telegramSession.userId) {
@@ -1198,19 +1204,20 @@ app.get('/api/push/preferences', rateLimit(60, 60_000), requireTelegramAuth, asy
 
 // 4. Unsubscribe
 app.post('/api/push/unsubscribe', rateLimit(30, 60_000), requireTelegramAuth, async (req: Request, res: Response) => {
-  await ensureSubscriptionsLoaded();
+  try { await loadSubscriptions(); subscriptionsLoaded = true; }
+  catch { return res.status(503).json({ error: 'Хранилище Web Push временно недоступно' }); }
   const { endpoint } = req.body;
   if (!endpoint) {
     return res.status(400).json({ error: 'Endpoint обязателен' });
   }
 
   const current = subscriptions.get(endpoint);
-  if (current && current.userId && current.userId !== (req as any).telegramSession.userId) {
-    return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
+  if (!current || current.userId !== (req as any).telegramSession.userId) {
+    return res.status(404).json({ error: 'Подписка не найдена у вашего Telegram-аккаунта' });
   }
 
   try {
-    await deletePushSubscription(endpoint);
+    await deletePushSubscription(endpoint, (req as any).telegramSession.userId);
   } catch (error: any) {
     return res.status(503).json({ error: error?.message || 'Не удалось удалить push-подписку' });
   }
@@ -1263,7 +1270,10 @@ app.post('/api/drivers/location', rateLimit(60, 60_000), requireTelegramAuth, as
 app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramAuth, userRateLimit(3, 60 * 60_000), async (req: Request, res: Response) => {
   if (!serverSupabase) return res.status(503).json({ error: 'Серверное хранилище не настроено' });
 
-  await ensureSubscriptionsLoaded();
+  // Vercel can run multiple independent instances; reload before targeting
+  // devices so a newly unsubscribed or reconfigured device is not notified.
+  try { await loadSubscriptions(); subscriptionsLoaded = true; }
+  catch { return res.status(503).json({ error: 'Не удалось прочитать подписки Web Push' }); }
   const session = (req as any).telegramSession as TelegramSession;
   const eventId = typeof req.body?.eventId === 'string' ? req.body.eventId.trim().slice(0, 100) : '';
   const inlineEvent = req.body?.event;
