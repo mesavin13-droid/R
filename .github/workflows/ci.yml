@@ -33,3 +33,6 @@ jobs:
 
       - name: Browser guest login detector test
         run: npm run test:browser-guest
+
+      - name: Compact mobile UI design regression
+        run: npm run test:mobile-ui
