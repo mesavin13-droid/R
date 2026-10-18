@@ -114,7 +114,7 @@ export function useGeolocation(autoStart = true) {
     // recording a single startup fix that becomes stale after 30 minutes.
     const watchId = navigator.geolocation.watchPosition(onPosition, onError, GEO_OPTIONS);
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [onPosition, onError]);
+  }, [onPosition, onError, autoStart]);
 
   // A stationary device can stop receiving watchPosition callbacks.
   // Expire the in-memory fix as well, not only the server-side heartbeat.
