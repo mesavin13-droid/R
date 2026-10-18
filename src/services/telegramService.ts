@@ -46,9 +46,12 @@ export class TelegramService {
     return typeof window !== 'undefined' && Boolean((window as any).Telegram?.WebApp?.initData);
   }
 
-  /** True inside any Telegram client, even before initData is readable. */
+  /** Detect a real Mini App launch, not merely the SDK script that is
+   * included on the public website too. Signed initData is validated by
+   * the server during authenticate(), never trusted on the client.
+   */
   static isTelegramClient(): boolean {
-    return typeof window !== 'undefined' && Boolean((window as any).Telegram?.WebApp);
+    return Boolean(this.getInitData());
   }
 
   static getInitData(): string | null {
