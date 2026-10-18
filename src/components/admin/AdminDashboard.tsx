@@ -567,16 +567,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-graphite overflow-hidden select-none animate-in fade-in duration-200">
+    <div className="rl-page-shell fixed inset-0 z-50 flex flex-col bg-graphite overflow-hidden select-none animate-in fade-in duration-200">
       {/* Dark Graphite Header */}
-      <header className="p-4 sm:p-5 bg-surface-800 border-b border-white/[0.08] flex items-center justify-between">
+      <header className="rl-page-header bg-surface-800 border-b border-white/[0.08] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/10 text-warning flex items-center justify-center font-bold">
             <ShieldAlert className="w-4 h-4" />
           </div>
           <div>
             <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight">
-              ROADLIVE · Панель управления & Модерация
+              Панель ROAD LIVE
             </h1>
             <p className="text-[11px] text-muted">
               Управление дорожными событиями, кастомными SVG иконками и рекламой 2ГИС
