@@ -30,3 +30,9 @@ jobs:
 
       - name: Guest map and Telegram write-access tests
         run: npm run test:access
+
+      - name: Web Push radius and stale GPS tests
+        run: npm run test:push-radius
+
+      - name: Telegram website and OIDC identity regression tests
+        run: npm run test:telegram-login

@@ -19,39 +19,22 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export class NotificationService {
-  private static notifications: NotificationItem[] = [
-    {
-      id: 'notif-1',
-      title: '🚧 Переезд закрыт на вашем районе',
-      message: 'На ул. Троллейная маневровый поезд перекрыл переезд. 24 водителя подтвердили.',
-      type: 'alert',
-      eventId: 'ev-1',
-      read: false,
-      createdAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'notif-2',
-      title: '💬 Новый ответ на ваш вопрос',
-      message: 'Андрей К. ответил на вопрос о переезде: «По Немировича быстрее проедешь сейчас».',
-      type: 'answer',
-      read: true,
-      createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'notif-3',
-      title: '⭐ Ваше подтверждение помогло 18 водителям',
-      message: 'Ваш статус на ул. Большевистская отмечен как полезный. +0.05 к рейтингу!',
-      type: 'confirmation',
-      read: true,
-      createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    },
-  ];
+  // Production starts with no fake road alerts. Only genuine server/activity
+  // notifications should appear in the driver's notifications panel.
+  private static notifications: NotificationItem[] = [];
 
   static getNotifications(): NotificationItem[] {
     try {
       const stored = localStorage.getItem(NOTIFS_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed: unknown = JSON.parse(stored);
+        if (!Array.isArray(parsed)) return [];
+        // Remove the original demo IDs from older installations while keeping
+        // the real notifications created by actual driver activity.
+        const demoIds = new Set(['notif-1', 'notif-2', 'notif-3']);
+        return parsed.filter((item): item is NotificationItem =>
+          Boolean(item && typeof item === 'object' &&
+            typeof item.id === 'string' && !demoIds.has(item.id)));
       }
     } catch {}
     return this.notifications;

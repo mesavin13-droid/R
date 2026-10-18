@@ -102,6 +102,51 @@ export default function App() {
     setQuestions(loadedQuestions);
   }, [isTelegramAuthenticated]);
 
+  // A system Web Push notification links to /?event=<id>. Opening the PWA
+  // (or navigating an existing window) must select that event on the map.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const eventId = url.searchParams.get('event');
+    if (!eventId || !/^[A-Za-z0-9_-]{1,100}$/.test(eventId)) return;
+    const event = events.find(item => item.id === eventId);
+    if (!event) return; // Wait for the first successful map data fetch.
+    setSelectedEvent(event);
+    setSelectedStation(null);
+    setSelectedPublicQuestion(null);
+    setActiveTab('map');
+    url.searchParams.delete('event');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, [events]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const questionId = url.searchParams.get('question');
+    if (!questionId || !/^[A-Za-z0-9_-]{1,100}$/.test(questionId)) return;
+    const question = questions.find(item => item.id === questionId);
+    if (!question) return;
+    if (isTelegramAuthenticated) setActiveTab('questions');
+    else setSelectedPublicQuestion(question);
+    url.searchParams.delete('question');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, [questions, isTelegramAuthenticated]);
+
+  useEffect(() => {
+    const worker = navigator.serviceWorker;
+    if (!worker) return;
+    const onNotificationMessage = (message: MessageEvent) => {
+      if (message.data?.type !== 'NAVIGATE_TO_EVENT') return;
+      const eventId = message.data?.data?.eventId;
+      const questionId = message.data?.data?.questionId;
+      const id = typeof questionId === 'string' ? questionId : eventId;
+      if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set(typeof questionId === 'string' ? 'question' : 'event', id);
+      window.location.assign(url.pathname + url.search + url.hash);
+    };
+    worker.addEventListener('message', onNotificationMessage);
+    return () => worker.removeEventListener('message', onNotificationMessage);
+  }, []);
+
   // Telegram Auto-authorization. Never trust initDataUnsafe for identity.
   useEffect(() => {
     let cancelled = false;
