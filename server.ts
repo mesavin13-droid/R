@@ -8,6 +8,7 @@ import webpush from 'web-push';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getEventTtlMinutes, getUnconfirmedEventTtlMinutes, UNANSWERED_QUESTION_TTL_MINUTES } from './src/utils/eventTtl';
 import { notifyRadiusFor } from './src/utils/notificationRadius';
+import { shouldSendWebPush } from './src/utils/pushAlertRadius';
 
 dotenv.config();
 
@@ -1442,23 +1443,12 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     const item = subscriptions.get(ep);
     if (!item) return;
     if (item.userId && item.userId === session.userId) return;
-    // Sender cannot choose the recipient's radius. Each device has its own
-    // server-persisted 5/15/30/50-km preference.
-    const radiusForDevice = item.alertRadiusKm * 1000;
-    let receiverLat = item.lat;
-    let receiverLng = item.lng;
-    if (item.alertMode === 'fixed') {
-      receiverLat = item.fixedLat;
-      receiverLng = item.fixedLng;
-    } else {
-      const gpsAt = item.gpsAt ? Date.parse(item.gpsAt) : NaN;
-      if (!Number.isFinite(gpsAt) || gpsAt > Date.now() + 60_000 ||
-          Date.now() - gpsAt > DRIVER_LOCATION_FRESH_MS) { skippedFar++; return; }
-    }
-    if (!Number.isFinite(receiverLat) || !Number.isFinite(receiverLng)) { skippedFar++; return; }
-    if (distanceMeters(center.lat, center.lng, receiverLat!, receiverLng!) > radiusForDevice) {
-      skippedFar++; return;
-    }
+    if (!shouldSendWebPush(center.lat, center.lng, {
+      mode: item.alertMode,
+      radiusKm: item.alertRadiusKm,
+      lat: item.lat, lng: item.lng, gpsAt: item.gpsAt,
+      fixedLat: item.fixedLat, fixedLng: item.fixedLng,
+    })) { skippedFar++; return; }
 
     try {
       await webpush.sendNotification(item.subscription, payload);
