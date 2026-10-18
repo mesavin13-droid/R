@@ -1,0 +1,299 @@
+
+/*
+ * ROAD LIVE / Mobile polish 2026-10
+ * Compact map hierarchy and one visual language for every screen.
+ * Keeps user-provided glossy map marker sprite as the category artwork.
+ */
+
+/* Map chrome occupies < 116px on a phone, instead of the old 180–220px. */
+.rl-map-topbar { gap: 6px; }
+.rl-map-brand-deck {
+  min-height: 44px;
+  border-radius: 17px;
+  background: rgba(12, 19, 32, .97) !important;
+  box-shadow: 0 5px 16px rgba(5, 10, 18, .25);
+}
+
+.rl-category-filter-rail {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  height: 53px;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 5px 6px;
+  border-radius: 17px;
+  border: 1px solid rgba(255,255,255,.11);
+  background: rgba(11, 17, 30, .96);
+  box-shadow: 0 7px 22px rgba(7, 13, 24, .26);
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.rl-category-filter-rail::-webkit-scrollbar { display: none; }
+.rl-category-filter {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  position: relative;
+  min-width: max-content;
+  height: 41px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: #a2b1c8;
+  transition: color .16s ease, background .16s ease, border-color .16s ease;
+  scroll-snap-align: start;
+}
+.rl-category-filter:hover { background: rgba(255,255,255,.055); color: #eaf0fa; }
+.rl-category-filter:active { transform: scale(.97); }
+.rl-category-filter-active,
+.rl-category-filter-active:hover {
+  color: #fff;
+  background: linear-gradient(145deg, rgba(79,168,255,.19), rgba(79,168,255,.075));
+  border-color: rgba(99,175,255,.56);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09);
+}
+.rl-category-pin {
+  width: 27px;
+  height: 31px;
+  flex: 0 0 27px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rl-category-sprite {
+  display: block;
+  width: 24px;
+  height: 29px;
+  flex: none;
+  background-repeat: no-repeat;
+  image-rendering: auto;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.35));
+}
+.rl-category-pin-icon {
+  width: 20px;
+  height: 20px;
+  position: static;
+  transform: none;
+  stroke-width: 2.1;
+  filter: none;
+}
+.rl-category-filter-label,
+.rl-category-filter-active .rl-category-filter-label {
+  width: auto;
+  min-height: unset;
+  max-width: none;
+  color: inherit;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.rl-category-filter-active .rl-category-filter-label { font-weight: 700; }
+.rl-category-filter:focus-visible {
+  outline: 2px solid #9dcaff;
+  outline-offset: 1px;
+}
+
+/* Frees map space while maintaining a clear 44px touch target. */
+.rl-map-action-deck {
+  bottom: calc(76px + max(env(safe-area-inset-bottom, 0px), 8px));
+  gap: 8px;
+}
+.rl-map-action-deck .rl-btn {
+  min-height: 44px;
+  border-radius: 14px;
+  padding: 10px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 6px;
+  box-shadow: 0 4px 16px rgba(7, 13, 24, .32);
+}
+.rl-map-action-deck .rl-btn-primary {
+  background: linear-gradient(135deg,#4a9dff,#2775dd);
+  box-shadow: 0 5px 18px rgba(48,123,221,.27);
+}
+.rl-map-action-deck .rl-btn svg { width: 17px; height: 17px; }
+.rl-map-controls button {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 13px;
+}
+.rl-map-controls .rl-icon-btn { width: 40px; height: 40px; }
+.rl-map-controls { gap: 8px; }
+
+/* The single guest login action remains in navigation; no floating duplicate. */
+.rl-guest-nav {
+  position: relative;
+  z-index: 45;
+  flex: 0 0 auto;
+  width: 100%;
+  background: rgba(15, 22, 36, .97);
+  border-top: 1px solid rgba(255,255,255,.095);
+  padding: 9px 14px calc(9px + env(safe-area-inset-bottom,0px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rl-guest-nav .rl-guest-map-btn {
+  height: 42px;
+  min-width: 98px;
+  border-radius: 13px;
+  background: #263349;
+  border: 1px solid rgba(255,255,255,.09);
+  color: #eaf0fa;
+  font-size: 13px;
+  font-weight: 700;
+}
+.rl-guest-nav .rl-guest-login-btn {
+  height: 42px;
+  flex: 1;
+  min-width: 0;
+  border-radius: 13px;
+  background: linear-gradient(110deg, #347dcf, #289cd7);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.rl-guest-nav button:active { transform: scale(.98); }
+
+/* Consistent foundations across «Эфир», «Вопросы», «Маршрут», «Профиль». */
+.rl-page-shell {
+  background: #0b111e;
+  color: #eef3fc;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  letter-spacing: -0.012em;
+}
+.rl-page-header {
+  padding: 15px 15px 13px;
+  background: linear-gradient(180deg, rgba(20,30,49,.98), rgba(15,23,38,.97));
+  border-bottom: 1px solid rgba(255,255,255,.075);
+  box-shadow: 0 5px 18px rgba(0,0,0,.15);
+}
+.rl-page-header h1 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.2;
+}
+.rl-page-header p {
+  color: #a0aec3;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.rl-page-header button { min-height: 36px; }
+.rl-page-shell :is(.rl-card, .rl-form-card) {
+  background: linear-gradient(165deg, #182338, #131c2e);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.12);
+}
+.rl-page-shell input:not([type="checkbox"]),
+.rl-page-shell textarea,
+.rl-dialog-surface input:not([type="checkbox"]),
+.rl-dialog-surface textarea {
+  min-height: 42px;
+  border-radius: 12px;
+  border-color: rgba(255,255,255,.12);
+}
+.rl-page-shell button:focus-visible,
+.rl-dialog-surface button:focus-visible {
+  outline: 2px solid rgba(129,190,255,.95);
+  outline-offset: 2px;
+}
+.rl-page-shell button:disabled,
+.rl-dialog-surface button:disabled { cursor: not-allowed; }
+
+/* Common modal sheet style: matching radius, header, gutters and safe area. */
+.rl-dialog-surface {
+  background: #141d2e;
+  border: 1px solid rgba(255,255,255,.11);
+  box-shadow: 0 -12px 44px rgba(0,0,0,.4);
+  border-radius: 24px 24px 0 0;
+}
+.rl-dialog-header {
+  border-bottom: 1px solid rgba(255,255,255,.09);
+  padding: 16px;
+}
+.rl-dialog-header h2 {
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+}
+.rl-dialog-surface :is(button, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+.rl-report-type-grid { gap: 8px; padding: 12px; }
+.rl-report-option {
+  min-height: 76px;
+  padding: 10px;
+  border-radius: 14px;
+  gap: 8px;
+  background: #192437;
+  border: 1px solid rgba(255,255,255,.09);
+  transition: background-color .16s ease, border-color .16s ease;
+}
+.rl-report-option:hover { border-color: rgba(90,167,250,.46); background: #203149; }
+.rl-report-option .rl-report-icon { width: 34px; height: 39px; flex: none; }
+.rl-report-option .rl-report-icon svg { width: 34px; height: 39px; }
+.rl-report-option .rl-report-label {
+  display: block;
+  color: #edf3fb;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.18;
+}
+.rl-report-option .rl-report-description {
+  display: block;
+  margin-top: 4px;
+  color: #9baec6;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+/* Bottom navigation is not an oversized floating dock. */
+.rl-bottom-nav > div {
+  background: rgba(14, 22, 36, .985);
+  border-color: rgba(255,255,255,.085);
+  box-shadow: 0 -5px 20px rgba(0,0,0,.22);
+}
+.rl-bottom-nav .rl-nav-tab { min-height: 48px; border-radius: 12px; }
+.rl-bottom-nav .rl-nav-tab svg { width: 19px; height: 19px; }
+.rl-bottom-nav .rl-sos { width: 50px; height: 50px; top: -15px; }
+.rl-bottom-nav .rl-sos svg { width: 21px; height: 21px; }
+.rl-bottom-nav .rl-sos-ping { opacity: .25; }
+
+/* Makes sheet content usable with the iPhone home indicator visible. */
+.rl-dialog-surface { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.rl-dialog-surface .overflow-y-auto { -webkit-overflow-scrolling: touch; }
+
+@media (min-width: 640px) {
+  .rl-map-action-deck { bottom: 86px; }
+  .rl-dialog-surface { border-radius: 24px; }
+}
+@media (max-width: 375px) {
+  .rl-category-filter-rail { gap: 3px; padding: 4px; height: 50px; }
+  .rl-category-filter { padding: 3px 8px 3px 5px; height: 40px; gap: 4px; }
+  .rl-category-filter-label { font-size: 11px; }
+  .rl-map-action-deck { padding-left: 8px; padding-right: 8px; gap: 5px; }
+  .rl-map-action-deck .rl-btn { padding: 8px 7px; gap: 4px; font-size: 11px; }
+  .rl-guest-nav { padding-left: 10px; padding-right: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rl-category-filter, .rl-report-option { transition: none; }
+}
