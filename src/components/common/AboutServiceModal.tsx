@@ -14,7 +14,7 @@ export const AboutServiceModal: React.FC<AboutServiceModalProps> = ({ isOpen, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 select-none">
-      <div className="relative w-full max-w-xl graphite-sheet-depth rounded-t-[28px] sm:rounded-[28px] overflow-hidden flex flex-col max-h-[90vh] safe-bottom animate-in slide-in-from-bottom duration-250">
+      <div className="rl-dialog-surface relative w-full max-w-xl graphite-sheet-depth rounded-t-[24px] sm:rounded-[24px] overflow-hidden flex flex-col max-h-[90vh] safe-bottom animate-in slide-in-from-bottom duration-250">
         {/* Top Edge Luster */}
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent pointer-events-none" />
 
@@ -24,7 +24,7 @@ export const AboutServiceModal: React.FC<AboutServiceModalProps> = ({ isOpen, on
         </div>
 
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-white/[0.08] flex items-center justify-between">
+        <div className="rl-dialog-header border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-graphite border border-white/10 shadow-md">
               <span className="font-mono font-bold text-sm text-white">R</span>
