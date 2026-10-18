@@ -861,7 +861,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
             <p className="text-[9px] text-muted mt-1 leading-tight">📍 {myActiveSos.address}</p>
           )}
           <p className="text-[9px] text-muted mt-1.5 leading-tight">
-            Водители рядом оповещены через Telegram.
+            Web Push отправляется подписчикам поблизости.
           </p>
 
           {myActiveSos.helperUserId && (
@@ -922,7 +922,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
 
       {/* Map appearance, zoom and location controls */}
       <div
-        className={`absolute right-3 sm:right-5 ${isPinPickerMode ? 'top-[48%]' : 'top-1/2'} -translate-y-1/2 z-20 flex flex-col gap-2.5 pointer-events-auto`}
+        className={`absolute right-3 sm:right-5 ${isPinPickerMode ? 'top-[48%]' : 'top-1/2'} -translate-y-1/2 z-20 flex flex-col gap-2.5 pointer-events-auto rl-map-controls`}
         role="group"
         aria-label="Управление картой"
       >
