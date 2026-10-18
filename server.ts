@@ -1474,79 +1474,46 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
 
 // 6. Test Push Endpoint
 app.post('/api/push/test', rateLimit(5, 60_000), requireTelegramAuth, userRateLimit(10, 60 * 60_000), async (req: Request, res: Response) => {
-  await ensureSubscriptionsLoaded();
-  const { targetEndpoint } = req.body;
-  const session = (req as any).telegramSession as TelegramSession;
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    return res.status(503).json({ error: 'Web Push не настроен на сервере' });
+  }
+  // Vercel instances have separate memory. A newly signed-in user's
+  // subscription may have been stored by a different function instance.
+  try { await loadSubscriptions(); subscriptionsLoaded = true; }
+  catch { return res.status(503).json({ error: 'Хранилище Web Push временно недоступно' }); }
 
-  const tgDelivered = false; // Web Push test must not silently message Telegram.
+  const endpoint = typeof req.body?.targetEndpoint === 'string'
+    ? req.body.targetEndpoint : '';
+  if (!endpoint || endpoint.length > 2048) {
+    return res.status(400).json({ error: 'Выберите устройство для проверки Web Push' });
+  }
+  const subscription = subscriptions.get(endpoint);
+  if (!subscription || subscription.userId !== (req as any).telegramSession.userId) {
+    // Do not disclose whether a different user owns a push endpoint.
+    return res.status(404).json({ error: 'Подписка этого устройства не найдена' });
+  }
 
   const testPayload = JSON.stringify({
-    title: '🚨 ROADLIVE: Тестовое критическое оповещение',
-    body: '🚧 ул. Большевистская, 101. Проверка доставки пуш-уведомлений о перекрытиях и ДТП.',
+    title: 'ROAD LIVE · Проверка уведомлений',
+    body: 'Тестовое Web Push-уведомление. Это не реальное дорожное событие.',
     icon: '/pwa-192x192.png',
     badge: '/icon.svg',
-    tag: 'test-push-notification',
-    data: {
-      url: '/',
-      isTest: true,
-      timestamp: Date.now(),
-    },
+    tag: 'roadlive-test-push',
+    data: { url: '/', isTest: true, timestamp: Date.now() },
   });
 
-  if (targetEndpoint && subscriptions.has(targetEndpoint)) {
-    const item = subscriptions.get(targetEndpoint)!;
-    if (item.userId && item.userId !== (req as any).telegramSession.userId) {
-      return res.status(403).json({ error: 'Эта push-подписка принадлежит другому пользователю' });
+  try {
+    await webpush.sendNotification(subscription.subscription, testPayload);
+    return res.json({ success: true, sentCount: 1, message: 'Тестовый Web Push отправлен на ваше устройство' });
+  } catch (error: any) {
+    if (error?.statusCode === 404 || error?.statusCode === 410) {
+      subscriptions.delete(endpoint);
+      await deletePushSubscription(endpoint, subscription.userId).catch(() => {});
+      return res.status(410).json({ error: 'Подписка устарела. Выключите и снова включите Web Push.' });
     }
-    try {
-      await webpush.sendNotification(item.subscription, testPayload);
-      return res.json({
-        success: true,
-        tgDelivered,
-        message: tgDelivered ? 'Тестовый пуш отправлен на устройство и в Telegram!' : 'Тестовый пуш отправлен на ваше устройство',
-      });
-    } catch (err: any) {
-      return res.status(500).json({ error: `Ошибка отправки: ${err.message}` });
-    }
+    console.warn('[WebPush] test delivery failed:', error?.statusCode || 'transport-error');
+    return res.status(502).json({ error: 'Push-сервис не принял уведомление. Повторите попытку позже.' });
   }
-
-  // Send to all subscribers if no specific endpoint given
-  const userId = (req as any).telegramSession.userId;
-
-  const endpoints = Array.from(subscriptions.entries())
-    .filter(([, item]) => item.userId === userId)
-    .map(([ep]) => ep);
-  if (endpoints.length === 0) {
-    return res.json({
-      success: true,
-      sentCount: 0,
-      tgDelivered,
-      message: tgDelivered
-        ? 'Проверочное сообщение отправлено в Telegram!'
-        : 'Нет активных подписчиков. Разрешите уведомления в профиле!',
-    });
-  }
-
-  let sent = 0;
-  for (const ep of endpoints) {
-    const item = subscriptions.get(ep);
-    if (!item) continue;
-    try {
-      await webpush.sendNotification(item.subscription, testPayload);
-      sent++;
-    } catch {
-      // ignore
-    }
-  }
-
-  res.json({
-    success: true,
-    message: tgDelivered
-      ? `Тестовый пуш отправлен на ${sent} устройств и в Telegram!`
-      : `Тестовый пуш отправлен на ${sent} активных устройств`,
-    sentCount: sent,
-    tgDelivered,
-  });
 });
 
 // --- AUTHORITATIVE ROAD EVENT API ---
