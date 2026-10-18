@@ -24,7 +24,7 @@ export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ status, chec
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center p-6 bg-graphite text-center select-none">
-      <div className="w-full max-w-sm p-7 sm:p-8 bg-surface-800/70 backdrop-blur-3xl border border-white/[0.06] rounded-[32px] shadow-[0_24px_64px_rgba(0,0,0,0.8)] space-y-6 flex flex-col items-center animate-in zoom-in-95 duration-300">
+      <div className="rl-dialog-surface w-full max-w-sm p-6 sm:p-7 bg-surface-800/90 backdrop-blur-3xl border border-white/[0.09] rounded-[24px] shadow-xl space-y-5 flex flex-col items-center animate-in zoom-in-95 duration-300">
         {/* Icon with pulsing rings */}
         <div className="relative w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center border border-accent/25">
           <div className="absolute inset-0 rounded-full border border-accent/30 animate-ping opacity-75" />
@@ -34,7 +34,7 @@ export const SubscriptionGate: React.FC<SubscriptionGateProps> = ({ status, chec
         <div className="space-y-2">
           <h1 className="text-xl font-black text-white tracking-tight uppercase">ROADLIVE</h1>
           <p className="text-xs text-muted leading-relaxed">
-            Чтобы открыть карту, подпишитесь на канал сообщества — это бесплатно и навсегда снимает вопрос «кто ты и зачем ты здесь».
+            Карту можно смотреть без входа. Чтобы участвовать, ставить метки и отправлять SOS, подтвердите подписку на канал сообщества.
           </p>
         </div>
 
