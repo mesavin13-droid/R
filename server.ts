@@ -1393,8 +1393,8 @@ app.post('/api/push/broadcast-critical', rateLimit(10, 60_000), requireTelegramA
     badge: '/icon.svg',
     tag: `road-critical-${event.id}`,
     data: {
-      url: `/?event=${event.id}`,
-      eventId: event.id,
+      url: event.type === 'question' ? `/?question=${encodeURIComponent(event.id)}` : `/?event=${encodeURIComponent(event.id)}`,
+      ...(event.type === 'question' ? { questionId: event.id } : { eventId: event.id }),
       type: event.type,
       isCritical,
       timestamp: Date.now(),
