@@ -29,6 +29,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
   const [inputText, setInputText] = useState('');
   const [includeLocation] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Entering/leaving a private per-call dialog switches the active channel.
@@ -287,9 +288,14 @@ export const DriverChat: React.FC<DriverChatProps> = ({
 
       {/* Composer Section */}
       <div className="p-3 sm:p-4 bg-surface-800/90 backdrop-blur-2xl border-t border-white/[0.08] max-w-2xl mx-auto w-full">
-        {/* Quick Driver Presets — hidden in a private dialog */}
+        {/* Preset messages remain available, but do not occupy a second permanent toolbar. */}
         {!isDirect && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
+        <div className="rl-preset-area">
+          <button type="button" className="rl-preset-toggle" onClick={() => setShowPresets((open) => !open)}
+            aria-expanded={showPresets} aria-controls="rl-preset-messages">
+            {showPresets ? 'Скрыть шаблоны' : 'Быстрые сообщения'}
+          </button>
+          {showPresets && <div id="rl-preset-messages" className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
           {driverPresets.map((preset) => (
             <button
               key={preset}
@@ -299,6 +305,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
               {preset}
             </button>
           ))}
+          </div>}
         </div>
         )}
 
