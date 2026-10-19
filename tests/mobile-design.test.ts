@@ -64,3 +64,31 @@ test('guest-only map and Telegram write gate stay intact', () => {
   assert.match(app, /if \(!isTelegramAuthenticated\) return askForLogin\(\)/);
   assert.match(app, /isGuest=\{!isTelegramAuthenticated\}/);
 });
+
+
+test('chat, route and profile are calmer without losing their controls', () => {
+  const chat = file('src/components/chat/DriverChat.tsx');
+  const profile = file('src/components/profile/UserProfile.tsx');
+  const route = file('src/components/route/RoutePlanner.tsx');
+  assert.match(chat, /rl-channel-selector/);
+  assert.match(chat, /<select/);
+  assert.match(chat, /CHAT_CHANNEL_GROUPS\.map/);
+  assert.match(chat, /showPresets &&/);
+  assert.match(chat, /handleSendMessage/);
+  assert.match(profile, /rl-profile-avatar/);
+  assert.match(profile, /rl-profile-stats/);
+  assert.match(profile, /<details className="rl-profile-achievements/);
+  assert.ok(profile.indexOf('rl-profile-stats') > profile.indexOf('Tab Contents'),
+    'statistics must be in scrollable profile content, not over the fold');
+  assert.match(route, /<Construction className/);
+  assert.doesNotMatch(route, /'🚧'|'🚗'|'👮'|'⛽'/);
+});
+
+test('CSS and runtime palette agree on shared colors', () => {
+  const css = file('src/index.css');
+  const runtime = file('src/theme/tokens.ts');
+  assert.match(css, /--color-graphite:\s*#10151d/);
+  assert.match(runtime, /graphite:\s*'#10151d'/);
+  assert.match(css, /--color-accent:\s*#83b3ff/);
+  assert.match(runtime, /accent:\s*'#83b3ff'/);
+});
