@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, RoadEvent } from '../../types';
-import { X, AlertTriangle, ShieldAlert, Check, MapPin, Sparkles } from 'lucide-react';
+import { X, AlertTriangle, MapPin, BatteryCharging, Cable, Wrench, Fuel, Snowflake, Handshake, type LucideIcon } from 'lucide-react';
 import { EventService } from '../../services/eventService';
 import { GeocodingService } from '../../services/geocodingService';
 
@@ -34,13 +34,13 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
 
   if (!isOpen) return null;
 
-  const sosOptions = [
-    { id: 'battery', icon: '🔋', title: 'Прикурить АКБ', desc: 'Сдох аккумулятор, нужны провода' },
-    { id: 'tow', icon: '🛞', title: 'Застрял / Нужен трос', desc: 'Буксировка или тросом вытащить' },
-    { id: 'wheel', icon: '🔧', title: 'Пробил колесо', desc: 'Нужен домкрат или баллонник' },
-    { id: 'fuel_empty', icon: '⛽', title: 'Закончился бензин', desc: 'Нужно подвезти 3-5л топлива' },
-    { id: 'snow_mud', icon: '🚜', title: 'Застрял в снегу/грязи', desc: 'Нужен джип / вытащить лебёдкой' },
-    { id: 'other_help', icon: '🤝', title: 'Другая помощь', desc: 'Нужна помощь любого водителя' },
+  const sosOptions: { id: string; Icon: LucideIcon; title: string; desc: string }[] = [
+    { id: 'battery', Icon: BatteryCharging, title: 'Прикурить АКБ', desc: 'Сдох аккумулятор, нужны провода' },
+    { id: 'tow', Icon: Cable, title: 'Застрял / Нужен трос', desc: 'Буксировка или тросом вытащить' },
+    { id: 'wheel', Icon: Wrench, title: 'Пробил колесо', desc: 'Нужен домкрат или баллонник' },
+    { id: 'fuel_empty', Icon: Fuel, title: 'Закончился бензин', desc: 'Нужно подвезти 3-5л топлива' },
+    { id: 'snow_mud', Icon: Snowflake, title: 'Застрял в снегу/грязи', desc: 'Нужен джип / вытащить лебёдкой' },
+    { id: 'other_help', Icon: Handshake, title: 'Другая помощь', desc: 'Нужна помощь любого водителя' },
   ];
 
   const handlePublishSos = async () => {
@@ -60,7 +60,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
       const coords = userCoords;
       const address = await GeocodingService.reverse(coords.lat, coords.lng);
 
-      const title = `${option.title} ${option.icon}`;
+      const title = option.title;
       const description = customComment.trim()
         ? `${option.desc}. Комментарий: ${customComment.trim()}`
         : `${option.desc}. Автомобилисту требуется срочная взаимовыручка!`;
@@ -136,7 +136,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
                       : 'bg-surface-700 hover:bg-surface-650 border-white/10'
                   }`}
                 >
-                  <span className="text-2xl shrink-0">{opt.icon}</span>
+                  <span className="w-9 h-9 shrink-0 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/90"><opt.Icon className="w-5 h-5" strokeWidth={2} aria-hidden="true" /></span>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-white truncate">{opt.title}</p>
                     <p className="text-[10px] text-muted leading-tight mt-0.5 line-clamp-2">{opt.desc}</p>
@@ -183,7 +183,7 @@ export const QuickSosModal: React.FC<QuickSosModalProps> = ({
               <span>Отправка SOS...</span>
             ) : (
               <>
-                <span className="text-base">🚨</span>
+                <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                 <span>Опубликовать SOS-запрос помощи</span>
               </>
             )}
