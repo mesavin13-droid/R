@@ -322,6 +322,9 @@
   border:1px solid rgba(255,255,255,.10);
   border-radius:9px; color:#c6d8ec; background:#293847;
 }
+.rl-sos-dialog .grid button.border-danger {
+  border-color:rgba(239,139,153,.75); background:#352834;
+}
 .rl-sos-dialog .grid button.border-danger .rl-sos-option-icon {
   color:#ffb8bf; background:#3b2d38;
 }
