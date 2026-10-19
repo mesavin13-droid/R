@@ -130,7 +130,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
   ];
 
   return (
-    <div className="rl-page-shell h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+    <div className="rl-page-shell rl-chat-page h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Top Header & Channels Bar */}
       <div className="rl-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center justify-between gap-3 mb-3.5 max-w-2xl mx-auto">
