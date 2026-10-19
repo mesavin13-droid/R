@@ -1139,3 +1139,82 @@
 @media(prefers-reduced-motion:reduce) {
   .rl-map-topbar *, .rl-bottom-nav *, .rl-map-controls *, .rl-map-action-deck * { animation:none !important; }
 }
+
+
+/* Calm event selection and roadside help — consistent with the map. */
+.rl-report-picker-backdrop {
+  position: fixed; inset: 0; z-index: 70;
+  display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(6,11,17,.68); padding:0;
+}
+.rl-report-picker-sheet {
+  background:#19222d;
+  border:1px solid rgba(235,244,255,.12);
+  width:100%; max-width:500px; max-height:min(85dvh,700px);
+  border-radius:18px 18px 0 0; display:flex; flex-direction:column;
+  box-shadow:0 15px 48px rgba(0,0,0,.35);
+  padding-bottom:max(env(safe-area-inset-bottom,0px),8px);
+  overflow:hidden;
+}
+.rl-report-picker-head {
+  display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+  padding:20px 17px 16px; border-bottom:1px solid rgba(255,255,255,.08);
+}
+.rl-report-picker-kicker { font-size:10px; letter-spacing:.12em; color:#83b3ff; font-weight:700; }
+.rl-report-picker-head h2 { font-size:19px; line-height:1.25; font-weight:700; color:#eef3f8; padding-top:5px; }
+.rl-report-picker-head p { font-size:11px; color:#a6b4c2; margin-top:4px; line-height:1.5; }
+.rl-report-picker-grid {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  padding:10px; gap:6px; overflow-y:auto; overscroll-behavior:contain;
+}
+.rl-report-picker-option {
+  display:flex; align-items:center; gap:9px; text-align:left;
+  padding:12px 10px; min-width:0; min-height:65px;
+  background:#212d39; border:1px solid rgba(255,255,255,.055);
+  color:#eef3f8; border-radius:11px;
+}
+.rl-report-picker-option:active { background:#293849; transform:scale(.99); }
+.rl-report-picker-icon {
+  display:flex; align-items:center; justify-content:center;
+  height:35px; width:35px; flex:0 0 35px; border-radius:9px;
+  background:#2f4052; color:#b9d3f5;
+}
+.rl-report-picker-icon.is-urgent { background:#463039; color:#ffd0d5; }
+.rl-report-picker-labels { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.rl-report-picker-labels strong { font-size:12px; font-weight:650; }
+.rl-report-picker-labels small { font-size:10px; line-height:1.25; color:#a6b4c2; }
+.rl-sos-backdrop .rl-sos-dialog {
+  background:#19222d; border:1px solid rgba(255,255,255,.12);
+  border-radius:16px; box-shadow:0 16px 48px rgba(0,0,0,.35);
+}
+.rl-sos-dialog .rl-sos-dialog-header {
+  background:#202732 !important;
+  border-bottom:1px solid rgba(255,255,255,.10) !important;
+}
+.rl-sos-dialog .rl-sos-dialog-header > div > div:first-child {
+  border-radius:9px;
+}
+.rl-sos-dialog .grid button {
+  background:#212d39; box-shadow:none !important; border-color:rgba(255,255,255,.10);
+  border-radius:11px;
+}
+.rl-sos-dialog .grid button:focus-visible {
+  outline:2px solid #83b3ff; outline-offset:1px;
+}
+.rl-sos-option-icon {
+  display:flex; align-items:center; justify-content:center;
+  flex:0 0 35px; height:35px; width:35px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:9px; color:#c6d8ec; background:#293847;
+}
+.rl-sos-dialog .grid button.border-danger .rl-sos-option-icon {
+  color:#ffb8bf; background:#3b2d38;
+}
+@media(min-width:640px) {
+  .rl-report-picker-backdrop {align-items:center; padding:16px;}
+  .rl-report-picker-sheet {border-radius:17px; max-height:80dvh;}
+}
+@media(max-width:360px){
+  .rl-report-picker-grid {grid-template-columns:1fr;}
+  .rl-map-topbar {padding-left:8px; padding-right:8px;}
+}
