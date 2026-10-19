@@ -4,31 +4,38 @@ import { test } from 'node:test';
 
 const file = (name: string) => readFileSync(new URL('../' + name, import.meta.url), 'utf8');
 
-test('compact, horizontally scrollable map filters keep the map visible', () => {
-  const css = file('src/roadlive-mobile-polish.css');
+test('map stays primary: five visible filters, other categories in expandable menu', () => {
   const header = file('src/components/layout/TopHeader.tsx');
-  const rail = css.match(/\.rl-category-filter-rail\s*\{([^}]+)\}/);
-  assert.ok(rail, 'missing mobile filter rail');
-  assert.match(rail![1], /height:\s*53px/);
-  assert.match(rail![1], /overflow-x:\s*auto/);
-  assert.match(css, /\.rl-category-filter\s*\{[\s\S]*?height:\s*41px/);
-  assert.match(css, /\.rl-category-filter-label[\s\S]*?white-space:\s*nowrap/);
-  assert.match(header, /roadMarkerIconIndex\(/);
-  assert.match(header, /192px 29px/, 'glossy sprite must remain present, compactly sized');
-  assert.doesNotMatch(header, /rl-category-pin-shell/, 'obsolete oversized drop SVG must not return');
+  const css = file('src/roadlive-quiet.css');
+  assert.match(header, /const primaryCategories: Category\[\]/);
+  assert.match(header, /const otherCategories: Category\[\]/);
+  const primary = header.split('const primaryCategories: Category[] = [')[1].split('];')[0];
+  assert.equal((primary.match(/id: '/g) || []).length, 5, 'five essential categories on map');
+  assert.match(header, /aria-expanded=\{moreOpen\}/);
+  assert.match(header, /rl-filter-menu/);
+  assert.match(css, /\.rl-filter-line\s*\{[^}]*overflow-x:\s*auto/);
+  assert.doesNotMatch(header, /animate-marquee|roadMarkerIconIndex|rl-category-filter-rail/);
 });
 
-test('guests get one CTA, with all mutation tools still gated by Telegram', () => {
-  const app = file('src/App.tsx');
-  assert.match(app, /className="rl-guest-nav"/);
-  assert.match(app, /if \(!isTelegramAuthenticated\) return askForLogin\(\)/);
-  assert.doesNotMatch(app, /Гостевой просмотр · Войти через Telegram/, 'duplicated login overlay');
-  assert.match(app, /isGuest=\{!isTelegramAuthenticated\}/);
+test('navigation exposes essentials and keeps secondary sections reachable', () => {
+  const nav = file('src/components/layout/BottomNav.tsx');
+  const map = file('src/components/map/RoadMap.tsx');
+  assert.match(nav, /rl-nav-grid/);
+  assert.match(nav, /rl-simple-nav-sos/);
+  for (const destination of ['questions', 'route', 'stations', 'profile']) {
+    assert.match(nav, new RegExp("id: '" + destination + "'"));
+  }
+  assert.match(map, /rl-map-report-button/);
+  assert.doesNotMatch(map, /FloatingMapAdSticker/);
+  assert.match(map, /onSelectEvent\(myActiveSos\)/);
+  assert.match(map, /handleCloseMySos/);
 });
 
-test('shared typography and compact dialogs reach every primary screen', () => {
+test('quiet stylesheet loads last, shared screens and dialog surfaces remain', () => {
   const main = file('src/main.tsx');
   assert.match(main, /roadlive-mobile-polish\.css/);
+  assert.match(main, /roadlive-quiet\.css/);
+  assert.ok(main.indexOf('roadlive-mobile-polish.css') < main.indexOf('roadlive-quiet.css'));
   for (const path of [
     'src/components/questions/QuestionFeed.tsx',
     'src/components/chat/DriverChat.tsx',
@@ -39,15 +46,21 @@ test('shared typography and compact dialogs reach every primary screen', () => {
     assert.match(file(path), /rl-page-shell/, path);
     assert.match(file(path), /rl-page-header/, path);
   }
+  assert.match(file('src/components/events/ReportTypePicker.tsx'), /rl-report-picker-sheet/);
   for (const path of [
-    'src/components/events/ReportTypePicker.tsx',
     'src/components/events/CreateEventModal.tsx',
     'src/components/events/QuickSosModal.tsx',
     'src/components/events/EventDetailSheet.tsx',
     'src/components/stations/StationSheet.tsx',
     'src/components/questions/AskQuestionModal.tsx',
-    'src/components/common/AboutServiceModal.tsx',
   ]) {
     assert.match(file(path), /rl-dialog-surface/, path);
   }
+});
+
+test('guest-only map and Telegram write gate stay intact', () => {
+  const app = file('src/App.tsx');
+  assert.match(app, /className="rl-guest-nav"/);
+  assert.match(app, /if \(!isTelegramAuthenticated\) return askForLogin\(\)/);
+  assert.match(app, /isGuest=\{!isTelegramAuthenticated\}/);
 });
