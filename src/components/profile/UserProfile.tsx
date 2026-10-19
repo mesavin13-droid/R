@@ -7,7 +7,6 @@ import {
 import { UserService } from '../../services/userService';
 import { EventService } from '../../services/eventService';
 import { QuestionService } from '../../services/questionService';
-import { HolidayDecorator } from '../common/HolidayDecorator';
 import { WebPushPanel } from './WebPushPanel';
 import { computeBadges, computeTrust } from '../../theme/badges';
 
@@ -163,13 +162,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   return (
-    <div className="rl-page-shell h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+    <div className="rl-page-shell rl-profile-page h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Profile Header */}
-      <div className="rl-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
+      <div className="rl-page-header rl-profile-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center gap-4 max-w-2xl mx-auto">
           <div className="relative">
-            <HolidayDecorator size="lg" />
-            <div className="w-16 h-16 rounded-2xl bg-surface-700 border border-white/10 text-white flex items-center justify-center text-2xl font-bold shadow-md">
+            <div className="rl-profile-avatar w-16 h-16 rounded-2xl bg-surface-700 border border-white/10 text-white flex items-center justify-center text-2xl font-bold shadow-md">
               {currentUser.fullName?.[0] ?? 'В'}
             </div>
             <div className="absolute -bottom-1 -right-1 bg-surface-800 border border-accent/40 text-accent text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-xs">
@@ -209,28 +207,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
         </div>
 
-        {/* 3 Stats Glass Cards */}
-        <div className="grid grid-cols-3 gap-2 mt-4 max-w-2xl mx-auto text-center">
-          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
-            <p className="text-lg sm:text-xl font-bold text-white">
-              {currentUser.helpfulConfirmationsCount || 0}
-            </p>
-            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">подтверждений</p>
-          </div>
-          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
-            <p className="text-lg sm:text-xl font-bold text-white">
-              {currentUser.eventsCount || 0}
-            </p>
-            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">сообщений</p>
-          </div>
-          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
-            <p className="text-lg sm:text-xl font-bold text-white">
-              {currentUser.answersCount || 0}
-            </p>
-            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">ответов</p>
-          </div>
-        </div>
-
         {/* Segmented Bar */}
         <div className="flex items-center p-1 bg-graphite rounded-xl max-w-2xl mx-auto mt-4 border border-white/[0.06] overflow-x-auto no-scrollbar">
           {[
@@ -259,6 +235,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
         {activeTab === 'stats' && (
           <div className="space-y-4">
+            <div className="rl-profile-stats">
+              {/* Activity overview, below the profile tabs rather than blocking the screen. */}
+        <div className="grid grid-cols-3 gap-2 max-w-2xl mx-auto text-center">
+          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
+            <p className="text-lg sm:text-xl font-bold text-white">
+              {currentUser.helpfulConfirmationsCount || 0}
+            </p>
+            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">подтверждений</p>
+          </div>
+          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
+            <p className="text-lg sm:text-xl font-bold text-white">
+              {currentUser.eventsCount || 0}
+            </p>
+            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">сообщений</p>
+          </div>
+          <div className="p-3 bg-graphite rounded-xl border border-white/[0.06]">
+            <p className="text-lg sm:text-xl font-bold text-white">
+              {currentUser.answersCount || 0}
+            </p>
+            <p className="text-[10px] text-muted font-normal uppercase tracking-wider mt-0.5">ответов</p>
+          </div>
+        </div>
+
+            </div>
             <WebPushPanel />
             {/* Quick About Service Banner */}
             <div 
@@ -308,15 +308,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             )}
 
             {/* Driver achievements / badges */}
-            <div className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-3">
-              <div className="flex items-center justify-between">
+            <details className="rl-profile-achievements p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-3">
+              <summary className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
                   Достижения
                 </h2>
                 <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
                   {badgesEarnedCount} / {earnedBadges.length}
                 </span>
-              </div>
+              </summary>
               <p className="text-[11px] text-muted leading-snug -mt-1">
                 Бейджи за реальную помощь и активность на дорогах. Чем больше помогаешь другим водителям — тем выше доверие.
               </p>
@@ -351,7 +351,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
           </div>
         )}
 

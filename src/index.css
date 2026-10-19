@@ -13,17 +13,17 @@
     "Segoe UI", Roboto, sans-serif;
 
   /* Surfaces / backgrounds — deep blue-graphite base */
-  --color-graphite: #0b111e;      /* app background */
-  --color-graphite-950: #070c16;  /* deepest */
-  --color-graphite-900: #101726;  /* overlays */
-  --color-surface-800: #131b2c;   /* cards, dark panels */
-  --color-surface-750: #182135;
-  --color-surface-700: #1d2740;   /* raised surface */
-  --color-surface-600: #25314f;   /* hover surface */
+  --color-graphite: #10151d;      /* app background */
+  --color-graphite-950: #0b1118;  /* deepest */
+  --color-graphite-900: #121a24;  /* overlays */
+  --color-surface-800: #19222d;   /* cards, dark panels */
+  --color-surface-750: #1d2732;
+  --color-surface-700: #222e3b;   /* raised surface */
+  --color-surface-600: #30404e;   /* hover surface */
 
   /* Brand accent (primary interactive) */
-  --color-accent: #4fa8ff;
-  --color-accent-strong: #3b8ef0;
+  --color-accent: #83b3ff;
+  --color-accent-strong: #669be8;
   --color-accent-soft: rgba(79, 168, 255, 0.15);
 
   /* Informational / categorical */
@@ -44,10 +44,10 @@
   --color-danger-soft: #ff8a80;
 
   /* Text */
-  --color-ink: #eaf0fa;          /* primary text */
-  --color-muted: #93a1b8;        /* secondary text */
-  --color-faint: #5a6b85;        /* tertiary / inactive */
-  --color-faintest: #4c5a70;     /* disabled / hints */
+  --color-ink: #eef3f8;          /* primary text */
+  --color-muted: #a1aeba;        /* secondary text */
+  --color-faint: #7d8d9e;        /* tertiary / inactive */
+  --color-faintest: #6d7f90;     /* disabled / hints */
 
   /* Extra surface tints used by gradients & panels (kept for fidelity) */
   --color-surface-900: #0e1420;  /* inset channel card */
@@ -61,19 +61,19 @@
 
 @layer base {
   :root {
-    --bg-graphite: #0b111e;
-    --bg-dark-graphite: #131b2c;
-    --bg-surface: #1d2740;
+    --bg-graphite: #10151d;
+    --bg-dark-graphite: #19222d;
+    --bg-surface: #222e3b;
     /* Solid-leaning glass: readable over the bright map, not frosted haze */
-    --glass-bg: rgba(13, 19, 33, 0.92);
-    --glass-sheet: rgba(11, 17, 30, 0.96);
+    --glass-bg: rgba(16, 23, 32, 0.96);
+    --glass-sheet: rgba(17, 24, 33, 0.98);
     --glass-border: rgba(255, 255, 255, 0.12);
     --glass-border-strong: rgba(255, 255, 255, 0.20);
-    --accent-blue: #4fa8ff;
-    --accent-blue-soft: rgba(79, 168, 255, 0.15);
-    --text-primary: #eaf0fa;
-    --text-secondary: #b7c2d6;
-    --text-muted: #8b99b1;
+    --accent-blue: #83b3ff;
+    --accent-blue-soft: rgba(131, 179, 255, 0.13);
+    --text-primary: #eef3f8;
+    --text-secondary: #a5b2c2;
+    --text-muted: #8292a6;
   }
 
   /* Accessible focus ring for keyboard/assistive-navigation users.
@@ -267,6 +267,8 @@
       var(--color-danger-strong) 100%
     );
     color: #fff;
+  }
+
   /* Icon-only square button (map zoom / recenter controls) */
   .rl-icon-btn {
     display: inline-flex;
@@ -347,10 +349,6 @@
     animation: ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
 
-    box-shadow:
-      0 8px 24px -8px rgba(255, 77, 85, 0.55),
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
-  }
 
   /* Category / filter chip */
   .rl-chip {
@@ -885,3 +883,5 @@
   transform: translateX(-50%);
   pointer-events: none;
 }
+
+

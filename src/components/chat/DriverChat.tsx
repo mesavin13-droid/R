@@ -29,6 +29,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
   const [inputText, setInputText] = useState('');
   const [includeLocation] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Entering/leaving a private per-call dialog switches the active channel.
@@ -130,7 +131,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
   ];
 
   return (
-    <div className="rl-page-shell h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+    <div className="rl-page-shell rl-chat-page h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Top Header & Channels Bar */}
       <div className="rl-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center justify-between gap-3 mb-3.5 max-w-2xl mx-auto">
@@ -159,39 +160,29 @@ export const DriverChat: React.FC<DriverChatProps> = ({
           )}
         </div>
 
-        {/* Channels — grouped by category (Общее / Мосты / Районы). Hidden in a private dialog. */}
+        {/* A single channel selector replaces three stacked chip rails. */}
         {!isDirect && (
-        <div className="flex flex-col gap-2 max-w-2xl mx-auto">
-          {CHAT_CHANNEL_GROUPS.map((group) => {
-            const groupChannels = channels.filter((c) => c.group === group.id);
-            if (groupChannels.length === 0) return null;
-            return (
-              <div key={group.id} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-faintest shrink-0 w-[54px] leading-tight">
-                  {group.label}
-                </span>
-                {groupChannels.map((ch) => {
-                  const isSelected = ch.id === selectedChannelId;
-                  return (
-                    <button
-                      key={ch.id}
-                      onClick={() => setSelectedChannelId(ch.id)}
-                      title={ch.description}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all select-none ${
-                        isSelected
-                          ? 'bg-surface-700 text-white border border-accent/60 shadow-xs'
-                          : 'bg-surface-800 text-muted border border-white/[0.06] hover:text-white'
-                      }`}
-                    >
-                      <span>{ch.icon}</span>
-                      <span>{ch.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
+          <div className="rl-channel-selector max-w-2xl mx-auto">
+            <label htmlFor="roadlive-channel-select">Канал</label>
+            <select
+              id="roadlive-channel-select"
+              value={selectedChannelId}
+              onChange={(event) => setSelectedChannelId(event.target.value)}
+              aria-label="Выбрать канал водительского эфира"
+            >
+              {CHAT_CHANNEL_GROUPS.map((group) => {
+                const groupChannels = channels.filter((channel) => channel.group === group.id);
+                if (!groupChannels.length) return null;
+                return (
+                  <optgroup key={group.id} label={group.label}>
+                    {groupChannels.map((channel) => (
+                      <option key={channel.id} value={channel.id}>{channel.name}</option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </div>
         )}
       </div>
 
@@ -297,9 +288,14 @@ export const DriverChat: React.FC<DriverChatProps> = ({
 
       {/* Composer Section */}
       <div className="p-3 sm:p-4 bg-surface-800/90 backdrop-blur-2xl border-t border-white/[0.08] max-w-2xl mx-auto w-full">
-        {/* Quick Driver Presets — hidden in a private dialog */}
+        {/* Preset messages remain available, but do not occupy a second permanent toolbar. */}
         {!isDirect && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
+        <div className="rl-preset-area">
+          <button type="button" className="rl-preset-toggle" onClick={() => setShowPresets((open) => !open)}
+            aria-expanded={showPresets} aria-controls="rl-preset-messages">
+            {showPresets ? 'Скрыть шаблоны' : 'Быстрые сообщения'}
+          </button>
+          {showPresets && <div id="rl-preset-messages" className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-2">
           {driverPresets.map((preset) => (
             <button
               key={preset}
@@ -309,6 +305,7 @@ export const DriverChat: React.FC<DriverChatProps> = ({
               {preset}
             </button>
           ))}
+          </div>}
         </div>
         )}
 

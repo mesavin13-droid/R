@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RoadEvent, RoutePlan } from '../../types';
 import { 
-  Navigation, AlertTriangle, RotateCcw, Car, ArrowRight 
+  Navigation, AlertTriangle, RotateCcw, Car, ArrowRight, Construction, ShieldCheck, Fuel, TrafficCone 
 } from 'lucide-react';
 import { RoutingService } from '../../services/routingService';
 
@@ -61,7 +61,7 @@ export const RoutePlanner: React.FC<RoutePlannerProps> = ({
   };
 
   return (
-    <div className="rl-page-shell h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+    <div className="rl-page-shell rl-route-page h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Top Header */}
       <div className="rl-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center justify-between mb-3.5 max-w-2xl mx-auto">
@@ -192,12 +192,12 @@ export const RoutePlanner: React.FC<RoutePlannerProps> = ({
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-xl bg-surface-700 border border-white/[0.08] flex items-center justify-center text-sm">
-                          {risk.type === 'crossing' && '🚧'}
-                          {risk.type === 'accident' && '🚗'}
-                          {risk.type === 'patrol' && '👮'}
-                          {risk.type === 'road' && '🛣️'}
-                          {risk.type === 'fuel' && '⛽'}
-                          {risk.type === 'hazard' && '🚚'}
+                          {risk.type === 'crossing' && <Construction className="w-4 h-4 text-warning" aria-hidden="true"/>}
+                          {risk.type === 'accident' && <AlertTriangle className="w-4 h-4 text-danger" aria-hidden="true"/>}
+                          {risk.type === 'patrol' && <ShieldCheck className="w-4 h-4 text-info-2" aria-hidden="true"/>}
+                          {risk.type === 'road' && <Navigation className="w-4 h-4 text-accent" aria-hidden="true"/>}
+                          {risk.type === 'fuel' && <Fuel className="w-4 h-4 text-accent" aria-hidden="true"/>}
+                          {risk.type === 'hazard' && <TrafficCone className="w-4 h-4 text-warning" aria-hidden="true"/>}
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-white leading-tight">

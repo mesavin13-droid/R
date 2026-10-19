@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { EventType, RoadEvent, FuelStation, DriverQuestion, RoutePlan, SponsoredBanner } from '../../types';
 import { 
-  Navigation, Plus, HelpCircle, Route as RouteIcon,
+  Navigation, Plus,
   MapPin, Check, X, ShieldCheck, ShieldAlert, Moon, Sun
 } from 'lucide-react';
 import { YandexMapsService } from '../../services/yandexMapsService';
@@ -10,7 +10,6 @@ import { EventService } from '../../services/eventService';
 import { UserService } from '../../services/userService';
 import { get3DAdSvg } from '../ads/adVisuals';
 import { colors } from '../../theme/tokens';
-import { FloatingMapAdSticker } from '../ads/FloatingMapAdSticker';
 import { getRoadLivePinSvg, ROAD_PIN_WIDTH, ROAD_PIN_HEIGHT } from './markerVisuals';
 import { getUnconfirmedEventTtlMinutes, ANSWERED_QUESTION_MAP_TTL_MINUTES, UNANSWERED_QUESTION_TTL_MINUTES, FUEL_QUEUE_TTL_MINUTES } from '../../utils/eventTtl';
 
@@ -720,14 +719,7 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         aria-label="Область интерактивной карты"
       />
 
-      {/* --- 2GIS FLOATING 3D AD STICKER (Follows viewport wherever user navigates) --- */}
-      {!isPinPickerMode && sponsoredBanners.length > 0 && (
-        <FloatingMapAdSticker
-          banners={sponsoredBanners}
-          onCloseBanner={(id) => onCloseAdBanner && onCloseAdBanner(id)}
-          onSelectBanner={(b) => onSelectSponsoredPlace && onSelectSponsoredPlace(b)}
-        />
-      )}
+      {/* Sponsored locations stay available as map markers; no screen-covering promotional sticker. */}
 
       {/* --- PIN PLACEMENT MODE OVERLAYS --- */}
       {isPinPickerMode && (
@@ -843,86 +835,31 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         </>
       )}
 
-      {/* --- ACTIVE SOS STATUS CARD --- */}
+      {/* Your active call is always accessible, without covering the map with a giant card. */}
       {!isPinPickerMode && myActiveSos && (
-        <div className="absolute right-3 sm:right-5 bottom-40 sm:bottom-44 z-20 w-[200px] sm:w-[216px] bg-graphite-900/95 backdrop-blur-xl border border-red-500/45 p-3 rounded-2xl shadow-[0_12px_36px_rgba(255,59,48,0.35)] animate-in slide-in-from-right-3 duration-300 pointer-events-auto">
-          <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-white/10">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-            </span>
-            <span className="text-[9px] font-extrabold text-danger uppercase tracking-wider">
-              SOS активен
-            </span>
-          </div>
-
-          <p className="text-[11px] font-bold text-white leading-tight">{myActiveSos.title}</p>
-          {myActiveSos.address && (
-            <p className="text-[9px] text-muted mt-1 leading-tight">📍 {myActiveSos.address}</p>
-          )}
-          <p className="text-[9px] text-muted mt-1.5 leading-tight">
-            Web Push отправляется подписчикам поблизости.
-          </p>
-
-          {myActiveSos.helperUserId && (
-            <div className="bg-green-500/15 p-1.5 rounded-xl border border-green-500/20 text-center mt-2 animate-in zoom-in-95">
-              <p className="text-[8px] text-green-400 uppercase tracking-wider font-extrabold leading-none mb-0.5">🤝 Помощь едет!</p>
-              <p className="text-[10px] font-bold text-white mt-0.5">{myActiveSos.helperName}</p>
+        <div className="rl-own-sos-card pointer-events-auto">
+          <span className="rl-own-sos-dot" aria-hidden="true" />
+          <button className="rl-own-sos-open" type="button" onClick={() => onSelectEvent(myActiveSos)}>
+            <strong>{myActiveSos.helperUserId ? 'Помощь в пути' : 'Ваш запрос активен'}</strong>
+            <span>{myActiveSos.title}</span>
+          </button>
+          {!showSosCloseConfirm ? (
+            <button className="rl-own-sos-close" type="button"
+              onClick={() => setShowSosCloseConfirm(true)}>Закрыть</button>
+          ) : (
+            <div className="rl-own-sos-confirm">
+              <button className="rl-own-sos-close" type="button" onClick={handleCloseMySos}
+                disabled={isClosingSos}>{isClosingSos ? 'Закрываем…' : 'Да, закрыть'}</button>
+              <button className="rl-own-sos-cancel" type="button" onClick={() => setShowSosCloseConfirm(false)}>Нет</button>
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-1.5 mt-2">
-            <button
-              onClick={() => {
-                if (onSelectEvent) onSelectEvent(myActiveSos);
-              }}
-              className="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-ink text-[9px] font-extrabold border border-white/15 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider"
-            >
-              Открыть вызов
-            </button>
-            {!showSosCloseConfirm ? (
-              <button
-                onClick={() => setShowSosCloseConfirm(true)}
-                className="py-1.5 rounded-xl bg-danger hover:bg-danger-strong text-white text-[9px] font-extrabold border border-danger/60 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider shadow-[0_4px_14px_rgba(255,59,48,0.4)]"
-                title="Закрыть моё SOS-обращение"
-                aria-label="Закрыть моё SOS-обращение"
-              >
-                Закрыть SOS
-              </button>
-            ) : (
-              <button
-                onClick={handleCloseMySos}
-                disabled={isClosingSos}
-                className="py-1.5 rounded-xl bg-danger hover:bg-danger-strong text-white text-[9px] font-extrabold border border-danger/60 transition active:scale-95 text-center cursor-pointer uppercase tracking-wider disabled:opacity-60"
-                title="Подтвердить закрытие SOS-обращения"
-                aria-label="Подтвердить закрытие SOS-обращения"
-              >
-                {isClosingSos ? 'Закрытие…' : 'Да, закрыть'}
-              </button>
-            )}
-          </div>
-
-          {showSosCloseConfirm && (
-            <button
-              onClick={() => setShowSosCloseConfirm(false)}
-              disabled={isClosingSos}
-              className="w-full mt-1.5 py-1 rounded-xl text-[9px] font-bold text-muted hover:text-ink transition cursor-pointer uppercase tracking-wider disabled:opacity-50"
-            >
-              Отмена
-            </button>
-          )}
-
-          {sosCloseError && (
-            <p className="mt-1.5 text-[10px] leading-tight text-danger-soft text-center" role="alert">
-              {sosCloseError}
-            </p>
-          )}
+          {sosCloseError && <p className="rl-own-sos-error" role="alert">{sosCloseError}</p>}
         </div>
       )}
 
       {/* Map appearance, zoom and location controls */}
       <div
-        className={`absolute right-3 sm:right-5 ${isPinPickerMode ? 'top-[48%]' : 'top-1/2'} -translate-y-1/2 z-20 flex flex-col gap-2.5 pointer-events-auto rl-map-controls`}
+        className={`absolute right-3 sm:right-5 ${isPinPickerMode ? 'top-[48%]' : 'top-1/2'} -translate-y-1/2 z-20 flex flex-col gap-2.5 pointer-events-auto rl-map-controls ${isPinPickerMode ? 'is-picker' : ''}`}
         role="group"
         aria-label="Управление картой"
       >
@@ -975,45 +912,16 @@ export const RoadMap: React.FC<RoadMapProps> = ({
         )}
       </div>
 
-      {/* Floating Action Buttons at Bottom (Normal Mode - Unified Graphite Glass Capsules) */}
+      {/* Primary action only. Routes and driver questions live in the secondary menu. */}
       {!isPinPickerMode && (
-        <div 
-          className="rl-map-action-deck absolute left-0 right-0 z-20 pointer-events-none px-3 flex justify-center items-center gap-2 sm:gap-3 max-w-lg mx-auto"
-          role="toolbar"
-          aria-label="Быстрые действия на дороге"
-        >
-          {/* Route Planner Capsule («Маршрут» — moved here from the bottom nav) */}
-          {onOpenRoute && (
-            <button
-              type="button"
-              onClick={onOpenRoute}
-              className="rl-btn rl-btn-soft pointer-events-auto flex-1 px-3.5 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm"
-              aria-label="Построить маршрут и посмотреть события на пути"
-            >
-              <RouteIcon className="w-4 h-4 shrink-0 stroke-[2.2]" />
-              <span>Маршрут</span>
-            </button>
-          )}
-
-          {/* Ask Question Capsule */}
-          <button
-            type="button"
-            onClick={onOpenAskQuestion}
-            className="rl-btn rl-btn-soft pointer-events-auto flex-1 px-3.5 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm"
-            aria-label="Задать вопрос другим водителям в этой локации"
-          >
-            <HelpCircle className="w-4 h-4 text-info shrink-0 stroke-[2.2]" />
-            <span>Спросить</span>
-          </button>
-
-          {/* Primary Report Action Button */}
+        <div className="rl-map-action-deck pointer-events-none" role="toolbar" aria-label="Действия на карте">
           <button
             type="button"
             onClick={onOpenCreateEvent}
-            className="rl-btn rl-btn-primary pointer-events-auto flex-[1.3] px-3.5 py-3 sm:px-5 sm:py-3.5 text-xs sm:text-sm"
-            aria-label="Сообщить о событии, ДТП, переезде или контроле на дороге"
+            className="rl-map-report-button pointer-events-auto"
+            aria-label="Сообщить о дорожном событии"
           >
-            <Plus className="w-4 h-4 text-info shrink-0 stroke-[2.5]" />
+            <Plus className="w-5 h-5" strokeWidth={2.3}/>
             <span>Сообщить</span>
           </button>
         </div>

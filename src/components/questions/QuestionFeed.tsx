@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { DriverQuestion, UserProfile } from '../../types';
 import { 
   HelpCircle, MessageCircle, MapPin, ThumbsUp, CheckCircle, 
-  Send, Plus, Navigation 
+  Send, Plus, Navigation, Trash2 
 } from 'lucide-react';
 import { QuestionService } from '../../services/questionService';
 import { EventService } from '../../services/eventService';
@@ -92,7 +92,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
   };
 
   return (
-    <div className="rl-page-shell h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+    <div className="rl-page-shell rl-questions-page h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Top Header */}
       <div className="rl-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center justify-between gap-3 mb-3.5 max-w-2xl mx-auto">
@@ -193,7 +193,7 @@ export const QuestionFeed: React.FC<QuestionFeedProps> = ({
                       onClick={() => handleDelete(q.id)}
                       className="flex items-center gap-1.5 text-white font-semibold text-xs bg-black/20 px-4 py-2 rounded-xl transition active:scale-95"
                     >
-                      <span>🗑️</span>
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true"/>
                       <span>Удалить</span>
                     </button>
                   </div>
