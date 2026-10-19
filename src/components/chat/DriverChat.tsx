@@ -159,39 +159,29 @@ export const DriverChat: React.FC<DriverChatProps> = ({
           )}
         </div>
 
-        {/* Channels — grouped by category (Общее / Мосты / Районы). Hidden in a private dialog. */}
+        {/* A single channel selector replaces three stacked chip rails. */}
         {!isDirect && (
-        <div className="flex flex-col gap-2 max-w-2xl mx-auto">
-          {CHAT_CHANNEL_GROUPS.map((group) => {
-            const groupChannels = channels.filter((c) => c.group === group.id);
-            if (groupChannels.length === 0) return null;
-            return (
-              <div key={group.id} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-faintest shrink-0 w-[54px] leading-tight">
-                  {group.label}
-                </span>
-                {groupChannels.map((ch) => {
-                  const isSelected = ch.id === selectedChannelId;
-                  return (
-                    <button
-                      key={ch.id}
-                      onClick={() => setSelectedChannelId(ch.id)}
-                      title={ch.description}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all select-none ${
-                        isSelected
-                          ? 'bg-surface-700 text-white border border-accent/60 shadow-xs'
-                          : 'bg-surface-800 text-muted border border-white/[0.06] hover:text-white'
-                      }`}
-                    >
-                      <span>{ch.icon}</span>
-                      <span>{ch.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
+          <div className="rl-channel-selector max-w-2xl mx-auto">
+            <label htmlFor="roadlive-channel-select">Канал</label>
+            <select
+              id="roadlive-channel-select"
+              value={selectedChannelId}
+              onChange={(event) => setSelectedChannelId(event.target.value)}
+              aria-label="Выбрать канал водительского эфира"
+            >
+              {CHAT_CHANNEL_GROUPS.map((group) => {
+                const groupChannels = channels.filter((channel) => channel.group === group.id);
+                if (!groupChannels.length) return null;
+                return (
+                  <optgroup key={group.id} label={group.label}>
+                    {groupChannels.map((channel) => (
+                      <option key={channel.id} value={channel.id}>{channel.name}</option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </div>
         )}
       </div>
 
