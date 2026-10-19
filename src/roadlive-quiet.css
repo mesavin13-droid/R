@@ -132,7 +132,7 @@
   z-index: 50; margin: 0 auto; width: 100%;
   max-width: none; transform: none;
 }
-.rl-nav-surface {
+.rl-bottom-nav > .rl-nav-surface {
   width: 100%; background: rgba(17,24,33,.98);
   border-top: 1px solid var(--rl-quiet-border);
   backdrop-filter: blur(12px);
