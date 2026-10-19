@@ -567,7 +567,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="rl-page-shell fixed inset-0 z-50 flex flex-col bg-graphite overflow-hidden select-none animate-in fade-in duration-200">
+    <div className="rl-page-shell rl-admin-page fixed inset-0 z-50 flex flex-col bg-graphite overflow-hidden select-none animate-in fade-in duration-200">
       {/* Dark Graphite Header */}
       <header className="rl-page-header bg-surface-800 border-b border-white/[0.08] flex items-center justify-between">
         <div className="flex items-center gap-3">
