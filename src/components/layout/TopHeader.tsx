@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   AlertTriangle, CircleHelp, Construction, Fuel, HelpCircle,
   LifeBuoy, MapPin, MoreHorizontal, ShieldCheck, TrafficCone, TrafficCone as RoadIcon,
-  TrafficLight, X, type LucideIcon,
+  Disc, X, type LucideIcon,
 } from 'lucide-react';
 import { EventType, UserProfile, SponsoredBanner, RoadEvent } from '../../types';
 import { CriticalSosBanner } from '../events/CriticalSosBanner';
@@ -36,7 +36,7 @@ const primaryCategories: Category[] = [
 const otherCategories: Category[] = [
   { id: 'crossing', label: 'Переезды', Icon: Construction },
   { id: 'road', label: 'Ремонт и дорога', Icon: RoadIcon },
-  { id: 'traffic_light', label: 'Светофоры', Icon: TrafficLight },
+  { id: 'traffic_light', label: 'Светофоры', Icon: Disc },
   { id: 'fuel', label: 'АЗС', Icon: Fuel },
   { id: 'station', label: 'Заправки на карте', Icon: Fuel },
   { id: 'question', label: 'Вопросы', Icon: HelpCircle },
