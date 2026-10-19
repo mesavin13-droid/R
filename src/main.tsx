@@ -2,6 +2,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import './roadlive-mobile-polish.css';
+import './roadlive-quiet.css';
 import { AppErrorBoundary } from './components/common/AppErrorBoundary';
 import { YandexMapsService } from './services/yandexMapsService';
 
