@@ -9,20 +9,20 @@
  */
 export const colors = {
   /* Surfaces — deep blue-graphite base */
-  graphite: '#0b111e',
-  graphite950: '#070c16',
-  graphite900: '#101726',
+  graphite: '#10151d',
+  graphite950: '#0b1118',
+  graphite900: '#121a24',
   graphite925: '#16223b',
-  surface800: '#131b2c',
-  surface750: '#182135',
-  surface700: '#1d2740',
+  surface800: '#19222d',
+  surface750: '#1d2732',
+  surface700: '#222e3b',
   surface650: '#2b3757',
-  surface600: '#25314f',
+  surface600: '#30404e',
   surfaceBlue: '#11203a',
 
   /* Brand accent */
-  accent: '#4fa8ff',
-  accentStrong: '#3b8ef0',
+  accent: '#83b3ff',
+  accentStrong: '#669be8',
   accentDeep: '#2563eb',
 
   /* Categorical */
@@ -44,10 +44,10 @@ export const colors = {
   dangerSoft: '#ff8a80',
 
   /* Text */
-  ink: '#eaf0fa',
-  muted: '#93a1b8',
-  faint: '#5a6b85',
-  faintest: '#4c5a70',
+  ink: '#eef3f8',
+  muted: '#a1aeba',
+  faint: '#7d8d9e',
+  faintest: '#6d7f90',
 } as const;
 
 /** Map-event category palette, keyed by the ids used across TopHeader & RoadMap. */
