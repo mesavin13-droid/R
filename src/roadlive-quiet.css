@@ -336,3 +336,223 @@
   .rl-report-picker-grid {grid-template-columns:1fr;}
   .rl-map-topbar {padding-left:8px; padding-right:8px;}
 }
+
+
+/* ======== SECONDARY SCREENS: SAME RESTRAINED HIERARCHY ======== */
+.rl-page-shell {
+  color: #eaf0f8;
+}
+.rl-page-shell .rl-page-header,
+.rl-admin-page .rl-page-header {
+  padding: 14px 14px 12px;
+  border-color: rgba(230,240,251,.10) !important;
+}
+.rl-page-shell .rl-page-header h1 {
+  font-size: 15px;
+  font-weight: 680;
+  line-height: 1.2;
+}
+.rl-page-shell .rl-page-header > div:first-child {
+  margin-bottom: 10px;
+}
+.rl-page-shell .rl-page-header p {
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9cabb9;
+}
+.rl-page-shell .rl-page-header .bg-surface-700,
+.rl-page-shell .rl-page-header .bg-graphite {
+  background-color: #222e3b;
+}
+.rl-page-shell .rl-page-header .overflow-x-auto {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.rl-page-shell .rl-page-header .overflow-x-auto > button {
+  border-radius: 8px;
+}
+.rl-page-shell .rl-page-header .overflow-x-auto > button.bg-surface-700 {
+  background: #334657;
+  border-color: rgba(154,188,227,.27);
+}
+.rl-page-shell > .flex-1.overflow-y-auto {
+  padding: 13px;
+  scrollbar-width: thin;
+}
+.rl-page-shell :is(input,select,textarea) {
+  color: #edf3f9;
+}
+.rl-page-shell :is(input,select,textarea)::placeholder { color:#8494a4; }
+.rl-page-shell :is(input,select,textarea):focus-visible {
+  outline: 2px solid #83b3ff;
+  outline-offset: 1px;
+}
+.rl-page-shell :is(button,select) {
+  touch-action: manipulation;
+}
+.rl-page-shell [class*="rounded-2xl"] {
+  border-radius: 12px;
+}
+.rl-page-shell [class*="shadow-"] { box-shadow: none !important; }
+
+/* Chat: the selected channel is one native selector; preset messages are optional. */
+.rl-chat-page .rl-page-header > div:first-child { margin-bottom: 9px; }
+.rl-channel-selector {
+  display: flex; align-items: center; min-height: 38px; gap: 11px;
+  background: #202b37; border: 1px solid rgba(231,242,252,.10);
+  border-radius: 10px; padding: 0 12px;
+}
+.rl-channel-selector label {
+  font-size: 11px; font-weight: 650; color: #96a7b8;
+}
+.rl-channel-selector select {
+  display: block; flex: 1; width: 100%; min-width: 0;
+  background: transparent; color: #eef3f8; height: 37px;
+  font-size: 12px; font-weight: 600; border: 0;
+  outline: none; cursor: pointer;
+}
+.rl-channel-selector option,
+.rl-channel-selector optgroup {
+  color: #121b25; background: #eef3f8;
+}
+.rl-chat-page > div:last-child {
+  background: #18232e; border-color: rgba(255,255,255,.10);
+}
+.rl-chat-page .rl-preset-area { margin-bottom: 6px; }
+.rl-chat-page .rl-preset-toggle {
+  font-size: 11px; padding: 6px 1px; color: #a6b8ce;
+  text-align: left;
+}
+.rl-chat-page #rl-preset-messages { padding-top: 5px; }
+.rl-chat-page #rl-preset-messages > button {
+  background:#263441; border:1px solid rgba(255,255,255,.08);
+  border-radius: 8px; font-size:11px; min-height:29px;
+}
+.rl-chat-page .bg-graphite-925 { background:#273b4f; }
+.rl-chat-page .bg-surface-800 { background:#1b2733; }
+.rl-chat-page .max-w-\[85\%\],
+.rl-chat-page .sm\:max-w-\[78\%\] { border-radius: 11px; }
+
+/* Questions: informational cards read like compact records, not promotional tiles. */
+.rl-questions-page .rl-page-header > div:first-child { margin-bottom: 10px; }
+.rl-questions-page .rl-page-header > div:last-child {
+  padding: 3px; background:#202a36; border-radius:10px;
+}
+.rl-questions-page .rl-page-header > div:last-child button {
+  padding: 8px 10px; font-size:11px;
+}
+.rl-questions-page .relative.overflow-hidden.rounded-2xl {
+  border:1px solid rgba(225,238,250,.10); border-radius:12px;
+}
+.rl-questions-page .relative.z-10.bg-surface-800 {
+  background:#1b2530; padding:14px;
+}
+.rl-questions-page .relative.z-10.bg-surface-800 h3 {
+  font-weight:650; font-size:13px; line-height:1.45;
+}
+.rl-questions-page .relative.z-10.bg-surface-800 :is(button,span) {
+  letter-spacing:normal;
+}
+
+/* Route planner: readable compact fields, no glossy faux-dashboard panels. */
+.rl-route-page .rl-page-header .space-y-2.bg-surface-800 {
+  padding: 10px; background:#192530;
+  border-color: rgba(255,255,255,.095); border-radius:12px;
+}
+.rl-route-page .rl-page-header .space-y-2.bg-surface-800 > .flex.items-center {
+  border-radius: 9px; background:#121b24;
+}
+.rl-route-page .rl-page-header input {
+  min-height: 23px; padding: 0;
+}
+.rl-route-page .rl-page-header .pt-1 { padding-top:0; }
+.rl-route-page .rl-page-header .pt-2 { padding-top:5px; }
+.rl-route-page .bg-surface-800 {
+  background: #192530;
+}
+.rl-route-page [class*="text-2xl"] { font-weight: 700; }
+.rl-route-page [class*="text-warning"] { color: #efb865; }
+
+/* Profile: short identity header and details in the scrollable content. */
+.rl-profile-page .rl-profile-page-header {
+  padding: 14px 14px 9px;
+}
+.rl-profile-page .rl-profile-page-header > div:first-child {
+  margin-bottom: 10px;
+  gap: 12px;
+}
+.rl-profile-avatar {
+  width: 46px; height: 46px; border-radius:12px;
+  font-size:20px; font-weight:700; box-shadow:none;
+  background:#2b3948 !important;
+}
+.rl-profile-page .rl-profile-page-header h1 {
+  font-size:16px; font-weight:700;
+}
+.rl-profile-page .rl-profile-page-header .mt-4 {
+  margin-top: 9px;
+}
+.rl-profile-page .rl-profile-page-header .overflow-x-auto {
+  padding:3px; background:#1c2733;
+  border-radius:9px;
+}
+.rl-profile-page .rl-profile-page-header .overflow-x-auto button {
+  min-height:32px; padding:7px 11px;
+  font-size:11px; white-space:nowrap;
+}
+.rl-profile-stats {
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px; overflow:hidden;
+}
+.rl-profile-stats > .grid { gap:0; }
+.rl-profile-stats > .grid > div {
+  background:#192530; border:0; border-radius:0 !important;
+  padding:13px 5px;
+}
+.rl-profile-stats > .grid > div + div { border-left:1px solid rgba(255,255,255,.085); }
+.rl-profile-stats p:first-child { font-size:18px; }
+.rl-profile-stats p:last-child { text-transform:none; letter-spacing:normal; font-size:10px; }
+.rl-profile-achievements {
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  background:#192530;
+}
+.rl-profile-achievements summary {
+  cursor:pointer; list-style:none; user-select:none;
+}
+.rl-profile-achievements summary::-webkit-details-marker { display:none; }
+.rl-profile-achievements summary::after {
+  content:"Показать";
+  color:#9dbce4; font-weight:500; font-size:10px;
+  margin-left:8px;
+}
+.rl-profile-achievements[open] summary::after { content:"Скрыть"; }
+.rl-profile-achievements summary + p { margin-top:12px; }
+
+/* Admin is a work panel, not part of the traffic map. Keep it dense and sober. */
+.rl-admin-page {
+  background:#10151d;
+}
+.rl-admin-page .rl-page-header {
+  box-shadow:none;
+}
+.rl-admin-page :is(button,input,select,textarea) {
+  border-radius:9px;
+}
+.rl-admin-page [class*="shadow-"] {
+  box-shadow:none !important;
+}
+.rl-admin-page [class*="bg-gradient-to-"] {
+  background:#192530 !important;
+}
+
+/* Accessible spacing and minimum hit areas. */
+@media(max-width:375px) {
+  .rl-map-brand-deck { height:52px; }
+  .rl-simple-filter { height:34px; padding:0 9px; font-size:10.5px; }
+  .rl-page-shell .rl-page-header { padding:12px 11px; }
+  .rl-profile-page .rl-profile-page-header .overflow-x-auto button { padding:7px 9px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .rl-profile-achievements *, .rl-preset-area * { transition:none !important; }
+}
