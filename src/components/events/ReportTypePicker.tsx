@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   AlertTriangle, CircleHelp, Construction, Fuel, LifeBuoy, MapPin,
-  ShieldCheck, TrafficCone, TrafficLight, X, type LucideIcon,
+  ShieldCheck, TrafficCone, Disc, X, type LucideIcon,
 } from 'lucide-react';
 import { EventType } from '../../types';
 
@@ -17,7 +17,7 @@ const eventTypes: {type: EventType; label: string; detail: string; Icon: LucideI
   { type: 'hazard', label: 'Опасность', detail: 'Препятствие или предмет', Icon: TrafficCone, urgent: true },
   { type: 'road', label: 'Дорога', detail: 'Ремонт, яма, гололёд', Icon: MapPin },
   { type: 'crossing', label: 'Переезд', detail: 'Очередь, закрыт, открыт', Icon: Construction },
-  { type: 'traffic_light', label: 'Светофор', detail: 'Не работает, мигает', Icon: TrafficLight },
+  { type: 'traffic_light', label: 'Светофор', detail: 'Не работает, мигает', Icon: Disc },
   { type: 'fuel', label: 'АЗС', detail: 'Очередь, топливо', Icon: Fuel },
   { type: 'assistance', label: 'Помощь', detail: 'Нужна помощь водителя', Icon: LifeBuoy, urgent: true },
   { type: 'other', label: 'Другое', detail: 'Другая обстановка', Icon: CircleHelp },
