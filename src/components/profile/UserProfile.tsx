@@ -308,15 +308,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             )}
 
             {/* Driver achievements / badges */}
-            <div className="p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-3">
-              <div className="flex items-center justify-between">
+            <details className="rl-profile-achievements p-4 sm:p-5 bg-surface-800 rounded-2xl border border-white/[0.08] space-y-3">
+              <summary className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
                   Достижения
                 </h2>
                 <span className="text-[10px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
                   {badgesEarnedCount} / {earnedBadges.length}
                 </span>
-              </div>
+              </summary>
               <p className="text-[11px] text-muted leading-snug -mt-1">
                 Бейджи за реальную помощь и активность на дорогах. Чем больше помогаешь другим водителям — тем выше доверие.
               </p>
@@ -351,7 +351,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
           </div>
         )}
 
