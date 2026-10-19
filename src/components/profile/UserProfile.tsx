@@ -162,7 +162,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   return (
-    <div className="rl-page-shell h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
+    <div className="rl-page-shell rl-profile-page h-full flex flex-col bg-graphite overflow-hidden pb-16 select-none">
       {/* Profile Header */}
       <div className="rl-page-header rl-profile-page-header bg-surface-800/80 backdrop-blur-2xl border-b border-white/[0.08]">
         <div className="flex items-center gap-4 max-w-2xl mx-auto">
